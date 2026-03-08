@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -25,12 +26,18 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { login, isLoading } = useAuth();
+  const [, navigate] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await login(email, password, activeTab === "desmanche" ? "desmanche" : "user");
       setOpen(false);
+      if (activeTab === "desmanche") {
+        navigate("/desmanche");
+      } else {
+        navigate("/cliente");
+      }
     } catch (error) {
       // Error is handled by the auth hook
     }

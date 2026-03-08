@@ -15,9 +15,11 @@ sqlite.exec(`
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     phone TEXT NOT NULL,
+    whatsapp TEXT,
     password TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'client',
     avatar TEXT,
+    profile_complete INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
 
@@ -152,6 +154,14 @@ sqlite.exec(`
   );
 `);
 
+// Migrate existing database - add new columns if they don't exist
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN whatsapp TEXT`);
+} catch (e) { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN profile_complete INTEGER NOT NULL DEFAULT 0`);
+} catch (e) { /* column already exists */ }
+
 // Hash de senha
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -191,6 +201,47 @@ export async function getAllUsers() {
   return db.query.users.findMany({
     orderBy: desc(schema.users.createdAt),
   });
+}
+
+export async function updateUserProfile(id: string, data: { name?: string; phone?: string; whatsapp?: string; avatar?: string }) {
+  await db.update(schema.users)
+    .set(data)
+    .where(eq(schema.users.id, id));
+  return getUserById(id);
+}
+
+export async function setUserProfileComplete(id: string, complete: boolean) {
+  await db.update(schema.users)
+    .set({ profileComplete: complete })
+    .where(eq(schema.users.id, id));
+}
+
+// ==================== ADDRESSES ====================
+export async function getAddressByUserId(userId: string) {
+  return db.query.addresses.findFirst({
+    where: eq(schema.addresses.userId, userId),
+  });
+}
+
+export async function createOrUpdateAddress(userId: string, data: {
+  zipCode: string;
+  street: string;
+  number?: string;
+  complement?: string;
+  city: string;
+  state: string;
+}) {
+  const existing = await getAddressByUserId(userId);
+  if (existing) {
+    await db.update(schema.addresses)
+      .set(data)
+      .where(eq(schema.addresses.id, existing.id));
+    return getAddressByUserId(userId);
+  } else {
+    const id = randomUUID();
+    await db.insert(schema.addresses).values({ id, userId, ...data });
+    return db.query.addresses.findFirst({ where: eq(schema.addresses.id, id) });
+  }
 }
 
 // ==================== DESMANCHES ====================

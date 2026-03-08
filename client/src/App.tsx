@@ -7,6 +7,7 @@ import { AuthProvider } from "./hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import AdminDashboard from "@/pages/AdminDashboard";
+import ClientDashboard from "@/pages/ClientDashboard";
 import DesmancheDashboard from "@/pages/DesmancheDashboard";
 import DesmancheOrderDetails from "@/pages/DesmancheOrderDetails";
 
@@ -14,10 +15,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/cliente" component={ClientDashboard} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/desmanche" component={DesmancheDashboard} />
       <Route path="/desmanche/pedidos/:id" component={DesmancheOrderDetails} />
-      {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
   );

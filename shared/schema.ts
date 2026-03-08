@@ -9,9 +9,11 @@ export const users = sqliteTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
+  whatsapp: text("whatsapp"),
   password: text("password").notNull(),
   type: text("type", { enum: ["client", "admin"] }).notNull().default("client"),
   avatar: text("avatar"),
+  profileComplete: integer("profile_complete", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -49,12 +50,14 @@ export function RegisterModal({
   });
   
   const { register, registerDesmanche, isLoading } = useAuth();
+  const [, navigate] = useLocation();
 
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await register(clientForm);
       setOpen(false);
+      navigate("/cliente");
     } catch (error) {
       // Error is handled by the auth hook
     }
@@ -65,6 +68,7 @@ export function RegisterModal({
     try {
       await registerDesmanche(desmancheForm);
       setOpen(false);
+      navigate("/desmanche");
     } catch (error) {
       // Error is handled by the auth hook
     }

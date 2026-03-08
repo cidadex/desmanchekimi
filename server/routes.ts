@@ -241,18 +241,88 @@ export async function registerRoutes(server: Server, app: Express) {
         if (!user) {
           return res.status(404).json({ message: "Usuário não encontrado" });
         }
+        const address = await storage.getAddressByUserId(userId);
         res.json({
           id: user.id,
           name: user.name,
           email: user.email,
           phone: user.phone,
+          whatsapp: user.whatsapp,
           type: user.type,
           avatar: user.avatar,
+          profileComplete: user.profileComplete,
+          address: address || null,
         });
       }
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+  
+  app.patch("/api/users/me", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const { name, phone, whatsapp } = req.body;
+      
+      const user = await storage.updateUserProfile(userId, { name, phone, whatsapp });
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      const address = await storage.getAddressByUserId(userId);
+      const isComplete = !!(user.whatsapp && address);
+      await storage.setUserProfileComplete(userId, isComplete);
+      
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        whatsapp: user.whatsapp,
+        type: user.type,
+        avatar: user.avatar,
+        profileComplete: isComplete,
+        address: address || null,
+      });
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Erro ao atualizar perfil" });
+    }
+  });
+  
+  app.get("/api/users/me/address", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const address = await storage.getAddressByUserId(userId);
+      res.json(address || null);
+    } catch (error) {
+      console.error("Get address error:", error);
+      res.status(500).json({ message: "Erro ao buscar endereço" });
+    }
+  });
+  
+  app.put("/api/users/me/address", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const { zipCode, street, number, complement, city, state } = req.body;
+      
+      if (!zipCode || !street || !city || !state) {
+        return res.status(400).json({ message: "CEP, rua, cidade e estado são obrigatórios" });
+      }
+      
+      const address = await storage.createOrUpdateAddress(userId, {
+        zipCode, street, number, complement, city, state,
+      });
+      
+      const user = await storage.getUserById(userId);
+      const isComplete = !!(user?.whatsapp && address);
+      await storage.setUserProfileComplete(userId, isComplete);
+      
+      res.json(address);
+    } catch (error) {
+      console.error("Update address error:", error);
+      res.status(500).json({ message: "Erro ao salvar endereço" });
     }
   });
   
@@ -343,8 +413,14 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.post("/api/orders", authMiddleware, requireType(["client"]), async (req, res) => {
     try {
-      const orderData = schema.insertOrderSchema.parse(req.body);
       const clientId = (req as any).user.id;
+      
+      const user = await storage.getUserById(clientId);
+      if (!user?.profileComplete) {
+        return res.status(400).json({ message: "Complete seu perfil (WhatsApp e endereço) antes de criar pedidos" });
+      }
+      
+      const orderData = schema.insertOrderSchema.parse(req.body);
       
       const order = await storage.createOrder({
         ...orderData,
@@ -363,9 +439,18 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.patch("/api/orders/:id/status", authMiddleware, async (req, res) => {
     try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
       const { status } = req.body;
-      const order = await storage.updateOrderStatus(req.params.id as string, status);
-      res.json(order);
+      
+      const order = await storage.getOrderById(req.params.id as string);
+      if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
+      if (userType !== "admin" && order.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      const updated = await storage.updateOrderStatus(req.params.id as string, status);
+      res.json(updated);
     } catch (error) {
       console.error("Update order status error:", error);
       res.status(500).json({ message: "Erro ao atualizar status" });
@@ -420,23 +505,37 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.patch("/api/proposals/:id/status", authMiddleware, async (req, res) => {
     try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
       const { status } = req.body;
-      const proposal = await storage.updateProposalStatus(req.params.id as string, status);
       
-      // Se aceitou, cria uma negociação
-      if (status === "accepted") {
-        const order = await storage.getOrderById(proposal!.orderId);
-        await storage.createNegotiation({
-          orderId: proposal!.orderId,
-          proposalId: proposal!.id,
-          clientId: order!.clientId,
-          desmancheId: proposal!.desmancheId,
-          price: proposal!.price,
-        });
-        await storage.updateOrderStatus(proposal!.orderId, "negotiating");
+      const proposal = await storage.getProposalById(req.params.id as string);
+      if (!proposal) return res.status(404).json({ message: "Proposta não encontrada" });
+      
+      const order = await storage.getOrderById(proposal.orderId);
+      if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
+      
+      if (userType === "client" && order.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      if (userType === "desmanche" && proposal.desmancheId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
       }
       
-      res.json(proposal);
+      const updated = await storage.updateProposalStatus(req.params.id as string, status);
+      
+      if (status === "accepted") {
+        await storage.createNegotiation({
+          orderId: updated!.orderId,
+          proposalId: updated!.id,
+          clientId: order.clientId,
+          desmancheId: updated!.desmancheId,
+          price: updated!.price,
+        });
+        await storage.updateOrderStatus(updated!.orderId, "negotiating");
+      }
+      
+      res.json(updated);
     } catch (error) {
       console.error("Update proposal status error:", error);
       res.status(500).json({ message: "Erro ao atualizar status" });
@@ -445,8 +544,17 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.post("/api/proposals/:id/unlock-whatsapp", authMiddleware, requireType(["client"]), async (req, res) => {
     try {
-      const proposal = await storage.unlockWhatsapp(req.params.id as string);
-      res.json(proposal);
+      const userId = (req as any).user.id;
+      const proposal = await storage.getProposalById(req.params.id as string);
+      if (!proposal) return res.status(404).json({ message: "Proposta não encontrada" });
+      
+      const order = await storage.getOrderById(proposal.orderId);
+      if (!order || order.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      const updated = await storage.unlockWhatsapp(req.params.id as string);
+      res.json(updated);
     } catch (error) {
       console.error("Unlock whatsapp error:", error);
       res.status(500).json({ message: "Erro ao desbloquear WhatsApp" });
@@ -498,9 +606,22 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.patch("/api/negotiations/:id/status", authMiddleware, async (req, res) => {
     try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
       const { status, trackingCode } = req.body;
-      const negotiation = await storage.updateNegotiationStatus(req.params.id as string, status, trackingCode);
-      res.json(negotiation);
+      
+      const negotiation = await storage.getNegotiationById(req.params.id as string);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      
+      if (userType === "client" && negotiation.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      if (userType === "desmanche" && negotiation.desmancheId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      const updated = await storage.updateNegotiationStatus(req.params.id as string, status, trackingCode);
+      res.json(updated);
     } catch (error) {
       console.error("Update negotiation status error:", error);
       res.status(500).json({ message: "Erro ao atualizar status" });

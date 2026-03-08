@@ -4,13 +4,27 @@ import { useToast } from "./use-toast";
 
 export type UserType = "client" | "admin" | "desmanche";
 
+export interface UserAddress {
+  id: string;
+  userId: string;
+  zipCode: string;
+  street: string;
+  number?: string;
+  complement?: string;
+  city: string;
+  state: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   phone: string;
+  whatsapp?: string;
   type: UserType;
   avatar?: string;
+  profileComplete?: boolean;
+  address?: UserAddress | null;
   status?: string;
   rating?: number;
   salesCount?: number;
@@ -151,7 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       return data.user;
     },
-    onSuccess: () => {
+    onSuccess: (userData) => {
+      queryClient.setQueryData(["/api/users/me"], userData);
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Login realizado com sucesso",
@@ -184,7 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(result.token);
       return result.user;
     },
-    onSuccess: () => {
+    onSuccess: (userData) => {
+      queryClient.setQueryData(["/api/users/me"], userData);
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Cadastro realizado com sucesso",
@@ -217,7 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(result.token);
       return result.user;
     },
-    onSuccess: () => {
+    onSuccess: (userData) => {
+      queryClient.setQueryData(["/api/users/me"], userData);
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Cadastro realizado com sucesso",
