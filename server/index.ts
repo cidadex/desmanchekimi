@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
-import { setupVite, log } from "./vite";
+import { log } from "./logger";
 import { serveStatic } from "./static";
 
 const app = express();

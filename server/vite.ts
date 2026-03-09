@@ -5,13 +5,11 @@ import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
+import { log } from "./logger";
+
+export { log };
 
 const viteLogger = createLogger();
-
-export function log(message: string) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`[${timestamp}] ${message}`);
-}
 
 export async function setupVite(server: Server, app: Express) {
   const serverOptions = {
