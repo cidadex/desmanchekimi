@@ -328,7 +328,7 @@ export async function updateDesmancheStatus(id: string, status: string, rejectio
   return getDesmancheById(id);
 }
 
-export async function updateDesmancheProfile(id: string, data: { tradingName?: string; phone?: string; responsibleName?: string; responsibleCpf?: string }) {
+export async function updateDesmancheProfile(id: string, data: { tradingName?: string; phone?: string; responsibleName?: string; responsibleCpf?: string; logo?: string }) {
   await db.update(schema.desmanches)
     .set(data)
     .where(eq(schema.desmanches.id, id));

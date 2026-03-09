@@ -10,11 +10,15 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import ClientDashboard from "@/pages/ClientDashboard";
 import DesmancheDashboard from "@/pages/DesmancheDashboard";
 import DesmancheOrderDetails from "@/pages/DesmancheOrderDetails";
+import CadastroDesmanche from "@/pages/CadastroDesmanche";
+import ComoFunciona from "@/pages/ComoFunciona";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/cadastro-desmanche" component={CadastroDesmanche} />
+      <Route path="/como-funciona" component={ComoFunciona} />
       <Route path="/cliente" component={ClientDashboard} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/desmanche" component={DesmancheDashboard} />

@@ -52,9 +52,9 @@ export default function Home() {
           </div>
           
           <div className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
-            <a href="#como-funciona" className="hover:text-foreground transition-colors">Como Funciona</a>
+            <Link href="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
             <a href="#leiloes" className="hover:text-foreground transition-colors">Central de Leilões</a>
-            <a href="#credenciamento" className="hover:text-foreground transition-colors">Para Desmanches</a>
+            <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
           </div>
           
           <div className="hidden md:flex items-center gap-4">
@@ -82,9 +82,9 @@ export default function Home() {
               </SheetTrigger>
               <SheetContent side="right" className="w-[300px] flex flex-col pt-12">
                 <div className="flex flex-col gap-6 text-lg font-medium text-muted-foreground">
-                  <a href="#como-funciona" className="hover:text-foreground transition-colors">Como Funciona</a>
+                  <Link href="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
                   <a href="#leiloes" className="hover:text-foreground transition-colors">Central de Leilões</a>
-                  <a href="#credenciamento" className="hover:text-foreground transition-colors">Para Desmanches</a>
+                  <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
                 </div>
                 <div className="flex flex-col gap-4 mt-8 border-t pt-8">
                   <Link href="/admin">
@@ -140,12 +140,12 @@ export default function Home() {
                   Procuro uma Peça
                 </Button>
               </RegisterModal>
-              <RegisterModal defaultTab="desmanche">
+              <Link href="/cadastro-desmanche">
                 <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-semibold rounded-full bg-background/50 backdrop-blur-sm border-2" data-testid="hero-register-yard">
                   <Store className="mr-2 h-5 w-5" />
                   Sou um Desmanche
                 </Button>
-              </RegisterModal>
+              </Link>
             </div>
             
             <div className="mt-12 flex items-center gap-6 text-sm text-muted-foreground font-medium">
@@ -252,11 +252,11 @@ export default function Home() {
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Acesso exclusivo por assinatura mensal. O credenciamento é rigoroso, mas o resultado é garantido.
           </p>
-          <RegisterModal defaultTab="desmanche">
+          <Link href="/cadastro-desmanche">
             <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full shadow-xl shadow-primary/20 hover:scale-105 transition-transform" data-testid="cta-final-register">
               Quero Cadastrar Meu Desmanche <ArrowRight className="ml-2" />
             </Button>
-          </RegisterModal>
+          </Link>
         </div>
       </section>
 
