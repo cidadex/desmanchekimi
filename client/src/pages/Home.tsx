@@ -163,8 +163,8 @@ export default function Home() {
           <div className="md:w-2/5 relative hidden md:block">
             <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
             <img 
-              src={engineImg} 
-              alt="Motor 3D" 
+              src={logoImg} 
+              alt="Central dos Desmanches" 
               className="w-full max-w-lg mx-auto relative z-10 animate-in fade-in zoom-in duration-1000 drop-shadow-2xl" 
             />
           </div>
@@ -242,21 +242,33 @@ export default function Home() {
         <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 opacity-5 pointer-events-none">
           <Wrench className="w-96 h-96" />
         </div>
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20" variant="outline">
-            Apenas Empresas Credenciadas
-          </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold font-mono mb-6 max-w-3xl mx-auto">
-            Aumente suas vendas. <br />Junte-se à maior rede do Brasil.
-          </h2>
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Acesso exclusivo por assinatura mensal. O credenciamento é rigoroso, mas o resultado é garantido.
-          </p>
-          <Link href="/cadastro-desmanche">
-            <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full shadow-xl shadow-primary/20 hover:scale-105 transition-transform" data-testid="cta-final-register">
-              Quero Cadastrar Meu Desmanche <ArrowRight className="ml-2" />
-            </Button>
-          </Link>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="flex-1 text-center md:text-left">
+              <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20" variant="outline">
+                Apenas Empresas Credenciadas
+              </Badge>
+              <h2 className="text-4xl md:text-5xl font-bold font-mono mb-6 max-w-3xl">
+                Aumente suas vendas. <br />Junte-se à maior rede do Brasil.
+              </h2>
+              <p className="text-xl text-muted-foreground mb-10 max-w-2xl">
+                Acesso exclusivo por assinatura mensal. O credenciamento é rigoroso, mas o resultado é garantido.
+              </p>
+              <Link href="/cadastro-desmanche">
+                <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full shadow-xl shadow-primary/20 hover:scale-105 transition-transform" data-testid="cta-final-register">
+                  Quero Cadastrar Meu Desmanche <ArrowRight className="ml-2" />
+                </Button>
+              </Link>
+            </div>
+            <div className="flex-shrink-0 hidden md:block relative">
+              <div className="absolute inset-0 bg-primary/20 blur-[80px] rounded-full" />
+              <img
+                src={engineImg}
+                alt="Peça automotiva"
+                className="w-full max-w-md relative z-10 drop-shadow-2xl animate-in fade-in zoom-in duration-700"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
