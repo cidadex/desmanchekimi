@@ -576,7 +576,7 @@ export async function getNegotiationsByDesmanche(desmancheId: string) {
 export async function updateNegotiationStatus(id: string, status: string, trackingCode?: string) {
   const updateData: any = { 
     status: status as any,
-    updatedAt: Math.floor(Date.now() / 1000),
+    updatedAt: sql`(strftime('%s', 'now'))`,
   };
   if (trackingCode) {
     updateData.trackingCode = trackingCode;
