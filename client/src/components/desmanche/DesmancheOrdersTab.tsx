@@ -25,6 +25,8 @@ export default function DesmancheOrdersTab() {
       const res = await apiRequest("GET", "/api/orders?status=open");
       return res.json();
     },
+    refetchInterval: 30 * 1000,
+    staleTime: 0,
   });
 
   const { data: myProposals = [] } = useQuery({

@@ -436,6 +436,8 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/orders/my"] });
+      qc.invalidateQueries({ queryKey: ["/api/orders"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       toast({ title: "Pedido criado!", description: "Seu pedido foi publicado no mural dos desmanches." });
       handleClose();
       onSuccess();

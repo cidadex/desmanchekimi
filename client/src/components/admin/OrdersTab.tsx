@@ -62,6 +62,8 @@ export default function OrdersTab() {
       const res = await apiRequest("GET", "/api/admin/orders");
       return res.json();
     },
+    refetchInterval: 30 * 1000,
+    staleTime: 0,
   });
 
   const filtered = orders.filter((order) => {
