@@ -432,6 +432,7 @@ export async function getAllOrders(filters?: { status?: string; urgency?: string
     where: conditions.length > 0 ? and(...conditions) : undefined,
     orderBy: desc(schema.orders.createdAt),
     with: {
+      client: true,
       images: true,
       proposals: {
         with: {
@@ -543,6 +544,8 @@ export async function getNegotiationsByDesmanche(desmancheId: string) {
     orderBy: desc(schema.negotiations.createdAt),
     with: {
       order: true,
+      client: true,
+      proposal: true,
     },
   });
 }

@@ -1,9 +1,64 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileCheck, FileWarning, UploadCloud, CheckCircle2, Clock } from "lucide-react";
+import { FileCheck, FileX, ExternalLink, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+
+const DOC_LABELS: Record<string, string> = {
+  alvara: "Alvará de Funcionamento",
+  credenciamento_detran: "Credenciamento Detran",
+  contrato_social: "Contrato Social",
+  documento_responsavel: "Documento do Responsável",
+  documento_empresa: "Documento da Empresa / Contrato Social",
+};
+
+const REQUIRED_DOCS = ["alvara", "documento_responsavel", "documento_empresa"];
 
 export default function DesmancheDocsTab() {
+  const { user } = useAuth();
+
+  const { data: documents = [], isLoading } = useQuery({
+    queryKey: ["/api/documents/my"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/documents?desmancheId=${user?.id}`);
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: desmanche } = useQuery({
+    queryKey: ["/api/desmanches/me"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/desmanches/me");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  const uploadedTypes = new Set(documents.map((d: any) => d.type));
+  const missingRequired = REQUIRED_DOCS.filter((type) => !uploadedTypes.has(type));
+  const isFullyComplete = missingRequired.length === 0;
+
+  const statusInfo = {
+    active: { label: "Credenciado", color: "border-2 border-green-200 bg-green-50", badge: "bg-green-600 hover:bg-green-700", icon: CheckCircle2, text: "text-green-900", sub: "text-green-700" },
+    pending: { label: "Aguardando Aprovação", color: "border-2 border-amber-200 bg-amber-50", badge: "bg-amber-500 hover:bg-amber-600", icon: AlertCircle, text: "text-amber-900", sub: "text-amber-700" },
+    rejected: { label: "Cadastro Rejeitado", color: "border-2 border-red-200 bg-red-50", badge: "bg-red-600 hover:bg-red-700", icon: FileX, text: "text-red-900", sub: "text-red-700" },
+    inactive: { label: "Inativo", color: "border-2 border-slate-200 bg-slate-50", badge: "bg-slate-500 hover:bg-slate-600", icon: AlertCircle, text: "text-slate-900", sub: "text-slate-700" },
+  };
+
+  const status = desmanche?.status || "pending";
+  const info = statusInfo[status as keyof typeof statusInfo] || statusInfo.pending;
+  const StatusIcon = info.icon;
+
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       <div>
@@ -12,74 +67,85 @@ export default function DesmancheDocsTab() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Status Card */}
-        <Card className="md:col-span-1 border-2 border-green-200 bg-green-50 shadow-sm h-fit">
+        <Card className={`md:col-span-1 shadow-sm h-fit ${info.color}`}>
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-green-200">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-current shadow-sm">
+              <StatusIcon className={`w-8 h-8 ${info.sub}`} />
             </div>
-            <h2 className="text-xl font-bold text-green-900 mb-2">Desmanche Credenciado</h2>
-            <p className="text-sm text-green-700 mb-4">Sua empresa está verificada e apta para negociar na plataforma.</p>
-            <Badge className="bg-green-600 hover:bg-green-700 font-mono">Status: 100% REGULAR</Badge>
+            <h2 className={`text-xl font-bold mb-2 ${info.text}`}>{info.label}</h2>
+            {status === "rejected" && desmanche?.rejectionReason && (
+              <p className={`text-sm mb-3 ${info.sub}`}>
+                Motivo: {desmanche.rejectionReason}
+              </p>
+            )}
+            {status === "pending" && (
+              <p className={`text-sm mb-3 ${info.sub}`}>
+                Seu cadastro está sendo analisado pela equipe.
+              </p>
+            )}
+            <Badge className={`${info.badge} font-mono text-white`}>
+              {isFullyComplete ? `${documents.length} doc${documents.length !== 1 ? "s" : ""} enviado${documents.length !== 1 ? "s" : ""}` : `${missingRequired.length} doc${missingRequired.length !== 1 ? "s" : ""} pendente${missingRequired.length !== 1 ? "s" : ""}`}
+            </Badge>
           </CardContent>
         </Card>
 
-        {/* Documents List */}
         <Card className="md:col-span-2 border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Controle de Documentos</CardTitle>
-            <CardDescription>Faça upload das renovações antes do vencimento.</CardDescription>
+            <CardDescription>Documentos enviados no seu cadastro.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            
-            {/* Doc 1 - Warning */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg border-amber-200 bg-amber-50">
-              <div className="flex items-start gap-3">
-                <FileWarning className="w-5 h-5 text-amber-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-amber-900">Alvará de Funcionamento</h4>
-                  <p className="text-xs text-amber-700 font-mono mt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Vence em: 15/04/2026 (15 dias)
-                  </p>
-                </div>
+            {documents.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                <FileX className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+                <p>Nenhum documento encontrado.</p>
               </div>
-              <Button size="sm" className="mt-3 sm:mt-0 bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto">
-                <UploadCloud className="w-4 h-4 mr-2" /> Enviar Novo
-              </Button>
-            </div>
+            )}
 
-            {/* Doc 2 - Valid */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg border-slate-200 bg-white">
-              <div className="flex items-start gap-3">
-                <FileCheck className="w-5 h-5 text-green-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-slate-900">Credenciamento Detran</h4>
-                  <p className="text-xs text-slate-500 font-mono mt-1 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-green-500" /> Validade: 10/12/2026
-                  </p>
+            {documents.map((doc: any) => (
+              <div
+                key={doc.id}
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg border-slate-200 bg-white"
+              >
+                <div className="flex items-start gap-3">
+                  <FileCheck className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-slate-900">
+                      {DOC_LABELS[doc.type] || doc.name || doc.type}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-mono mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      Enviado
+                    </p>
+                  </div>
                 </div>
+                {doc.url && (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="outline" className="mt-3 sm:mt-0 w-full sm:w-auto gap-1">
+                      <ExternalLink className="w-3 h-3" /> Ver Arquivo
+                    </Button>
+                  </a>
+                )}
               </div>
-              <Button size="sm" variant="outline" className="mt-3 sm:mt-0 w-full sm:w-auto">
-                Ver Arquivo
-              </Button>
-            </div>
+            ))}
 
-            {/* Doc 3 - Valid */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg border-slate-200 bg-white">
-              <div className="flex items-start gap-3">
-                <FileCheck className="w-5 h-5 text-green-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-slate-900">Contrato Social (CNPJ)</h4>
-                  <p className="text-xs text-slate-500 font-mono mt-1 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-green-500" /> Documento Permanente
-                  </p>
+            {missingRequired.map((type) => (
+              <div
+                key={type}
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg border-red-200 bg-red-50"
+              >
+                <div className="flex items-start gap-3">
+                  <FileX className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-red-900">{DOC_LABELS[type]}</h4>
+                    <p className="text-xs text-red-600 font-mono mt-1">Documento não enviado</p>
+                  </div>
                 </div>
+                <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 mt-2 sm:mt-0">
+                  Pendente
+                </Badge>
               </div>
-              <Button size="sm" variant="outline" className="mt-3 sm:mt-0 w-full sm:w-auto">
-                Ver Arquivo
-              </Button>
-            </div>
-
+            ))}
           </CardContent>
         </Card>
       </div>

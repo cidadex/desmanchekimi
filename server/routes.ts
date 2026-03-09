@@ -384,6 +384,19 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  app.get("/api/desmanches/me", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const desmanche = await storage.getDesmancheById(desmancheId);
+      if (!desmanche) return res.status(404).json({ message: "Desmanche não encontrado" });
+      const { password: _, ...safe } = desmanche as any;
+      res.json(safe);
+    } catch (error) {
+      console.error("Get desmanche me error:", error);
+      res.status(500).json({ message: "Erro ao buscar dados" });
+    }
+  });
+
   app.patch("/api/desmanches/me", authMiddleware, requireType(["desmanche"]), async (req, res) => {
     try {
       const desmancheId = (req as any).user.id;
