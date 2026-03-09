@@ -38,9 +38,12 @@ export const desmanches = sqliteTable("desmanches", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   password: text("password").notNull(),
+  responsibleName: text("responsible_name"),
+  responsibleCpf: text("responsible_cpf"),
   logo: text("logo"),
   plan: text("plan", { enum: ["percentage", "monthly"] }).notNull().default("percentage"),
   status: text("status", { enum: ["pending", "active", "inactive", "rejected"] }).notNull().default("pending"),
+  rejectionReason: text("rejection_reason"),
   rating: real("rating").notNull().default(0),
   salesCount: integer("sales_count").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
@@ -62,7 +65,7 @@ export const desmancheAddresses = sqliteTable("desmanche_addresses", {
 export const documents = sqliteTable("documents", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
   desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
-  type: text("type", { enum: ["alvara", "credenciamento_detran", "contrato_social"] }).notNull(),
+  type: text("type", { enum: ["alvara", "credenciamento_detran", "contrato_social", "documento_responsavel", "documento_empresa"] }).notNull(),
   name: text("name").notNull(),
   url: text("url").notNull(),
   validUntil: integer("valid_until", { mode: "timestamp" }),
@@ -175,6 +178,8 @@ export const insertDesmancheSchema = createInsertSchema(desmanches).pick({
   phone: true,
   password: true,
   plan: true,
+  responsibleName: true,
+  responsibleCpf: true,
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({

@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Upload, CheckCircle2 } from "lucide-react";
 
 interface RegisterModalProps {
   children?: React.ReactNode;
@@ -29,8 +30,8 @@ export function RegisterModal({
 }: RegisterModalProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [activeTab, setActiveTab] = useState<"client" | "desmanche">(defaultTab);
+  const { toast } = useToast();
   
-  // Client form state
   const [clientForm, setClientForm] = useState({
     name: "",
     email: "",
@@ -38,7 +39,6 @@ export function RegisterModal({
     password: "",
   });
   
-  // Desmanche form state
   const [desmancheForm, setDesmancheForm] = useState({
     companyName: "",
     tradingName: "",
@@ -47,7 +47,14 @@ export function RegisterModal({
     phone: "",
     password: "",
     plan: "percentage" as "percentage" | "monthly",
+    responsibleName: "",
+    responsibleCpf: "",
   });
+
+  const [alvaraFile, setAlvaraFile] = useState<File | null>(null);
+  const [docResponsavelFile, setDocResponsavelFile] = useState<File | null>(null);
+  const [docEmpresaFile, setDocEmpresaFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   const { register, registerDesmanche, isLoading } = useAuth();
   const [, navigate] = useLocation();
@@ -59,20 +66,92 @@ export function RegisterModal({
       setOpen(false);
       navigate("/cliente");
     } catch (error) {
-      // Error is handled by the auth hook
     }
+  };
+
+  const uploadFile = async (file: File): Promise<{ url: string; originalName: string }> => {
+    const token = localStorage.getItem("peca_rapida_token");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Upload failed");
+    }
+
+    return res.json();
+  };
+
+  const registerDocument = async (desmancheId: string, type: string, name: string, url: string) => {
+    const token = localStorage.getItem("peca_rapida_token");
+    const res = await fetch("/api/documents", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ desmancheId, type, name, url }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Failed to register document");
+    }
+
+    return res.json();
   };
 
   const handleDesmancheSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!alvaraFile || !docResponsavelFile || !docEmpresaFile) {
+      toast({
+        title: "Documentos obrigatórios",
+        description: "Por favor, envie todos os 3 documentos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      await registerDesmanche(desmancheForm);
+      const user = await registerDesmanche(desmancheForm);
+
+      setUploading(true);
+
+      const desmancheId = (user as any)?.id || (user as any)?.desmancheId;
+
+      const filesToUpload = [
+        { file: alvaraFile, type: "alvara", name: "Alvará de Funcionamento" },
+        { file: docResponsavelFile, type: "documento_responsavel", name: "Documento do Responsável" },
+        { file: docEmpresaFile, type: "documento_empresa", name: "Documento da Empresa / Contrato Social" },
+      ];
+
+      for (const { file, type, name } of filesToUpload) {
+        const uploadResult = await uploadFile(file);
+        await registerDocument(desmancheId, type, name, uploadResult.url);
+      }
+
+      setUploading(false);
+      toast({
+        title: "Cadastro completo!",
+        description: "Desmanche cadastrado com documentos. Aguardando aprovação.",
+      });
       setOpen(false);
       navigate("/desmanche");
     } catch (error) {
-      // Error is handled by the auth hook
+      setUploading(false);
     }
   };
+
+  const isSubmitting = isLoading || uploading;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -182,6 +261,26 @@ export function RegisterModal({
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="desmanche-responsible-name">Nome do Responsável</Label>
+                <Input
+                  id="desmanche-responsible-name"
+                  placeholder="João da Silva"
+                  value={desmancheForm.responsibleName}
+                  onChange={(e) => setDesmancheForm({ ...desmancheForm, responsibleName: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="desmanche-responsible-cpf">CPF do Responsável</Label>
+                <Input
+                  id="desmanche-responsible-cpf"
+                  placeholder="000.000.000-00"
+                  value={desmancheForm.responsibleCpf}
+                  onChange={(e) => setDesmancheForm({ ...desmancheForm, responsibleCpf: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="desmanche-email">Email</Label>
                 <Input
                   id="desmanche-email"
@@ -238,12 +337,61 @@ export function RegisterModal({
                   </div>
                 </RadioGroup>
               </div>
+
+              <div className="space-y-3">
+                <Label>Documentos Obrigatórios</Label>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="file-alvara" className="text-sm">Alvará de Funcionamento *</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="file-alvara"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => setAlvaraFile(e.target.files?.[0] || null)}
+                      required
+                      className="flex-1"
+                    />
+                    {alvaraFile && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="file-doc-responsavel" className="text-sm">Documento do Responsável *</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="file-doc-responsavel"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => setDocResponsavelFile(e.target.files?.[0] || null)}
+                      required
+                      className="flex-1"
+                    />
+                    {docResponsavelFile && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="file-doc-empresa" className="text-sm">Documento da Empresa / Contrato Social *</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="file-doc-empresa"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => setDocEmpresaFile(e.target.files?.[0] || null)}
+                      required
+                      className="flex-1"
+                    />
+                    {docEmpresaFile && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                  </div>
+                </div>
+              </div>
               
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Cadastrando...
+                    {uploading ? "Enviando documentos..." : "Cadastrando..."}
                   </>
                 ) : (
                   "Cadastrar Desmanche"

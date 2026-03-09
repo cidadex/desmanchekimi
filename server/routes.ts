@@ -2,8 +2,38 @@ import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import * as storage from "./storage";
 import * as schema from "@shared/schema";
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de arquivo não permitido. Use PDF, JPG, PNG ou WebP.'));
+    }
+  },
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
@@ -36,6 +66,8 @@ function requireType(types: string[]) {
 }
 
 export async function registerRoutes(server: Server, app: Express) {
+  const express = await import("express");
+  app.use("/uploads", express.default.static(uploadsDir));
   // ============================================
   // AUTH ROUTES
   // ============================================
@@ -223,6 +255,8 @@ export async function registerRoutes(server: Server, app: Express) {
         if (!desmanche) {
           return res.status(404).json({ message: "Usuário não encontrado" });
         }
+        const address = await storage.getDesmancheAddressByDesmancheId(userId);
+        const docs = await storage.getDocumentsByDesmanche(userId);
         res.json({
           id: desmanche.id,
           name: desmanche.tradingName,
@@ -234,7 +268,13 @@ export async function registerRoutes(server: Server, app: Express) {
           salesCount: desmanche.salesCount,
           plan: desmanche.plan,
           companyName: desmanche.companyName,
+          tradingName: desmanche.tradingName,
           cnpj: desmanche.cnpj,
+          responsibleName: desmanche.responsibleName,
+          responsibleCpf: desmanche.responsibleCpf,
+          rejectionReason: desmanche.rejectionReason,
+          address: address || null,
+          documents: docs,
         });
       } else {
         const user = await storage.getUserById(userId);
@@ -344,6 +384,44 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  app.patch("/api/desmanches/me", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { tradingName, phone, responsibleName, responsibleCpf } = req.body;
+      const desmanche = await storage.updateDesmancheProfile(desmancheId, { tradingName, phone, responsibleName, responsibleCpf });
+      res.json(desmanche);
+    } catch (error) {
+      console.error("Update desmanche profile error:", error);
+      res.status(500).json({ message: "Erro ao atualizar perfil" });
+    }
+  });
+  
+  app.get("/api/desmanches/me/address", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const address = await storage.getDesmancheAddressByDesmancheId(desmancheId);
+      res.json(address || null);
+    } catch (error) {
+      console.error("Get desmanche address error:", error);
+      res.status(500).json({ message: "Erro ao buscar endereço" });
+    }
+  });
+  
+  app.put("/api/desmanches/me/address", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { zipCode, street, number, complement, city, state } = req.body;
+      if (!zipCode || !street || !city || !state) {
+        return res.status(400).json({ message: "CEP, rua, cidade e estado são obrigatórios" });
+      }
+      const address = await storage.createOrUpdateDesmancheAddress(desmancheId, { zipCode, street, number, complement, city, state });
+      res.json(address);
+    } catch (error) {
+      console.error("Update desmanche address error:", error);
+      res.status(500).json({ message: "Erro ao salvar endereço" });
+    }
+  });
+  
   app.get("/api/desmanches/:id", authMiddleware, async (req, res) => {
     try {
       const desmanche = await storage.getDesmancheById(req.params.id as string);
@@ -359,8 +437,8 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.patch("/api/desmanches/:id/status", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
-      const { status } = req.body;
-      const desmanche = await storage.updateDesmancheStatus(req.params.id as string, status);
+      const { status, rejectionReason } = req.body;
+      const desmanche = await storage.updateDesmancheStatus(req.params.id as string, status, rejectionReason);
       res.json(desmanche);
     } catch (error) {
       console.error("Update desmanche status error:", error);
@@ -725,6 +803,11 @@ export async function registerRoutes(server: Server, app: Express) {
       if (!desmancheId) {
         return res.status(400).json({ message: "desmancheId é obrigatório" });
       }
+      const userType = (req as any).user.type;
+      const userId = (req as any).user.id;
+      if (userType !== "admin" && userId !== desmancheId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
       const documents = await storage.getDocumentsByDesmanche(desmancheId as string);
       res.json(documents);
     } catch (error) {
@@ -830,6 +913,85 @@ export async function registerRoutes(server: Server, app: Express) {
     } catch (error) {
       console.error("Get dashboard stats error:", error);
       res.status(500).json({ message: "Erro ao buscar estatísticas" });
+    }
+  });
+  
+  // ============================================
+  // FILE UPLOAD ROUTE
+  // ============================================
+  
+  app.post("/api/upload", authMiddleware, requireType(["desmanche", "admin"]), (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ message: `Erro no upload: ${err.message}` });
+      }
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: fileUrl, originalName: req.file.originalname });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Erro ao fazer upload" });
+    }
+  });
+  
+  // ============================================
+  // ADMIN ROUTES
+  // ============================================
+  
+  app.get("/api/admin/users", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        type: u.type,
+        createdAt: u.createdAt,
+      })));
+    } catch (error) {
+      console.error("Get admin users error:", error);
+      res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
+  });
+  
+  app.get("/api/admin/orders", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      console.error("Get admin orders error:", error);
+      res.status(500).json({ message: "Erro ao buscar pedidos" });
+    }
+  });
+  
+  app.get("/api/admin/desmanches", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { status } = req.query;
+      const desmanches = await storage.getAllDesmanches({ status: status as string });
+      const result = await Promise.all(desmanches.map(async (d) => {
+        const address = await storage.getDesmancheAddressByDesmancheId(d.id);
+        const docs = await storage.getDocumentsByDesmanche(d.id);
+        return {
+          ...d,
+          password: undefined,
+          address,
+          documents: docs,
+        };
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Get admin desmanches error:", error);
+      res.status(500).json({ message: "Erro ao buscar desmanches" });
     }
   });
   

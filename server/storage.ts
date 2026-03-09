@@ -161,6 +161,15 @@ try {
 try {
   sqlite.exec(`ALTER TABLE users ADD COLUMN profile_complete INTEGER NOT NULL DEFAULT 0`);
 } catch (e) { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE desmanches ADD COLUMN responsible_name TEXT`);
+} catch (e) { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE desmanches ADD COLUMN responsible_cpf TEXT`);
+} catch (e) { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE desmanches ADD COLUMN rejection_reason TEXT`);
+} catch (e) { /* column already exists */ }
 
 // Hash de senha
 export async function hashPassword(password: string): Promise<string> {
@@ -295,11 +304,52 @@ export async function getAllDesmanches(filters?: { status?: string; plan?: strin
   });
 }
 
-export async function updateDesmancheStatus(id: string, status: string) {
+export async function updateDesmancheStatus(id: string, status: string, rejectionReason?: string) {
+  const updateData: any = { status: status as any };
+  if (rejectionReason) {
+    updateData.rejectionReason = rejectionReason;
+  }
+  if (status === 'active') {
+    updateData.rejectionReason = null;
+  }
   await db.update(schema.desmanches)
-    .set({ status: status as any })
+    .set(updateData)
     .where(eq(schema.desmanches.id, id));
   return getDesmancheById(id);
+}
+
+export async function updateDesmancheProfile(id: string, data: { tradingName?: string; phone?: string; responsibleName?: string; responsibleCpf?: string }) {
+  await db.update(schema.desmanches)
+    .set(data)
+    .where(eq(schema.desmanches.id, id));
+  return getDesmancheById(id);
+}
+
+export async function getDesmancheAddressByDesmancheId(desmancheId: string) {
+  return db.query.desmancheAddresses.findFirst({
+    where: eq(schema.desmancheAddresses.desmancheId, desmancheId),
+  });
+}
+
+export async function createOrUpdateDesmancheAddress(desmancheId: string, data: {
+  zipCode: string;
+  street: string;
+  number?: string;
+  complement?: string;
+  city: string;
+  state: string;
+}) {
+  const existing = await getDesmancheAddressByDesmancheId(desmancheId);
+  if (existing) {
+    await db.update(schema.desmancheAddresses)
+      .set(data)
+      .where(eq(schema.desmancheAddresses.id, existing.id));
+    return getDesmancheAddressByDesmancheId(desmancheId);
+  } else {
+    const id = randomUUID();
+    await db.insert(schema.desmancheAddresses).values({ id, desmancheId, ...data });
+    return db.query.desmancheAddresses.findFirst({ where: eq(schema.desmancheAddresses.id, id) });
+  }
 }
 
 export async function updateDesmancheRating(id: string, rating: number) {

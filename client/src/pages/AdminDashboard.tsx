@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Users,
   Store,
@@ -20,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/use-auth";
+import { apiRequest } from "@/lib/queryClient";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 // Import Tabs
@@ -34,6 +37,28 @@ import ApprovalsTab from "@/components/admin/ApprovalsTab";
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user } = useAuth();
+
+  const { data: stats } = useQuery<{
+    totalUsers: number;
+    totalDesmanches: number;
+    totalOrders: number;
+    activeDesmanches: number;
+    pendingApprovals: number;
+    openOrders: number;
+  }>({
+    queryKey: ["/api/dashboard/stats"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/dashboard/stats");
+      return res.json();
+    },
+  });
+
+  const pendingCount = stats?.pendingApprovals ?? 0;
+  const totalDesmanches = stats?.totalDesmanches ?? 0;
+  const userName = user?.name || user?.companyName || "Admin";
+  const userEmail = user?.email || "Sistema";
+  const userInitials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const SidebarContent = () => (
     <>
@@ -45,23 +70,23 @@ export default function AdminDashboard() {
       
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
         <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {setActiveTab('overview'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge="12" onClick={() => {setActiveTab('desmanches'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {setActiveTab('desmanches'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {setActiveTab('users'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {setActiveTab('orders'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {setActiveTab('auctions'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {setActiveTab('finance'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge="4" badgeAlert active={activeTab === 'approvals'} onClick={() => {setActiveTab('approvals'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {setActiveTab('approvals'); setIsMobileMenuOpen(false);}} />
       </div>
       
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarImage src="https://github.com/shadcn.png" />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={user?.avatar} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Admin Geral</span>
-            <span className="text-xs text-muted-foreground">Sistema</span>
+            <span className="text-sm font-semibold">{userName}</span>
+            <span className="text-xs text-muted-foreground">{userEmail}</span>
           </div>
         </div>
       </div>
@@ -123,7 +148,7 @@ export default function AdminDashboard() {
               <span className="text-muted-foreground">|</span>
               <span className="text-blue-400">23 NOVOS PEDIDOS DE PEÇAS</span>
               <span className="text-muted-foreground">|</span>
-              <span>4 DESMANCHES AGUARDANDO APROVAÇÃO</span>
+              <span>{pendingCount} DESMANCHES AGUARDANDO APROVAÇÃO</span>
               <span className="text-muted-foreground">|</span>
               <span className="text-green-400">1.245 USUÁRIOS ONLINE</span>
             </div>

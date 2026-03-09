@@ -40,7 +40,7 @@ interface AuthContextType {
   login: (email: string, password: string, type?: "user" | "desmanche") => Promise<void>;
   logout: () => void;
   register: (data: RegisterData) => Promise<void>;
-  registerDesmanche: (data: RegisterDesmancheData) => Promise<void>;
+  registerDesmanche: (data: RegisterDesmancheData) => Promise<any>;
 }
 
 interface RegisterData {
@@ -58,6 +58,8 @@ interface RegisterDesmancheData {
   phone: string;
   password: string;
   plan: "percentage" | "monthly";
+  responsibleName: string;
+  responsibleCpf: string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -259,7 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const registerDesmanche = async (data: RegisterDesmancheData) => {
-    await registerDesmancheMutation.mutateAsync(data);
+    return await registerDesmancheMutation.mutateAsync(data);
   };
 
   const logout = () => {
