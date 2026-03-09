@@ -7,8 +7,7 @@ import { CreditCard, Receipt, Loader2, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const PLAN_LABELS: Record<string, string> = {
-  percentage: "Porcentagem sobre Vendas",
-  monthly: "Mensalidade Fixa",
+  monthly: "Assinatura Mensal",
 };
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
@@ -40,7 +39,7 @@ export default function DesmancheFinanceTab() {
     },
   });
 
-  const plan = desmanche?.plan || "percentage";
+  const plan = desmanche?.plan || "monthly";
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "—";
@@ -67,16 +66,14 @@ export default function DesmancheFinanceTab() {
         <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative z-10">
           <div>
             <Badge className="mb-3 bg-primary text-primary-foreground">Plano Ativo</Badge>
-            <h2 className="text-2xl font-bold text-slate-900">{PLAN_LABELS[plan]}</h2>
+            <h2 className="text-2xl font-bold text-slate-900">{PLAN_LABELS[plan] ?? "Assinatura Mensal"}</h2>
             <p className="text-slate-600 mt-2 max-w-md">
-              {plan === "percentage"
-                ? "Você não paga mensalidade fixa. Será cobrada uma taxa de 3,5% sobre os negócios fechados através da plataforma no fim do mês."
-                : "Você paga uma mensalidade fixa mensal com acesso ilimitado à plataforma."}
+              Acesso completo à plataforma por uma mensalidade fixa. Sem cobranças por venda ou comissões.
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full sm:w-auto shrink-0">
             <Button className="w-full bg-slate-900 text-white hover:bg-slate-800" disabled>
-              {plan === "percentage" ? "Alterar para Mensalidade Fixa" : "Alterar para Porcentagem"}
+              Gerenciar Assinatura
             </Button>
           </div>
         </CardContent>

@@ -17,7 +17,7 @@ export default function FinanceTab() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-mono tracking-tight">Financeiro</h1>
-          <p className="text-muted-foreground">Gestão de assinaturas e comissões recebidas.</p>
+          <p className="text-muted-foreground">Gestão de assinaturas e faturas da plataforma.</p>
         </div>
         <Button>Exportar Relatório Fiscal</Button>
       </div>

@@ -41,7 +41,7 @@ export const desmanches = sqliteTable("desmanches", {
   responsibleName: text("responsible_name"),
   responsibleCpf: text("responsible_cpf"),
   logo: text("logo"),
-  plan: text("plan", { enum: ["percentage", "monthly"] }).notNull().default("percentage"),
+  plan: text("plan", { enum: ["monthly"] }).notNull().default("monthly"),
   status: text("status", { enum: ["pending", "active", "inactive", "rejected"] }).notNull().default("pending"),
   rejectionReason: text("rejection_reason"),
   rating: real("rating").notNull().default(0),

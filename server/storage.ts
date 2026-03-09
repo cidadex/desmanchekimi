@@ -170,6 +170,7 @@ try {
 try {
   sqlite.exec(`ALTER TABLE desmanches ADD COLUMN rejection_reason TEXT`);
 } catch (e) { /* column already exists */ }
+sqlite.exec(`UPDATE desmanches SET plan = 'monthly' WHERE plan = 'percentage'`);
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_type TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_color TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_engine TEXT`); } catch (e) {}

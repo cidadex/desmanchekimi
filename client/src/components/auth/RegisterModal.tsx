@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, CheckCircle2 } from "lucide-react";
@@ -46,7 +45,7 @@ export function RegisterModal({
     email: "",
     phone: "",
     password: "",
-    plan: "percentage" as "percentage" | "monthly",
+    plan: "monthly" as "monthly",
     responsibleName: "",
     responsibleCpf: "",
   });
@@ -314,29 +313,6 @@ export function RegisterModal({
                 />
               </div>
               
-              <div className="space-y-3">
-                <Label>Plano de Pagamento</Label>
-                <RadioGroup
-                  value={desmancheForm.plan}
-                  onValueChange={(v) => setDesmancheForm({ ...desmancheForm, plan: v as "percentage" | "monthly" })}
-                  className="flex flex-col space-y-2"
-                >
-                  <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted">
-                    <RadioGroupItem value="percentage" id="plan-percentage" />
-                    <Label htmlFor="plan-percentage" className="cursor-pointer flex-1">
-                      <div className="font-medium">Porcentagem sobre vendas</div>
-                      <div className="text-sm text-muted-foreground">Pague apenas quando vender (recomendado)</div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted">
-                    <RadioGroupItem value="monthly" id="plan-monthly" />
-                    <Label htmlFor="plan-monthly" className="cursor-pointer flex-1">
-                      <div className="font-medium">Mensalidade fixa</div>
-                      <div className="text-sm text-muted-foreground">Valor fixo mensal ilimitado</div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
               <div className="space-y-3">
                 <Label>Documentos Obrigatórios</Label>
