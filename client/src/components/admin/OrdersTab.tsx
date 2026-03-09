@@ -4,7 +4,7 @@ import { PackageSearch, Clock, MapPin, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { getToken } from "@/hooks/use-auth";
+import { getToken } from "@/lib/auth";
 import { useState } from "react";
 
 type Order = {

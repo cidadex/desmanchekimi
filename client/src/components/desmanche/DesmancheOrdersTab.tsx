@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { MapPin, Search, Loader2, PackageSearch, SendHorizonal } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function DesmancheOrdersTab() {
@@ -25,6 +26,7 @@ export default function DesmancheOrdersTab() {
       const res = await apiRequest("GET", "/api/orders?status=open");
       return res.json();
     },
+    enabled: !!getToken(),
     refetchInterval: 30 * 1000,
     staleTime: 0,
   });

@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./use-toast";
+import { getToken, setToken, removeToken } from "@/lib/auth";
 
 export type UserType = "client" | "admin" | "desmanche";
 
@@ -64,20 +65,7 @@ interface RegisterDesmancheData {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Token storage
-const TOKEN_KEY = "peca_rapida_token";
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
+export { getToken, setToken, removeToken };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
@@ -144,8 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.user;
     },
     onSuccess: (userData) => {
+      queryClient.clear();
       queryClient.setQueryData(["/api/users/me"], userData);
-      queryClient.invalidateQueries();
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",

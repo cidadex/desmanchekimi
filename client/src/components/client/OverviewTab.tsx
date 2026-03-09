@@ -1,4 +1,5 @@
-import { useAuth, getToken } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
+import { getToken } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
