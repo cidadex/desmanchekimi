@@ -170,6 +170,28 @@ export const reviews = sqliteTable("reviews", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
+// Tabela de Salas de Chat
+export const chatRooms = sqliteTable("chat_rooms", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  proposalId: text("proposal_id").references(() => proposals.id).notNull().unique(),
+  orderId: text("order_id").references(() => orders.id).notNull(),
+  clientId: text("client_id").references(() => users.id).notNull(),
+  desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
+  lastMessageAt: integer("last_message_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+// Tabela de Mensagens de Chat
+export const chatMessages = sqliteTable("chat_messages", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  roomId: text("room_id").references(() => chatRooms.id).notNull(),
+  senderId: text("sender_id").notNull(),
+  senderType: text("sender_type", { enum: ["client", "desmanche"] }).notNull(),
+  content: text("content").notNull(),
+  readAt: integer("read_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
 // Schemas de Inserção
 export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
@@ -316,6 +338,18 @@ export const orderImagesRelations = relations(orderImages, ({ one }) => ({
   order: one(orders, { fields: [orderImages.orderId], references: [orders.id] }),
 }));
 
+export const chatRoomsRelations = relations(chatRooms, ({ one, many }) => ({
+  proposal: one(proposals, { fields: [chatRooms.proposalId], references: [proposals.id] }),
+  order: one(orders, { fields: [chatRooms.orderId], references: [orders.id] }),
+  client: one(users, { fields: [chatRooms.clientId], references: [users.id] }),
+  desmanche: one(desmanches, { fields: [chatRooms.desmancheId], references: [desmanches.id] }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  room: one(chatRooms, { fields: [chatMessages.roomId], references: [chatRooms.id] }),
+}));
+
 // Tipos
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -345,3 +379,5 @@ export type Address = typeof addresses.$inferSelect;
 export type DesmancheAddress = typeof desmancheAddresses.$inferSelect;
 export type OrderImage = typeof orderImages.$inferSelect;
 export type Negotiation = typeof negotiations.$inferSelect;
+export type ChatRoom = typeof chatRooms.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;

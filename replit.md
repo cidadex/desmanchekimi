@@ -22,12 +22,13 @@ npm start         # Run production build
 ## Key Files
 
 - `server/index.ts` — Express app entry point
-- `server/routes.ts` — API routes (auth, users, orders, proposals, negotiations, reviews, auctions, invoices, documents, admin, file upload)
+- `server/routes.ts` — API routes (auth, users, orders, proposals, negotiations, reviews, auctions, invoices, documents, admin, file upload, chat)
 - `server/storage.ts` — Drizzle ORM + SQLite database logic + seed data
 - `client/src/App.tsx` — React app root with routes: `/`, `/como-funciona`, `/cadastro-desmanche`, `/cliente`, `/admin`, `/desmanche`
 - `client/src/pages/CadastroDesmanche.tsx` — Full-page desmanche registration (benefits + 6-step wizard: company, responsible, address, logo, docs, access)
 - `client/src/pages/ComoFunciona.tsx` — How-it-works marketing page for clients and desmanches with FAQ
-- `client/src/pages/ClientDashboard.tsx` — Client panel (profile, orders, proposals, negotiations)
+- `client/src/pages/ClientDashboard.tsx` — Client panel (profile, orders, proposals, negotiations, chat)
+- `client/src/components/chat/ChatTab.tsx` — Shared chat UI component (rooms list + messages) used by both client and desmanche panels
 - `client/src/pages/AdminDashboard.tsx` — Admin panel (overview, desmanches, users, orders, approvals)
 - `client/src/pages/DesmancheDashboard.tsx` — Desmanche panel (overview, orders, negotiations, docs, finance, profile)
 - `client/src/components/client/CreateOrderWizard.tsx` — Multi-step order creation wizard (6 steps: vehicle type → vehicle details → part category → specific part + position → details/photos → review)

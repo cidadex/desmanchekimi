@@ -9,6 +9,7 @@ import { ProfileTab } from "@/components/client/ProfileTab";
 import { OrdersTab } from "@/components/client/OrdersTab";
 import { ProposalsTab } from "@/components/client/ProposalsTab";
 import { NegotiationsTab } from "@/components/client/NegotiationsTab";
+import { ChatTab } from "@/components/chat/ChatTab";
 import { getToken } from "@/lib/auth";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 import {
@@ -21,6 +22,7 @@ import {
   ChevronLeft,
   Menu,
   X,
+  MessageCircle,
 } from "lucide-react";
 
 const TAB_KEYS = [
@@ -29,6 +31,7 @@ const TAB_KEYS = [
   { key: "orders", label: "Meus Pedidos", icon: Package },
   { key: "proposals", label: "Propostas", icon: MessageSquare },
   { key: "negotiations", label: "Negociações", icon: Handshake },
+  { key: "chat", label: "Mensagens", icon: MessageCircle },
 ];
 
 export default function ClientDashboard() {
@@ -55,6 +58,25 @@ export default function ClientDashboard() {
   const pendingProposalsCount = orders.reduce(
     (sum: number, o: any) =>
       sum + ((o.proposals || []).filter((p: any) => p.status === "sent").length),
+    0
+  );
+
+  const { data: chatRooms = [] } = useQuery<any[]>({
+    queryKey: ["/api/chat/rooms"],
+    queryFn: async () => {
+      const res = await fetch("/api/chat/rooms", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Erro");
+      return res.json();
+    },
+    enabled: !!token && !!user,
+    staleTime: 0,
+    refetchInterval: 15 * 1000,
+  });
+
+  const totalUnreadChat = chatRooms.reduce(
+    (s: number, r: any) => s + (r.unreadCount || 0),
     0
   );
 
@@ -124,6 +146,8 @@ export default function ClientDashboard() {
               const badge =
                 tab.key === "proposals" && pendingProposalsCount > 0
                   ? pendingProposalsCount
+                  : tab.key === "chat" && totalUnreadChat > 0
+                  ? totalUnreadChat
                   : null;
 
               return (
@@ -208,6 +232,7 @@ export default function ClientDashboard() {
           {activeTab === "orders" && <OrdersTab />}
           {activeTab === "proposals" && <ProposalsTab />}
           {activeTab === "negotiations" && <NegotiationsTab />}
+          {activeTab === "chat" && <ChatTab />}
         </div>
       </main>
     </div>

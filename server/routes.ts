@@ -584,6 +584,22 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       
       const proposal = await storage.createProposal(proposalData);
+      
+      // Auto-create chat room when proposal is sent
+      try {
+        const order = await storage.getOrderById(proposalData.orderId);
+        if (order) {
+          await storage.createChatRoom({
+            proposalId: proposal!.id,
+            orderId: proposalData.orderId,
+            clientId: order.clientId,
+            desmancheId: proposalData.desmancheId,
+          });
+        }
+      } catch (chatErr) {
+        console.error("Chat room creation error (non-critical):", chatErr);
+      }
+      
       res.status(201).json(proposal);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1032,6 +1048,93 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  // ============================================
+  // CHAT ROUTES
+  // ============================================
+
+  app.get("/api/chat/rooms", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+
+      let rooms: any[];
+      if (userType === "desmanche") {
+        rooms = await storage.getChatRoomsByDesmanche(userId);
+      } else {
+        rooms = await storage.getChatRoomsByClient(userId);
+      }
+
+      const roomsWithUnread = await Promise.all(
+        rooms.map(async (room: any) => {
+          const unread = await storage.countUnreadMessages(room.id, userId);
+          return { ...room, unreadCount: unread };
+        })
+      );
+      res.json(roomsWithUnread);
+    } catch (error) {
+      console.error("Get chat rooms error:", error);
+      res.status(500).json({ message: "Erro ao buscar conversas" });
+    }
+  });
+
+  app.get("/api/chat/rooms/:roomId/messages", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+      const room = await storage.getChatRoomById(req.params.roomId);
+
+      if (!room) return res.status(404).json({ message: "Conversa não encontrada" });
+
+      if (userType === "client" && room.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      if (userType === "desmanche" && room.desmancheId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      await storage.markRoomMessagesAsRead(req.params.roomId, userId);
+      const messages = await storage.getMessagesByRoom(req.params.roomId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Get messages error:", error);
+      res.status(500).json({ message: "Erro ao buscar mensagens" });
+    }
+  });
+
+  app.post("/api/chat/rooms/:roomId/messages", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+      const { content } = req.body;
+
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: "Mensagem não pode ser vazia" });
+      }
+
+      const room = await storage.getChatRoomById(req.params.roomId);
+      if (!room) return res.status(404).json({ message: "Conversa não encontrada" });
+
+      if (userType === "client" && room.clientId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      if (userType === "desmanche" && room.desmancheId !== userId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      const senderType = userType === "desmanche" ? "desmanche" : "client";
+      const message = await storage.createChatMessage({
+        roomId: req.params.roomId,
+        senderId: userId,
+        senderType,
+        content: content.trim(),
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Create message error:", error);
+      res.status(500).json({ message: "Erro ao enviar mensagem" });
+    }
+  });
+
   // Seed database
   await storage.seedDatabase();
   console.log("Database seeded successfully");

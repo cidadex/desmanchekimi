@@ -152,6 +152,26 @@ sqlite.exec(`
     comment TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
+
+  CREATE TABLE IF NOT EXISTS chat_rooms (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),
+    order_id TEXT NOT NULL REFERENCES orders(id),
+    client_id TEXT NOT NULL REFERENCES users(id),
+    desmanche_id TEXT NOT NULL REFERENCES desmanches(id),
+    last_message_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    room_id TEXT NOT NULL REFERENCES chat_rooms(id),
+    sender_id TEXT NOT NULL,
+    sender_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    read_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
 `);
 
 // Migrate existing database - add new columns if they don't exist
@@ -676,6 +696,116 @@ export async function getDashboardStats() {
     pendingApprovals: pendingApprovals[0]?.count || 0,
     openOrders: openOrders[0]?.count || 0,
   };
+}
+
+// ==================== CHAT ====================
+export async function createChatRoom(data: {
+  proposalId: string;
+  orderId: string;
+  clientId: string;
+  desmancheId: string;
+}) {
+  const id = randomUUID();
+  await db.insert(schema.chatRooms).values({ id, ...data });
+  return getChatRoomById(id);
+}
+
+export async function getChatRoomById(id: string) {
+  return db.query.chatRooms.findFirst({
+    where: eq(schema.chatRooms.id, id),
+    with: {
+      proposal: true,
+      order: true,
+      client: true,
+      desmanche: true,
+      messages: {
+        orderBy: desc(schema.chatMessages.createdAt),
+        limit: 1,
+      },
+    },
+  });
+}
+
+export async function getChatRoomByProposal(proposalId: string) {
+  return db.query.chatRooms.findFirst({
+    where: eq(schema.chatRooms.proposalId, proposalId),
+  });
+}
+
+export async function getChatRoomsByClient(clientId: string) {
+  return db.query.chatRooms.findMany({
+    where: eq(schema.chatRooms.clientId, clientId),
+    orderBy: [desc(schema.chatRooms.lastMessageAt), desc(schema.chatRooms.createdAt)],
+    with: {
+      order: true,
+      desmanche: true,
+      messages: {
+        orderBy: desc(schema.chatMessages.createdAt),
+        limit: 1,
+      },
+    },
+  });
+}
+
+export async function getChatRoomsByDesmanche(desmancheId: string) {
+  return db.query.chatRooms.findMany({
+    where: eq(schema.chatRooms.desmancheId, desmancheId),
+    orderBy: [desc(schema.chatRooms.lastMessageAt), desc(schema.chatRooms.createdAt)],
+    with: {
+      order: true,
+      client: true,
+      messages: {
+        orderBy: desc(schema.chatMessages.createdAt),
+        limit: 1,
+      },
+    },
+  });
+}
+
+export async function getMessagesByRoom(roomId: string) {
+  return db.query.chatMessages.findMany({
+    where: eq(schema.chatMessages.roomId, roomId),
+    orderBy: asc(schema.chatMessages.createdAt),
+  });
+}
+
+export async function createChatMessage(data: {
+  roomId: string;
+  senderId: string;
+  senderType: "client" | "desmanche";
+  content: string;
+}) {
+  const id = randomUUID();
+  await db.insert(schema.chatMessages).values({ id, ...data });
+  await db.update(schema.chatRooms)
+    .set({ lastMessageAt: sql`(strftime('%s', 'now'))` })
+    .where(eq(schema.chatRooms.id, data.roomId));
+  return db.query.chatMessages.findFirst({ where: eq(schema.chatMessages.id, id) });
+}
+
+export async function markRoomMessagesAsRead(roomId: string, readerId: string) {
+  await db.update(schema.chatMessages)
+    .set({ readAt: sql`(strftime('%s', 'now'))` })
+    .where(
+      and(
+        eq(schema.chatMessages.roomId, roomId),
+        sql`${schema.chatMessages.senderId} != ${readerId}`,
+        sql`${schema.chatMessages.readAt} IS NULL`,
+      )
+    );
+}
+
+export async function countUnreadMessages(roomId: string, readerId: string) {
+  const result = await db.select({ count: sql<number>`count(*)` })
+    .from(schema.chatMessages)
+    .where(
+      and(
+        eq(schema.chatMessages.roomId, roomId),
+        sql`${schema.chatMessages.senderId} != ${readerId}`,
+        sql`${schema.chatMessages.readAt} IS NULL`,
+      )
+    );
+  return result[0]?.count || 0;
 }
 
 // ==================== SEED DATA ====================

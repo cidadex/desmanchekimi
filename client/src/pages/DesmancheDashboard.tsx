@@ -11,7 +11,8 @@ import {
   FileCheck,
   UserCircle,
   Users,
-  MessageCircle
+  MessageCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +29,7 @@ import DesmancheDocsTab from "@/components/desmanche/DesmancheDocsTab";
 import DesmancheFinanceTab from "@/components/desmanche/DesmancheFinanceTab";
 import DesmancheProfileTab from "@/components/desmanche/DesmancheProfileTab";
 import DesmancheNegotiationsTab from "@/components/desmanche/DesmancheNegotiationsTab";
+import { ChatTab } from "@/components/chat/ChatTab";
 
 export default function DesmancheDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -55,10 +57,24 @@ export default function DesmancheDashboard() {
     staleTime: 0,
   });
 
+  const { data: chatRooms = [] } = useQuery<any[]>({
+    queryKey: ["/api/chat/rooms"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/chat/rooms");
+      return res.json();
+    },
+    enabled: !!getToken(),
+    staleTime: 0,
+    refetchInterval: 15 * 1000,
+  });
+
   const desmancheName = desmanche?.tradingName || user?.companyName || user?.name || "Desmanche";
   const desmancheInitials = desmancheName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
-  const planLabel = desmanche?.plan === "monthly" ? "Assinatura Mensal" : desmanche?.plan === "percentage" ? "Porcentagem sobre Vendas" : "Assinatura Mensal";
+  const planLabel = desmanche?.plan === "monthly" ? "Assinatura Mensal" : "Assinatura Mensal";
   const openOrdersCount = Array.isArray(openOrders) ? openOrders.length : 0;
+  const totalUnread = Array.isArray(chatRooms)
+    ? chatRooms.reduce((s: number, r: any) => s + (r.unreadCount || 0), 0)
+    : 0;
 
   const SidebarContent = () => (
     <>
@@ -95,6 +111,14 @@ export default function DesmancheDashboard() {
           onClick={() => {setActiveTab('orders'); setIsMobileMenuOpen(false);}}
         />
         <SidebarItem icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {setActiveTab('negotiations'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem
+          icon={<MessageSquare />}
+          label="Mensagens"
+          badge={totalUnread > 0 ? String(totalUnread) : undefined}
+          badgeAlert={totalUnread > 0}
+          active={activeTab === 'chat'}
+          onClick={() => {setActiveTab('chat'); setIsMobileMenuOpen(false);}}
+        />
         <SidebarItem icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {setActiveTab('docs'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {setActiveTab('finance'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {setActiveTab('profile'); setIsMobileMenuOpen(false);}} />
@@ -129,6 +153,17 @@ export default function DesmancheDashboard() {
           </div>
           
           <div className="flex items-center gap-4">
+            {totalUnread > 0 && (
+              <button
+                onClick={() => setActiveTab('chat')}
+                className="relative text-slate-600 hover:text-primary transition-colors"
+              >
+                <MessageSquare className="h-5 w-5" />
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                  {totalUnread > 9 ? "9+" : totalUnread}
+                </span>
+              </button>
+            )}
             <Button variant="outline" size="sm" className="hidden sm:flex" onClick={logout}>Sair do Painel</Button>
             <Button variant="ghost" size="icon" className="relative text-slate-600">
               <Bell className="h-5 w-5" />
@@ -140,6 +175,7 @@ export default function DesmancheDashboard() {
           {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={setActiveTab} />}
           {activeTab === 'orders' && <DesmancheOrdersTab />}
           {activeTab === 'negotiations' && <DesmancheNegotiationsTab />}
+          {activeTab === 'chat' && <ChatTab />}
           {activeTab === 'docs' && <DesmancheDocsTab />}
           {activeTab === 'finance' && <DesmancheFinanceTab />}
           {activeTab === 'profile' && <DesmancheProfileTab />}
