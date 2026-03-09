@@ -170,6 +170,15 @@ try {
 try {
   sqlite.exec(`ALTER TABLE desmanches ADD COLUMN rejection_reason TEXT`);
 } catch (e) { /* column already exists */ }
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_type TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_color TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_engine TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_category TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_name TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_position TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_condition_accepted TEXT DEFAULT 'any'`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN city TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN state TEXT`); } catch (e) {}
 
 // Hash de senha
 export async function hashPassword(password: string): Promise<string> {
@@ -377,6 +386,19 @@ export async function updateDocumentStatus(id: string, status: string) {
   await db.update(schema.documents)
     .set({ status: status as any })
     .where(eq(schema.documents.id, id));
+}
+
+// ==================== ORDER IMAGES ====================
+export async function createOrderImage(orderId: string, url: string) {
+  const id = randomUUID();
+  await db.insert(schema.orderImages).values({ id, orderId, url });
+  return { id, orderId, url };
+}
+
+export async function getOrderImages(orderId: string) {
+  return db.query.orderImages.findMany({
+    where: eq(schema.orderImages.orderId, orderId),
+  });
 }
 
 // ==================== ORDERS ====================

@@ -137,8 +137,27 @@ export default function DesmancheOrdersTab() {
                     </div>
 
                     <h3 className="text-xl font-bold text-slate-900 leading-tight mb-1">{order.title}</h3>
-                    <div className="text-sm font-medium text-slate-600 mb-4">
+                    <div className="text-sm font-medium text-slate-600 mb-2">
                       {[order.vehicleBrand, order.vehicleModel, order.vehicleYear].filter(Boolean).join(" • ")}
+                      {order.vehicleColor && <span className="text-slate-400"> · {order.vehicleColor}</span>}
+                      {order.vehicleEngine && <span className="text-slate-400"> · {order.vehicleEngine}</span>}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {order.partCategory && (
+                        <Badge variant="secondary" className="text-xs">{order.partCategory}</Badge>
+                      )}
+                      {order.partPosition && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">{order.partPosition}</Badge>
+                      )}
+                      {order.partConditionAccepted && order.partConditionAccepted !== "any" && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          {{ new: "Nova", "used-excellent": "Usada Ótimo", "used-good": "Usada Bom", any: "Qualquer" }[order.partConditionAccepted as string] || order.partConditionAccepted}
+                        </Badge>
+                      )}
+                      {order.images?.length > 0 && (
+                        <Badge variant="outline" className="text-xs">📷 {order.images.length} foto(s)</Badge>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-slate-500 mb-2">
@@ -148,7 +167,28 @@ export default function DesmancheOrdersTab() {
                           <strong className="text-slate-700">{order.city}{order.state ? `, ${order.state}` : ""}</strong>
                         </span>
                       )}
+                      {!order.city && order.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          <strong className="text-slate-700">{order.location}</strong>
+                        </span>
+                      )}
                     </div>
+
+                    {order.images?.length > 0 && (
+                      <div className="flex gap-1.5 mb-3">
+                        {order.images.slice(0, 4).map((img: any) => (
+                          <a key={img.id} href={img.url} target="_blank" rel="noreferrer">
+                            <img src={img.url} alt="" className="h-12 w-12 rounded-md object-cover border hover:opacity-90 transition-opacity" />
+                          </a>
+                        ))}
+                        {order.images.length > 4 && (
+                          <div className="h-12 w-12 rounded-md border bg-slate-100 flex items-center justify-center text-xs text-slate-500 font-medium">
+                            +{order.images.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="text-sm font-medium text-slate-500 bg-slate-100 w-fit px-2 py-1 rounded-md">
                       {order.proposals?.length === 0

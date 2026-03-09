@@ -28,6 +28,7 @@ npm start         # Run production build
 - `client/src/pages/ClientDashboard.tsx` — Client panel (profile, orders, proposals, negotiations)
 - `client/src/pages/AdminDashboard.tsx` — Admin panel (overview, desmanches, users, orders, approvals)
 - `client/src/pages/DesmancheDashboard.tsx` — Desmanche panel (overview, orders, negotiations, docs, finance, profile)
+- `client/src/components/client/CreateOrderWizard.tsx` — Multi-step order creation wizard (6 steps: vehicle type → vehicle details → part category → specific part + position → details/photos → review)
 - `client/src/components/client/` — Client panel tab components
 - `client/src/components/admin/` — Admin panel tab components (all connected to real API)
 - `client/src/components/desmanche/` — Desmanche panel tab components

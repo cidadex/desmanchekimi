@@ -933,6 +933,30 @@ export async function registerRoutes(server: Server, app: Express) {
   // FILE UPLOAD ROUTE
   // ============================================
   
+  app.post("/api/orders/:id/images", authMiddleware, requireType(["client"]), (req, res, next) => {
+    upload.array("photos", 10)(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ message: `Erro no upload: ${err.message}` });
+      }
+      if (err) return res.status(400).json({ message: err.message });
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const order = await storage.getOrderById(req.params.id);
+      if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
+      if (order.clientId !== clientId) return res.status(403).json({ message: "Acesso negado" });
+      const files = (req as any).files as Express.Multer.File[];
+      if (!files || files.length === 0) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      const images = await Promise.all(files.map(f => storage.createOrderImage(order.id, `/uploads/${f.filename}`)));
+      res.json({ images });
+    } catch (error) {
+      console.error("Order image upload error:", error);
+      res.status(500).json({ message: "Erro ao fazer upload das fotos" });
+    }
+  });
+
   app.post("/api/upload", authMiddleware, requireType(["desmanche", "admin"]), (req, res, next) => {
     upload.single("file")(req, res, (err) => {
       if (err instanceof multer.MulterError) {

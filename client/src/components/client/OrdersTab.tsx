@@ -1,54 +1,61 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, getToken } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { getToken } from "@/hooks/use-auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CreateOrderWizard } from "./CreateOrderWizard";
 import {
-  Plus,
-  Package,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Car,
-  MessageSquare,
-  Loader2,
-  Eye,
-  X,
+  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle,
 } from "lucide-react";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  open: { label: "Aberto", variant: "default" },
+  open:        { label: "Aberto",     variant: "default" },
   negotiating: { label: "Negociando", variant: "secondary" },
-  closed: { label: "Fechado", variant: "outline" },
-  shipped: { label: "Enviado", variant: "secondary" },
-  completed: { label: "Concluído", variant: "default" },
-  cancelled: { label: "Cancelado", variant: "destructive" },
+  closed:      { label: "Fechado",    variant: "outline" },
+  shipped:     { label: "Enviado",    variant: "secondary" },
+  completed:   { label: "Concluído",  variant: "default" },
+  cancelled:   { label: "Cancelado",  variant: "destructive" },
 };
 
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  car: "🚗 Carro", motorcycle: "🏍️ Moto", truck: "🚛 Caminhão", bus: "🚌 Ônibus",
+  van: "🚐 Van/Utilitário", boat: "⛵ Barco/Lancha", airplane: "✈️ Avião",
+  helicopter: "🚁 Helicóptero", bicycle: "🚲 Bicicleta/E-bike",
+  agricultural: "🚜 Trator/Agrícola", other: "🔧 Outro",
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  new: "Nova", "used-excellent": "Usada - Ótimo", "used-good": "Usada - Bom", any: "Qualquer",
+};
+
+interface OrderImage { id: string; url: string; }
 interface Order {
   id: string;
   title: string;
   description: string;
+  vehicleType?: string;
   vehicleBrand: string;
   vehicleModel: string;
   vehicleYear: number;
   vehiclePlate?: string;
+  vehicleColor?: string;
+  vehicleEngine?: string;
+  partCategory?: string;
+  partName?: string;
+  partPosition?: string;
+  partConditionAccepted?: string;
   clientId: string;
   location: string;
   status: string;
   urgency: string;
   isPartnerRequest: boolean;
   createdAt: string;
+  images?: OrderImage[];
   proposals?: any[];
 }
 
@@ -56,19 +63,9 @@ export function OrdersTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filter, setFilter] = useState("all");
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [vehicleBrand, setVehicleBrand] = useState("");
-  const [vehicleModel, setVehicleModel] = useState("");
-  const [vehicleYear, setVehicleYear] = useState("");
-  const [vehiclePlate, setVehiclePlate] = useState("");
-  const [location, setLocation] = useState("");
-  const [urgency, setUrgency] = useState("normal");
-
   const token = getToken();
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
@@ -83,22 +80,6 @@ export function OrdersTab() {
     enabled: !!token,
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/orders", data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
-      setShowCreateDialog(false);
-      resetForm();
-      toast({ title: "Pedido criado!", description: "Seu pedido foi publicado no mural." });
-    },
-    onError: () => {
-      toast({ title: "Erro", description: "Não foi possível criar o pedido.", variant: "destructive" });
-    },
-  });
-
   const cancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const res = await apiRequest("PATCH", `/api/orders/${orderId}/status`, { status: "cancelled" });
@@ -110,48 +91,12 @@ export function OrdersTab() {
     },
   });
 
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setVehicleBrand("");
-    setVehicleModel("");
-    setVehicleYear("");
-    setVehiclePlate("");
-    setLocation("");
-    setUrgency("normal");
-  };
-
-  const handleCreate = () => {
-    if (!user?.profileComplete) {
-      toast({ title: "Complete seu perfil", description: "Preencha WhatsApp e endereço antes de criar pedidos.", variant: "destructive" });
-      return;
-    }
-    if (!title || !description || !vehicleBrand || !vehicleModel || !vehicleYear || !location) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-    createMutation.mutate({
-      title,
-      description,
-      vehicleBrand,
-      vehicleModel,
-      vehicleYear: parseInt(vehicleYear),
-      vehiclePlate: vehiclePlate || undefined,
-      location,
-      urgency,
-      isPartnerRequest: false,
-    });
-  };
-
-  const filteredOrders = orders.filter((o) => {
-    if (filter === "all") return true;
-    return o.status === filter;
-  });
-
   const formatDate = (d: string) => {
-    const date = new Date(typeof d === 'number' ? (d as number) * 1000 : d);
+    const date = new Date(typeof d === "number" ? (d as any) * 1000 : d);
     return date.toLocaleDateString("pt-BR");
   };
+
+  const filteredOrders = orders.filter((o) => filter === "all" || o.status === filter);
 
   return (
     <div className="space-y-6">
@@ -160,76 +105,19 @@ export function OrdersTab() {
           <h2 className="text-xl font-bold">Meus Pedidos</h2>
           <p className="text-sm text-muted-foreground">Gerencie seus pedidos de peças</p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Pedido
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Criar Novo Pedido de Peça</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Título da Peça *</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Motor Completo Honda Civic" />
-              </div>
-              <div className="space-y-2">
-                <Label>Descrição Detalhada *</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva a peça que precisa, condições aceitáveis, etc." rows={3} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Marca *</Label>
-                  <Input value={vehicleBrand} onChange={(e) => setVehicleBrand(e.target.value)} placeholder="Honda" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Modelo *</Label>
-                  <Input value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="Civic" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ano *</Label>
-                  <Input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="2020" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Placa (opcional)</Label>
-                  <Input value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value)} placeholder="ABC-1234" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Localização *</Label>
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="São Paulo - SP" />
-              </div>
-              <div className="space-y-2">
-                <Label>Urgência</Label>
-                <Select value={urgency} onValueChange={setUrgency}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="urgent">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
-                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                Publicar Pedido
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowWizard(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Pedido
+        </Button>
       </div>
 
       <div className="flex gap-2 flex-wrap">
         {[
-          { key: "all", label: "Todos" },
-          { key: "open", label: "Abertos" },
-          { key: "negotiating", label: "Negociando" },
-          { key: "completed", label: "Concluídos" },
-          { key: "cancelled", label: "Cancelados" },
+          { key: "all",        label: "Todos" },
+          { key: "open",       label: "Abertos" },
+          { key: "negotiating",label: "Negociando" },
+          { key: "completed",  label: "Concluídos" },
+          { key: "cancelled",  label: "Cancelados" },
         ].map((f) => (
           <Button key={f.key} variant={filter === f.key ? "default" : "outline"} size="sm" onClick={() => setFilter(f.key)}>
             {f.label}
@@ -246,7 +134,7 @@ export function OrdersTab() {
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-lg font-medium">Nenhum pedido encontrado</p>
-            <p className="text-sm text-muted-foreground mt-1">Crie seu primeiro pedido de peça clicando em "Novo Pedido"</p>
+            <p className="text-sm text-muted-foreground mt-1">Clique em "Novo Pedido" para solicitar uma peça</p>
           </CardContent>
         </Card>
       ) : (
@@ -254,34 +142,51 @@ export function OrdersTab() {
           {filteredOrders.map((order) => (
             <Card key={order.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">{order.title}</h3>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="font-semibold text-base">{order.title}</h3>
                       <Badge variant={statusLabels[order.status]?.variant || "outline"}>
                         {statusLabels[order.status]?.label || order.status}
                       </Badge>
                       {order.urgency === "urgent" && (
-                        <Badge variant="destructive">Urgente</Badge>
+                        <Badge variant="destructive">
+                          <AlertTriangle className="h-3 w-3 mr-1" />Urgente
+                        </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
+                      {order.vehicleType && (
+                        <span>{VEHICLE_TYPE_LABELS[order.vehicleType] || order.vehicleType}</span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Car className="h-3 w-3" />
                         {order.vehicleBrand} {order.vehicleModel} {order.vehicleYear}
                       </span>
-                      <span>{order.location}</span>
+                      {order.partPosition && <span>{order.partPosition}</span>}
                       <span>{formatDate(order.createdAt)}</span>
                     </div>
-                    <p className="text-sm mt-2 line-clamp-2">{order.description}</p>
+
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {order.partCategory && <Badge variant="outline" className="text-xs">{order.partCategory}</Badge>}
+                      {order.partConditionAccepted && order.partConditionAccepted !== "any" && (
+                        <Badge variant="outline" className="text-xs">{CONDITION_LABELS[order.partConditionAccepted] || order.partConditionAccepted}</Badge>
+                      )}
+                      {order.images && order.images.length > 0 && (
+                        <Badge variant="outline" className="text-xs">📷 {order.images.length} foto(s)</Badge>
+                      )}
+                    </div>
+
                     <div className="flex items-center gap-4 mt-3">
-                      <span className="text-sm flex items-center gap-1">
+                      <span className="text-sm flex items-center gap-1 text-muted-foreground">
                         <MessageSquare className="h-3 w-3" />
-                        {order.proposals?.length || 0} proposta(s) recebida(s)
+                        {order.proposals?.length || 0} proposta(s)
                       </span>
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
+
+                  <div className="flex gap-2 shrink-0">
                     <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
                       <Eye className="h-4 w-4 mr-1" /> Ver
                     </Button>
@@ -303,8 +208,9 @@ export function OrdersTab() {
         </div>
       )}
 
+      {/* Order detail dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedOrder?.title}</DialogTitle>
           </DialogHeader>
@@ -314,24 +220,63 @@ export function OrdersTab() {
                 <Badge variant={statusLabels[selectedOrder.status]?.variant || "outline"}>
                   {statusLabels[selectedOrder.status]?.label}
                 </Badge>
-                {selectedOrder.urgency === "urgent" && <Badge variant="destructive">Urgente</Badge>}
+                {selectedOrder.urgency === "urgent" && <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Urgente</Badge>}
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Veículo</p>
-                <p>{selectedOrder.vehicleBrand} {selectedOrder.vehicleModel} {selectedOrder.vehicleYear}</p>
-                {selectedOrder.vehiclePlate && <p className="text-sm text-muted-foreground">Placa: {selectedOrder.vehiclePlate}</p>}
+
+              {/* Vehicle */}
+              <div className="rounded-xl border p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Veículo</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {selectedOrder.vehicleType && <DetailRow label="Tipo" value={VEHICLE_TYPE_LABELS[selectedOrder.vehicleType]} />}
+                  <DetailRow label="Marca" value={selectedOrder.vehicleBrand} />
+                  <DetailRow label="Modelo" value={selectedOrder.vehicleModel} />
+                  <DetailRow label="Ano" value={String(selectedOrder.vehicleYear)} />
+                  {selectedOrder.vehicleColor && <DetailRow label="Cor" value={selectedOrder.vehicleColor} />}
+                  {selectedOrder.vehicleEngine && <DetailRow label="Motor" value={selectedOrder.vehicleEngine} />}
+                  {selectedOrder.vehiclePlate && <DetailRow label="Placa" value={selectedOrder.vehiclePlate} />}
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Localização</p>
-                <p>{selectedOrder.location}</p>
+
+              {/* Part */}
+              <div className="rounded-xl border p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Peça</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {selectedOrder.partCategory && <DetailRow label="Categoria" value={selectedOrder.partCategory} />}
+                  {selectedOrder.partName && <DetailRow label="Peça" value={selectedOrder.partName} />}
+                  {selectedOrder.partPosition && <DetailRow label="Posição" value={selectedOrder.partPosition} />}
+                  {selectedOrder.partConditionAccepted && (
+                    <DetailRow label="Condição aceita" value={CONDITION_LABELS[selectedOrder.partConditionAccepted] || selectedOrder.partConditionAccepted} />
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Descrição</p>
-                <p className="text-sm">{selectedOrder.description}</p>
-              </div>
+
+              {/* Description */}
+              {selectedOrder.description && selectedOrder.description !== selectedOrder.title && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Observações</p>
+                  <p className="text-sm">{selectedOrder.description}</p>
+                </div>
+              )}
+
+              {/* Photos */}
+              {selectedOrder.images && selectedOrder.images.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fotos ({selectedOrder.images.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedOrder.images.map((img) => (
+                      <a key={img.id} href={img.url} target="_blank" rel="noreferrer">
+                        <img src={img.url} alt="" className="rounded-lg w-full aspect-square object-cover border hover:opacity-90 transition-opacity" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Separator />
+
+              {/* Proposals */}
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Propostas Recebidas ({selectedOrder.proposals?.length || 0})
                 </p>
                 {selectedOrder.proposals && selectedOrder.proposals.length > 0 ? (
@@ -361,6 +306,23 @@ export function OrdersTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Wizard */}
+      <CreateOrderWizard
+        open={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSuccess={() => setShowWizard(false)}
+      />
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium">{value}</p>
     </div>
   );
 }
