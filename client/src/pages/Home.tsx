@@ -58,12 +58,6 @@ export default function Home() {
           </div>
           
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/admin">
-              <Button variant="ghost" className="hidden lg:inline-flex" data-testid="link-admin">Admin</Button>
-            </Link>
-            <Link href="/desmanche">
-              <Button variant="ghost" className="hidden lg:inline-flex text-blue-600 hover:text-blue-700" data-testid="link-desmanche">Painel Desmanche</Button>
-            </Link>
             <LoginModal>
               <Button variant="outline" data-testid="button-login">Entrar</Button>
             </LoginModal>
@@ -87,12 +81,6 @@ export default function Home() {
                   <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
                 </div>
                 <div className="flex flex-col gap-4 mt-8 border-t pt-8">
-                  <Link href="/admin">
-                    <Button variant="ghost" className="w-full justify-start" data-testid="link-admin-mobile">Admin Preview</Button>
-                  </Link>
-                  <Link href="/desmanche">
-                    <Button variant="ghost" className="w-full justify-start text-blue-600" data-testid="link-desmanche-mobile">Painel Desmanche Preview</Button>
-                  </Link>
                   <LoginModal>
                     <Button variant="outline" className="w-full" data-testid="button-login-mobile">Entrar</Button>
                   </LoginModal>
