@@ -89,8 +89,9 @@ Files are uploaded via `POST /api/upload` (multipart, field "file") and stored i
 ## Default Credentials (seeded)
 
 - Admin: `admin@centraldesmanches.com` / `admin123`
-- Desmanche: `contato@irmaossilva.com` / `desmanche123`
-- Cliente: `cliente@email.com` / `cliente123`
+- Desmanche: `contato@irmaossilva.com` / `desmanche123` (status: active)
+- Cliente (Carlos Eduardo): `cliente@email.com` / `cliente123`
+- Cliente (DEBORA - tem pedidos): `recriarme@gmail.com` / `debora123`
 
 ## API Endpoints
 

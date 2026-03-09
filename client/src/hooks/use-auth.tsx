@@ -79,30 +79,6 @@ export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// API request with auth header
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const token = getToken();
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: data ? JSON.stringify(data) : undefined,
-  });
-
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-
-  return res;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -169,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (userData) => {
       queryClient.setQueryData(["/api/users/me"], userData);
-      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
+      queryClient.invalidateQueries();
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",

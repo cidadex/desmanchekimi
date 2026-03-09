@@ -4,10 +4,11 @@ import { PackageSearch, Clock, MapPin, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { getToken } from "@/hooks/use-auth";
 import { useState } from "react";
 
 type Order = {
-  id: number;
+  id: string;
   title: string;
   vehicleBrand: string | null;
   vehicleModel: string | null;
@@ -17,7 +18,7 @@ type Order = {
   status: string;
   createdAt: string;
   proposals?: unknown[];
-  user?: { name: string } | null;
+  client?: { name: string; email: string } | null;
 };
 
 const statusLabels: Record<string, string> = {
@@ -62,6 +63,7 @@ export default function OrdersTab() {
       const res = await apiRequest("GET", "/api/admin/orders");
       return res.json();
     },
+    enabled: !!getToken(),
     refetchInterval: 30 * 1000,
     staleTime: 0,
   });
@@ -155,7 +157,7 @@ export default function OrdersTab() {
                         <MapPin className="h-3 w-3" /> Destino
                       </div>
                       <div className="font-medium text-sm">{location || "Não informado"}</div>
-                      {order.user && <div className="text-xs text-muted-foreground">{order.user.name}</div>}
+                      {order.client && <div className="text-xs text-muted-foreground">{order.client.name}</div>}
                     </div>
 
                     <div className="space-y-1">
