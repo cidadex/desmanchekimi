@@ -57,13 +57,18 @@ export default function Home() {
             <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
           </div>
           
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             <LoginModal>
               <Button variant="outline" data-testid="button-login">Entrar</Button>
             </LoginModal>
             <RegisterModal>
-              <Button className="font-semibold" data-testid="button-register">Cadastre-se</Button>
+              <Button variant="outline" className="font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register">
+                Cadastro Cliente
+              </Button>
             </RegisterModal>
+            <Link href="/cadastro-desmanche">
+              <Button className="font-semibold">Cadastro Desmanche</Button>
+            </Link>
           </div>
 
           {/* Mobile Menu */}
@@ -80,13 +85,18 @@ export default function Home() {
                   <a href="#leiloes" className="hover:text-foreground transition-colors">Central de Leilões</a>
                   <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
                 </div>
-                <div className="flex flex-col gap-4 mt-8 border-t pt-8">
+                <div className="flex flex-col gap-3 mt-8 border-t pt-8">
                   <LoginModal>
                     <Button variant="outline" className="w-full" data-testid="button-login-mobile">Entrar</Button>
                   </LoginModal>
                   <RegisterModal>
-                    <Button className="w-full font-semibold" data-testid="button-register-mobile">Cadastre-se</Button>
+                    <Button variant="outline" className="w-full font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register-mobile">
+                      Cadastro Cliente
+                    </Button>
                   </RegisterModal>
+                  <Link href="/cadastro-desmanche">
+                    <Button className="w-full font-semibold">Cadastro Desmanche</Button>
+                  </Link>
                 </div>
               </SheetContent>
             </Sheet>
