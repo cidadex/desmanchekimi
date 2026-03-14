@@ -111,18 +111,16 @@ export default function ClientDashboard() {
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <img src={logoImg} alt="Central dos Desmanches" className="h-16 w-auto" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
+          <div className="py-6 px-4 border-b flex flex-col items-center relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden absolute right-2 top-2"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <img src={logoImg} alt="Central dos Desmanches" className="h-32 w-auto" />
           </div>
 
           <div className="p-4 border-b">

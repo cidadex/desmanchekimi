@@ -78,10 +78,8 @@ export default function DesmancheDashboard() {
 
   const SidebarContent = () => (
     <>
-      <div className="h-24 flex items-center justify-center px-4 border-b border-slate-800 bg-slate-950">
-        <div className="flex items-center gap-2">
-          <img src={logoImg} alt="Central dos Desmanches" className="h-20 w-auto drop-shadow-sm brightness-110" />
-        </div>
+      <div className="flex items-center justify-center px-4 py-6 border-b border-slate-800 bg-slate-950">
+        <img src={logoImg} alt="Central dos Desmanches" className="h-40 w-auto drop-shadow-sm brightness-110" />
       </div>
       
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">

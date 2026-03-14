@@ -62,10 +62,8 @@ export default function AdminDashboard() {
 
   const SidebarContent = () => (
     <>
-      <div className="h-24 flex items-center justify-center px-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <img src={logoImg} alt="Central dos Desmanches" className="h-20 w-auto drop-shadow-sm" />
-        </div>
+      <div className="flex items-center justify-center px-4 py-6 border-b border-border">
+        <img src={logoImg} alt="Central dos Desmanches" className="h-40 w-auto drop-shadow-sm" />
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
