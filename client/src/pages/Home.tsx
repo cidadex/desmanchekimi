@@ -267,15 +267,16 @@ export default function Home() {
             <div className="flex items-center gap-8 flex-col md:flex-row text-center md:text-left">
               <img src={logoImg} alt="Central dos Desmanches" className="h-32 md:h-40 w-auto drop-shadow-lg" />
               <div className="max-w-md">
-                <h4 className="text-2xl font-bold text-slate-50 mb-3 font-mono">10 Anos de Tradição e Confiança</h4>
+                <h4 className="text-2xl font-bold text-slate-50 mb-3 font-mono">3 Anos de Experiência</h4>
                 <p className="text-base leading-relaxed">
-                  Com uma década de forte atuação no mercado automotivo, a Central dos Desmanches consolidou-se como a maior e mais segura referência nacional na conexão inteligente entre desmanches credenciados e compradores exigentes.
+                  Com 3 anos de atuação no mercado automotivo, a Central dos Desmanches conecta desmanches credenciados e compradores em todo o Brasil com segurança e agilidade.
                 </p>
               </div>
             </div>
-            <div className="text-sm font-medium flex flex-col items-center md:items-end gap-2">
-              <span>© {new Date().getFullYear()} Central dos Desmanches.</span>
-              <span className="text-slate-500">Todos os direitos reservados.</span>
+            <div className="text-sm flex flex-col items-center md:items-end gap-2">
+              <span className="font-semibold text-slate-200">Central dos Desmanches Ltda</span>
+              <span className="text-slate-400">CNPJ: 45.450.395/0001-62</span>
+              <span className="text-slate-500 mt-1">© {new Date().getFullYear()} Todos os direitos reservados.</span>
             </div>
           </div>
         </div>
