@@ -64,7 +64,7 @@ export default function AdminDashboard() {
     <>
       <div className="h-24 flex items-center justify-center px-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <img src={logoImg} alt="Central dos Desmanches" className="h-16 w-auto drop-shadow-sm" />
+          <img src={logoImg} alt="Central dos Desmanches" className="h-20 w-auto drop-shadow-sm" />
         </div>
       </div>
       

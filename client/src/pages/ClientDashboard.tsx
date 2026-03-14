@@ -113,7 +113,7 @@ export default function ClientDashboard() {
         <div className="flex flex-col h-full">
           <div className="p-4 border-b">
             <div className="flex items-center justify-between">
-              <img src={logoImg} alt="Central dos Desmanches" className="h-10 w-auto" />
+              <img src={logoImg} alt="Central dos Desmanches" className="h-16 w-auto" />
               <Button
                 variant="ghost"
                 size="icon"

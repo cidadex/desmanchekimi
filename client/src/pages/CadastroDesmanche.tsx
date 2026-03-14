@@ -317,7 +317,7 @@ export default function CadastroDesmanche() {
       <nav className="border-b bg-background sticky top-0 z-50">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <Link href="/">
-            <img src={logoImg} alt="Central dos Desmanches" className="h-14 w-auto cursor-pointer" />
+            <img src={logoImg} alt="Central dos Desmanches" className="h-20 w-auto cursor-pointer" />
           </Link>
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">

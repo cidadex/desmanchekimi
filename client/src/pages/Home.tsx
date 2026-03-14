@@ -48,7 +48,7 @@ export default function Home() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-24 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={logoImg} alt="Central dos Desmanches" className="h-16 md:h-20 w-auto drop-shadow-md" />
+            <img src={logoImg} alt="Central dos Desmanches" className="h-20 md:h-24 w-auto drop-shadow-md" />
           </div>
           
           <div className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
