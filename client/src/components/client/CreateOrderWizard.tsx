@@ -1,97 +1,96 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  Car, Bike, Truck, Bus, Ship, Plane, Loader2, ChevronRight, ChevronLeft,
-  Camera, X, CheckCircle2, AlertTriangle, Zap, Package,
-} from "lucide-react";
+import { Camera, X, Loader2, Zap, Clock } from "lucide-react";
 
-// ────────────────────────────────────────────────────────────────────────────
-// DATA DEFINITIONS
-// ────────────────────────────────────────────────────────────────────────────
+// ─── VEHICLE TYPES ───────────────────────────────────────────────────────────
 
 const VEHICLE_TYPES = [
-  { id: "car",         label: "Carro",             icon: "🚗", brands: ["Fiat","Volkswagen","Chevrolet","Toyota","Honda","Hyundai","Renault","Ford","Jeep","Nissan","Mitsubishi","Citroën","Peugeot","BMW","Mercedes-Benz","Audi","Kia","Subaru","Volvo","Land Rover"] },
-  { id: "motorcycle",  label: "Moto",               icon: "🏍️", brands: ["Honda","Yamaha","Suzuki","Kawasaki","BMW","Harley-Davidson","Royal Enfield","Triumph","KTM","Dafra","Shineray"] },
-  { id: "truck",       label: "Caminhão",           icon: "🚛", brands: ["Mercedes-Benz","Volvo","Scania","Iveco","DAF","MAN","Ford","Volkswagen","International"] },
-  { id: "bus",         label: "Ônibus",             icon: "🚌", brands: ["Mercedes-Benz","Volvo","Scania","Marcopolo","Busscar","Caio"] },
-  { id: "van",         label: "Van / Utilitário",   icon: "🚐", brands: ["Fiat","Mercedes-Benz","Ford","Volkswagen","Renault","Citroën","Hyundai"] },
-  { id: "boat",        label: "Barco / Lancha",     icon: "⛵", brands: ["Focker","Corsa","Real","Cimitarra","Triton","Schaefer","Ventura"] },
-  { id: "airplane",    label: "Avião",              icon: "✈️", brands: ["Cessna","Embraer","Piper","Beechcraft","Cirrus","Diamond"] },
-  { id: "helicopter",  label: "Helicóptero",        icon: "🚁", brands: ["Robinson","Bell","Airbus","Eurocopter","Sikorsky"] },
-  { id: "bicycle",     label: "Bicicleta / E-bike", icon: "🚲", brands: ["Caloi","Monark","Specialized","Trek","Caloi","Oggi","Soul","Houston"] },
-  { id: "agricultural",label: "Trator / Agrícola",  icon: "🚜", brands: ["John Deere","New Holland","Case","Massey Ferguson","Valtra","AGCO","Agrale"] },
-  { id: "other",       label: "Outro",              icon: "🔧", brands: [] },
+  { id: "car",          label: "Carro",           icon: "🚗", fipe: "carros" },
+  { id: "motorcycle",   label: "Moto",            icon: "🏍️", fipe: "motos" },
+  { id: "truck",        label: "Caminhão",        icon: "🚛", fipe: "caminhoes" },
+  { id: "bus",          label: "Ônibus",          icon: "🚌", fipe: null },
+  { id: "van",          label: "Van / Utilitário",icon: "🚐", fipe: null },
+  { id: "boat",         label: "Barco / Lancha",  icon: "⛵", fipe: null },
+  { id: "bicycle",      label: "Bicicleta",       icon: "🚲", fipe: null },
+  { id: "agricultural", label: "Trator / Agrícola",icon:"🚜", fipe: null },
+  { id: "other",        label: "Outro",           icon: "🔧", fipe: null },
 ];
 
-interface PartDef {
-  id: string;
-  label: string;
-  pos?: "side" | "axle" | "axle_side" | "axle_front_rear" | "all4" | "full";
-}
+const STATIC_BRANDS: Record<string, string[]> = {
+  bus:          ["Mercedes-Benz","Volvo","Scania","Marcopolo","Busscar","Caio"],
+  van:          ["Fiat","Mercedes-Benz","Ford","Volkswagen","Renault","Citroën","Hyundai"],
+  boat:         ["Focker","Corsa","Real","Cimitarra","Triton","Schaefer","Ventura"],
+  bicycle:      ["Caloi","Monark","Specialized","Trek","Oggi","Soul","Houston"],
+  agricultural: ["John Deere","New Holland","Case","Massey Ferguson","Valtra","Agrale"],
+  other:        [],
+};
+
+// ─── CATEGORIES & PARTS ───────────────────────────────────────────────────────
 
 const CATEGORIES: Record<string, { id: string; label: string; emoji: string }[]> = {
   car: [
-    { id: "engine",    label: "Motor e Transmissão",         emoji: "⚙️" },
-    { id: "brakes",    label: "Freios",                      emoji: "🛑" },
-    { id: "suspension",label: "Suspensão e Direção",          emoji: "🔩" },
-    { id: "body",      label: "Carroceria / Lataria",        emoji: "🚗" },
-    { id: "glass",     label: "Vidros e Espelhos",           emoji: "🪟" },
-    { id: "lighting",  label: "Iluminação",                  emoji: "💡" },
-    { id: "interior",  label: "Interior",                    emoji: "🪑" },
-    { id: "electrical",label: "Elétrica e Eletrônica",       emoji: "⚡" },
-    { id: "wheels",    label: "Rodas e Pneus",               emoji: "⭕" },
-    { id: "cooling",   label: "Arrefecimento",               emoji: "❄️" },
-    { id: "fuel",      label: "Sistema de Combustível",      emoji: "⛽" },
-    { id: "exhaust",   label: "Escapamento",                 emoji: "💨" },
-    { id: "clutch",    label: "Embreagem",                   emoji: "🔧" },
-    { id: "other",     label: "Outro",                       emoji: "❓" },
+    { id: "engine",    label: "Motor e Transmissão",  emoji: "⚙️" },
+    { id: "brakes",    label: "Freios",                emoji: "🛑" },
+    { id: "suspension",label: "Suspensão / Direção",   emoji: "🔩" },
+    { id: "body",      label: "Carroceria / Lataria",  emoji: "🚗" },
+    { id: "glass",     label: "Vidros e Espelhos",     emoji: "🪟" },
+    { id: "lighting",  label: "Iluminação",            emoji: "💡" },
+    { id: "interior",  label: "Interior",              emoji: "🪑" },
+    { id: "electrical",label: "Elétrica / Eletrônica", emoji: "⚡" },
+    { id: "wheels",    label: "Rodas e Pneus",         emoji: "⭕" },
+    { id: "cooling",   label: "Arrefecimento",         emoji: "❄️" },
+    { id: "fuel",      label: "Sistema de Combustível",emoji: "⛽" },
+    { id: "exhaust",   label: "Escapamento",           emoji: "💨" },
+    { id: "clutch",    label: "Embreagem",             emoji: "🔧" },
+    { id: "other",     label: "Outro",                 emoji: "❓" },
   ],
   motorcycle: [
-    { id: "engine",    label: "Motor",                       emoji: "⚙️" },
-    { id: "brakes",    label: "Freios",                      emoji: "🛑" },
-    { id: "suspension",label: "Suspensão",                   emoji: "🔩" },
-    { id: "body",      label: "Carenagem / Lataria",         emoji: "🏍️" },
-    { id: "lighting",  label: "Iluminação",                  emoji: "💡" },
-    { id: "wheels",    label: "Rodas e Pneus",               emoji: "⭕" },
-    { id: "electrical",label: "Elétrica",                    emoji: "⚡" },
-    { id: "exhaust",   label: "Escapamento",                 emoji: "💨" },
-    { id: "fuel",      label: "Tanque / Combustível",        emoji: "⛽" },
-    { id: "other",     label: "Outro",                       emoji: "❓" },
+    { id: "engine",    label: "Motor",                 emoji: "⚙️" },
+    { id: "brakes",    label: "Freios",                emoji: "🛑" },
+    { id: "suspension",label: "Suspensão",             emoji: "🔩" },
+    { id: "body",      label: "Carenagem / Lataria",   emoji: "🏍️" },
+    { id: "lighting",  label: "Iluminação",            emoji: "💡" },
+    { id: "wheels",    label: "Rodas e Pneus",         emoji: "⭕" },
+    { id: "electrical",label: "Elétrica",              emoji: "⚡" },
+    { id: "exhaust",   label: "Escapamento",           emoji: "💨" },
+    { id: "fuel",      label: "Tanque / Combustível",  emoji: "⛽" },
+    { id: "other",     label: "Outro",                 emoji: "❓" },
   ],
   truck: [
-    { id: "engine",    label: "Motor e Transmissão",         emoji: "⚙️" },
-    { id: "brakes",    label: "Freios",                      emoji: "🛑" },
-    { id: "suspension",label: "Suspensão",                   emoji: "🔩" },
-    { id: "body",      label: "Cabine / Carroceria",         emoji: "🚛" },
-    { id: "lighting",  label: "Iluminação",                  emoji: "💡" },
-    { id: "wheels",    label: "Rodas e Pneus",               emoji: "⭕" },
-    { id: "electrical",label: "Elétrica",                    emoji: "⚡" },
-    { id: "exhaust",   label: "Escapamento",                 emoji: "💨" },
-    { id: "fuel",      label: "Sistema de Combustível",      emoji: "⛽" },
-    { id: "hydraulics",label: "Sistema Hidráulico",          emoji: "💧" },
-    { id: "other",     label: "Outro",                       emoji: "❓" },
+    { id: "engine",    label: "Motor e Transmissão",   emoji: "⚙️" },
+    { id: "brakes",    label: "Freios",                emoji: "🛑" },
+    { id: "suspension",label: "Suspensão",             emoji: "🔩" },
+    { id: "body",      label: "Cabine / Carroceria",   emoji: "🚛" },
+    { id: "lighting",  label: "Iluminação",            emoji: "💡" },
+    { id: "wheels",    label: "Rodas e Pneus",         emoji: "⭕" },
+    { id: "electrical",label: "Elétrica",              emoji: "⚡" },
+    { id: "exhaust",   label: "Escapamento",           emoji: "💨" },
+    { id: "fuel",      label: "Sistema de Combustível",emoji: "⛽" },
+    { id: "hydraulics",label: "Sistema Hidráulico",    emoji: "💧" },
+    { id: "other",     label: "Outro",                 emoji: "❓" },
   ],
 };
 
 const GENERIC_CATEGORIES = [
-  { id: "engine",    label: "Motor / Propulsão",  emoji: "⚙️" },
-  { id: "body",      label: "Estrutura / Corpo",  emoji: "🔩" },
+  { id: "engine",    label: "Motor / Propulsão",   emoji: "⚙️" },
+  { id: "body",      label: "Estrutura / Corpo",   emoji: "🔩" },
   { id: "electrical",label: "Elétrica",            emoji: "⚡" },
   { id: "wheels",    label: "Rodas / Deslocamento",emoji: "⭕" },
   { id: "other",     label: "Outro",               emoji: "❓" },
 ];
+
+interface PartDef { id: string; label: string; pos?: string }
 
 const PARTS: Record<string, PartDef[]> = {
   engine: [
@@ -108,7 +107,6 @@ const PARTS: Record<string, PartDef[]> = {
     { id: "cambio_manual",    label: "Câmbio Manual" },
     { id: "cambio_auto",      label: "Câmbio Automático" },
     { id: "cambio_cvt",       label: "Câmbio CVT" },
-    { id: "caixa_transfer",   label: "Caixa de Transferência" },
     { id: "semi_eixo",        label: "Semi-eixo / Homocinética" },
     { id: "diferencial",      label: "Diferencial" },
     { id: "outro_motor",      label: "Outro (descrevo nos detalhes)" },
@@ -127,34 +125,29 @@ const PARTS: Record<string, PartDef[]> = {
   suspension: [
     { id: "amortecedor",      label: "Amortecedor",               pos: "axle_side" },
     { id: "mola",             label: "Mola",                      pos: "axle_side" },
-    { id: "bandeja",          label: "Bandeja / Braço de Controle", pos: "axle_side" },
+    { id: "bandeja",          label: "Bandeja / Braço de Controle",pos:"axle_side" },
     { id: "pivo",             label: "Pivô / Ball Joint",         pos: "axle_side" },
-    { id: "bucha",            label: "Bucha de Bandeja",          pos: "axle_side" },
     { id: "barra_estab",      label: "Barra Estabilizadora",      pos: "axle" },
     { id: "terminal_dir",     label: "Terminal de Direção",       pos: "side" },
     { id: "cremalheira",      label: "Caixa de Direção / Cremalheira" },
     { id: "bomba_dir_hid",    label: "Bomba de Direção Hidráulica" },
-    { id: "coluna_direcao",   label: "Coluna de Direção" },
     { id: "outro_susp",       label: "Outro (descrevo nos detalhes)" },
   ],
   body: [
     { id: "porta",            label: "Porta",                     pos: "axle_side" },
-    { id: "capo",             label: "Capô / Cofre" },
+    { id: "capo",             label: "Capô" },
     { id: "tampa_traseira",   label: "Tampa Traseira / Porta-malas" },
     { id: "para_lama",        label: "Para-lama",                 pos: "axle_side" },
     { id: "para_choque",      label: "Para-choque",               pos: "axle_front_rear" },
     { id: "teto",             label: "Teto" },
     { id: "longarina",        label: "Longarina / Soleira",       pos: "side" },
-    { id: "coluna",           label: "Coluna A/B/C",              pos: "side" },
-    { id: "assoalho",         label: "Assoalho" },
     { id: "outro_lat",        label: "Outro (descrevo nos detalhes)" },
   ],
   glass: [
     { id: "parabrisa",        label: "Para-brisa" },
     { id: "vidro_traseiro",   label: "Vidro Traseiro" },
     { id: "vidro_lateral",    label: "Vidro Lateral",             pos: "axle_side" },
-    { id: "vidro_teto",       label: "Vidro Teto Solar" },
-    { id: "espelho_ext",      label: "Espelho Retrovisor Externo", pos: "side" },
+    { id: "espelho_ext",      label: "Espelho Retrovisor Externo",pos: "side" },
     { id: "espelho_int",      label: "Espelho Retrovisor Interno" },
     { id: "outro_vidro",      label: "Outro (descrevo nos detalhes)" },
   ],
@@ -163,8 +156,6 @@ const PARTS: Record<string, PartDef[]> = {
     { id: "lanterna",         label: "Lanterna Traseira",         pos: "side" },
     { id: "farol_milha",      label: "Farol de Milha / Neblina",  pos: "axle_side" },
     { id: "pisca",            label: "Pisca-pisca / Seta",        pos: "full" },
-    { id: "luz_re",           label: "Luz de Ré",                 pos: "side" },
-    { id: "luz_placa",        label: "Luz da Placa" },
     { id: "drl",              label: "DRL / Luz Diurna",          pos: "side" },
     { id: "outro_ilum",       label: "Outro (descrevo nos detalhes)" },
   ],
@@ -173,8 +164,6 @@ const PARTS: Record<string, PartDef[]> = {
     { id: "painel_dashboard", label: "Painel / Dashboard" },
     { id: "forro_porta",      label: "Forro de Porta",            pos: "axle_side" },
     { id: "console_central",  label: "Console Central" },
-    { id: "tapete",           label: "Tapete / Assoalho" },
-    { id: "forro_teto",       label: "Revestimento de Teto" },
     { id: "volante",          label: "Volante" },
     { id: "painel_instrum",   label: "Painel de Instrumentos" },
     { id: "outro_int",        label: "Outro (descrevo nos detalhes)" },
@@ -187,7 +176,6 @@ const PARTS: Record<string, PartDef[]> = {
     { id: "modulo_ecu",       label: "Módulo / ECU" },
     { id: "chicote",          label: "Chicote Elétrico" },
     { id: "sensor",           label: "Sensor (especifique nos detalhes)" },
-    { id: "motor_vidro",      label: "Motor Elétrico (vidro/trava)", pos: "axle_side" },
     { id: "outro_elet",       label: "Outro (descrevo nos detalhes)" },
   ],
   wheels: [
@@ -200,16 +188,13 @@ const PARTS: Record<string, PartDef[]> = {
   cooling: [
     { id: "radiador",         label: "Radiador" },
     { id: "bomba_agua",       label: "Bomba D'água" },
-    { id: "termostato",       label: "Termostato" },
     { id: "ventoinha",        label: "Ventoinha / Eletro-ventilador" },
     { id: "intercooler",      label: "Intercooler" },
-    { id: "reservatorio",     label: "Reservatório de Expansão" },
     { id: "outro_arref",      label: "Outro (descrevo nos detalhes)" },
   ],
   fuel: [
     { id: "bomba_comb",       label: "Bomba de Combustível" },
     { id: "injetor",          label: "Injetor de Combustível" },
-    { id: "flauta_inj",       label: "Flauta de Injetores" },
     { id: "filtro_comb",      label: "Filtro de Combustível" },
     { id: "tanque",           label: "Tanque / Reservatório" },
     { id: "corpo_borboleta",  label: "Corpo de Borboleta / TBI" },
@@ -235,130 +220,73 @@ const PARTS: Record<string, PartDef[]> = {
     { id: "mangueira_hid",    label: "Mangueira Hidráulica" },
     { id: "outro_hid",        label: "Outro (descrevo nos detalhes)" },
   ],
-  other: [
-    { id: "outro",            label: "Descrevo nos detalhes" },
-  ],
+  other: [{ id: "outro", label: "Descrevo nos detalhes" }],
 };
 
 const POSITIONS: Record<string, { id: string; label: string }[]> = {
-  side: [
-    { id: "esquerdo", label: "Esquerdo" },
-    { id: "direito",  label: "Direito" },
-    { id: "par",      label: "Par (ambos)" },
-  ],
-  axle: [
-    { id: "dianteiro", label: "Dianteiro" },
-    { id: "traseiro",  label: "Traseiro" },
-    { id: "eixo_par",  label: "Par (ambos eixos)" },
-  ],
-  axle_front_rear: [
-    { id: "dianteiro", label: "Dianteiro" },
-    { id: "traseiro",  label: "Traseiro" },
-  ],
-  axle_side: [
-    { id: "dianteiro_esquerdo", label: "Dianteiro Esq." },
-    { id: "dianteiro_direito",  label: "Dianteiro Dir." },
-    { id: "traseiro_esquerdo",  label: "Traseiro Esq." },
-    { id: "traseiro_direito",   label: "Traseiro Dir." },
-    { id: "par_dianteiro",      label: "Par Dianteiro" },
-    { id: "par_traseiro",       label: "Par Traseiro" },
-    { id: "todos",              label: "Todos (4)" },
-  ],
-  all4: [
-    { id: "dianteiro_esquerdo", label: "Dianteiro Esq." },
-    { id: "dianteiro_direito",  label: "Dianteiro Dir." },
-    { id: "traseiro_esquerdo",  label: "Traseiro Esq." },
-    { id: "traseiro_direito",   label: "Traseiro Dir." },
-    { id: "todos",              label: "Todos (4)" },
-  ],
-  full: [
-    { id: "dianteiro_esquerdo", label: "Dianteiro Esq." },
-    { id: "dianteiro_direito",  label: "Dianteiro Dir." },
-    { id: "traseiro_esquerdo",  label: "Traseiro Esq." },
-    { id: "traseiro_direito",   label: "Traseiro Dir." },
-    { id: "lateral_esquerdo",   label: "Lateral Esq." },
-    { id: "lateral_direito",    label: "Lateral Dir." },
-  ],
+  side:           [{ id:"esquerdo",label:"Esquerdo"},{ id:"direito",label:"Direito"},{ id:"par",label:"Par (ambos)"}],
+  axle:           [{ id:"dianteiro",label:"Dianteiro"},{ id:"traseiro",label:"Traseiro"},{ id:"eixo_par",label:"Par (ambos eixos)"}],
+  axle_front_rear:[{ id:"dianteiro",label:"Dianteiro"},{ id:"traseiro",label:"Traseiro"}],
+  axle_side:      [{ id:"dianteiro_esquerdo",label:"Dianteiro Esq."},{ id:"dianteiro_direito",label:"Dianteiro Dir."},{ id:"traseiro_esquerdo",label:"Traseiro Esq."},{ id:"traseiro_direito",label:"Traseiro Dir."},{ id:"par_dianteiro",label:"Par Dianteiro"},{ id:"par_traseiro",label:"Par Traseiro"},{ id:"todos",label:"Todos (4)"}],
+  all4:           [{ id:"dianteiro_esquerdo",label:"Dianteiro Esq."},{ id:"dianteiro_direito",label:"Dianteiro Dir."},{ id:"traseiro_esquerdo",label:"Traseiro Esq."},{ id:"traseiro_direito",label:"Traseiro Dir."},{ id:"todos",label:"Todos (4)"}],
+  full:           [{ id:"dianteiro_esquerdo",label:"Dianteiro Esq."},{ id:"dianteiro_direito",label:"Dianteiro Dir."},{ id:"traseiro_esquerdo",label:"Traseiro Esq."},{ id:"traseiro_direito",label:"Traseiro Dir."},{ id:"lateral_esquerdo",label:"Lateral Esq."},{ id:"lateral_direito",label:"Lateral Dir."}],
 };
 
-const CONDITIONS = [
-  { id: "new",           label: "Nova",           desc: "Apenas peça nova" },
-  { id: "used-excellent",label: "Usada - Ótimo",  desc: "Seminova, baixíssimo uso" },
-  { id: "used-good",     label: "Usada - Bom",    desc: "Boas condições de uso" },
-  { id: "any",           label: "Qualquer",        desc: "Qualquer condição" },
-];
+// ─── FIPE HELPERS ─────────────────────────────────────────────────────────────
 
-// ────────────────────────────────────────────────────────────────────────────
-// WIZARD STATE
-// ────────────────────────────────────────────────────────────────────────────
+async function fetchFipeBrands(fipeType: string): Promise<{ codigo: string; nome: string }[]> {
+  const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${fipeType}/marcas`);
+  if (!res.ok) throw new Error("FIPE unavailable");
+  return res.json();
+}
 
-interface WizardState {
+async function fetchFipeModels(fipeType: string, brandCode: string): Promise<{ codigo: string; nome: string }[]> {
+  const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${fipeType}/marcas/${brandCode}/modelos`);
+  if (!res.ok) throw new Error("FIPE unavailable");
+  const data = await res.json();
+  return data.modelos || [];
+}
+
+// ─── FORM STATE ───────────────────────────────────────────────────────────────
+
+interface FormState {
   vehicleType: string;
   vehicleBrand: string;
+  vehicleBrandCode: string;
   vehicleModel: string;
   vehicleYear: string;
-  vehicleColor: string;
-  vehicleEngine: string;
   vehiclePlate: string;
   partCategory: string;
   partName: string;
   partPosition: string;
-  partConditionAccepted: string;
   description: string;
   urgency: string;
   photos: File[];
 }
 
-const EMPTY: WizardState = {
-  vehicleType: "",
-  vehicleBrand: "",
-  vehicleModel: "",
-  vehicleYear: "",
-  vehicleColor: "",
-  vehicleEngine: "",
-  vehiclePlate: "",
-  partCategory: "",
-  partName: "",
-  partPosition: "",
-  partConditionAccepted: "any",
-  description: "",
-  urgency: "normal",
-  photos: [],
+const EMPTY: FormState = {
+  vehicleType: "", vehicleBrand: "", vehicleBrandCode: "", vehicleModel: "",
+  vehicleYear: "", vehiclePlate: "", partCategory: "", partName: "",
+  partPosition: "", description: "", urgency: "normal", photos: [],
 };
 
-function buildTitle(s: WizardState): string {
+function buildTitle(s: FormState): string {
   const parts: string[] = [];
   if (s.partName) {
-    const allParts = Object.values(PARTS).flat();
-    const partDef = allParts.find((p) => p.id === s.partName);
+    const partDef = Object.values(PARTS).flat().find((p) => p.id === s.partName);
     if (partDef) parts.push(partDef.label);
   }
-  if (s.partPosition) {
-    const allPos = Object.values(POSITIONS).flat();
-    const posDef = allPos.find((p) => p.id === s.partPosition);
-    if (posDef) parts.push(posDef.label);
-  }
-  const vt = VEHICLE_TYPES.find((v) => v.id === s.vehicleType);
-  const vehicleParts: string[] = [];
-  if (s.vehicleBrand) vehicleParts.push(s.vehicleBrand);
-  if (s.vehicleModel) vehicleParts.push(s.vehicleModel);
-  if (s.vehicleYear) vehicleParts.push(s.vehicleYear);
-  if (vt && vehicleParts.length) parts.push(`- ${vehicleParts.join(" ")}`);
-  else if (vt) parts.push(`- ${vt.label}`);
+  const vehicle: string[] = [];
+  if (s.vehicleBrand) vehicle.push(s.vehicleBrand);
+  if (s.vehicleModel) vehicle.push(s.vehicleModel);
+  if (s.vehicleYear) vehicle.push(s.vehicleYear);
+  if (vehicle.length) parts.push(`- ${vehicle.join(" ")}`);
   return parts.join(" ") || "Pedido de Peça";
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// COMPONENT
-// ────────────────────────────────────────────────────────────────────────────
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-const TOTAL_STEPS = 6;
+interface Props { open: boolean; onClose: () => void; onSuccess: () => void }
 
 export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
   const { user } = useAuth();
@@ -367,45 +295,78 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
   const token = getToken();
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState(1);
-  const [state, setState] = useState<WizardState>(EMPTY);
-  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
-  const set = (patch: Partial<WizardState>) => setState((s) => ({ ...s, ...patch }));
+  const set = (patch: Partial<FormState>) => setForm((s) => ({ ...s, ...patch }));
 
-  const categories = CATEGORIES[state.vehicleType] ?? GENERIC_CATEGORIES;
-  const selectedPart = Object.values(PARTS).flat().find((p) => p.id === state.partName);
+  const vt = VEHICLE_TYPES.find((v) => v.id === form.vehicleType);
+  const hasFipe = !!vt?.fipe;
+  const categories = CATEGORIES[form.vehicleType] ?? GENERIC_CATEGORIES;
+  const partOptions = form.partCategory ? (PARTS[form.partCategory] ?? []) : [];
+  const selectedPart = Object.values(PARTS).flat().find((p) => p.id === form.partName);
   const positionOptions = selectedPart?.pos ? POSITIONS[selectedPart.pos] : null;
 
-  // ── mutations ──────────────────────────────────────────────────────────────
+  // FIPE queries
+  const { data: fipeBrands = [], isFetching: loadingBrands } = useQuery({
+    queryKey: ["fipe-brands", vt?.fipe],
+    queryFn: () => fetchFipeBrands(vt!.fipe!),
+    enabled: hasFipe,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const { data: fipeModels = [], isFetching: loadingModels } = useQuery({
+    queryKey: ["fipe-models", vt?.fipe, form.vehicleBrandCode],
+    queryFn: () => fetchFipeModels(vt!.fipe!, form.vehicleBrandCode),
+    enabled: hasFipe && !!form.vehicleBrandCode,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const staticBrands = !hasFipe && vt ? (STATIC_BRANDS[vt.id] ?? []) : [];
+
+  // Reset dependent fields when vehicle type changes
+  useEffect(() => {
+    set({ vehicleBrand: "", vehicleBrandCode: "", vehicleModel: "", partCategory: "", partName: "", partPosition: "" });
+  }, [form.vehicleType]);
+
+  useEffect(() => {
+    set({ vehicleModel: "", vehicleBrandCode: hasFipe ? form.vehicleBrandCode : "" });
+  }, [form.vehicleBrand]);
+
+  useEffect(() => {
+    set({ partName: "", partPosition: "" });
+  }, [form.partCategory]);
+
+  useEffect(() => {
+    set({ partPosition: "" });
+  }, [form.partName]);
+
+  // Submit
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!user?.profileComplete) throw new Error("profile");
-      const title = buildTitle(state);
-      const description = state.description || title;
+      if (!form.vehicleType || !form.vehicleBrand || !form.partName) throw new Error("required");
 
-      const vt = VEHICLE_TYPES.find((v) => v.id === state.vehicleType);
-      const partDef = Object.values(PARTS).flat().find((p) => p.id === state.partName);
-      const posDef = positionOptions?.find((p) => p.id === state.partPosition);
-      const catDef = categories.find((c) => c.id === state.partCategory);
+      const partDef = Object.values(PARTS).flat().find((p) => p.id === form.partName);
+      const posDef = positionOptions?.find((p) => p.id === form.partPosition);
+      const catDef = categories.find((c) => c.id === form.partCategory);
+      const title = buildTitle(form);
 
       const body: Record<string, any> = {
         title,
-        description,
-        vehicleType: state.vehicleType,
-        vehicleBrand: state.vehicleBrand || (vt?.label ?? "Não informado"),
-        vehicleModel: state.vehicleModel || "Não informado",
-        vehicleYear: parseInt(state.vehicleYear) || new Date().getFullYear(),
-        vehiclePlate: state.vehiclePlate || undefined,
-        vehicleColor: state.vehicleColor || undefined,
-        vehicleEngine: state.vehicleEngine || undefined,
-        partCategory: catDef?.label || state.partCategory,
-        partName: partDef?.label || state.partName,
-        partPosition: posDef?.label || state.partPosition || undefined,
-        partConditionAccepted: state.partConditionAccepted,
-        location: user ? `${(user as any).city || ""}, ${(user as any).state || ""}`.trim().replace(/^,\s*/, "") || "Brasil" : "Brasil",
-        urgency: state.urgency,
+        description: form.description || title,
+        vehicleType: form.vehicleType,
+        vehicleBrand: form.vehicleBrand,
+        vehicleModel: form.vehicleModel || "Não informado",
+        vehicleYear: parseInt(form.vehicleYear) || new Date().getFullYear(),
+        vehiclePlate: form.vehiclePlate || undefined,
+        partCategory: catDef?.label || form.partCategory,
+        partName: partDef?.label || form.partName,
+        partPosition: posDef?.label || form.partPosition || undefined,
+        partConditionAccepted: "any",
+        location: user ? `${(user as any).city || ""},${(user as any).state || ""}`.replace(/^,|,$/g, "").trim() || "Brasil" : "Brasil",
+        urgency: form.urgency,
         isPartnerRequest: false,
       };
 
@@ -416,46 +377,41 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
       }
       const order = await res.json();
 
-      // upload photos
-      if (state.photos.length > 0) {
+      if (form.photos.length > 0) {
         setUploading(true);
         try {
           const fd = new FormData();
-          state.photos.forEach((f) => fd.append("photos", f));
+          form.photos.forEach((f) => fd.append("photos", f));
           await fetch(`/api/orders/${order.id}/images`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` },
             body: fd,
           });
-        } catch {
-          // photos failed but order created — not fatal
-        } finally {
-          setUploading(false);
-        }
+        } catch {}
+        finally { setUploading(false); }
       }
       return order;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/orders/my"] });
       qc.invalidateQueries({ queryKey: ["/api/orders"] });
-      qc.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       toast({ title: "Pedido criado!", description: "Seu pedido foi publicado no mural dos desmanches." });
       handleClose();
       onSuccess();
     },
     onError: (err: any) => {
       if (err.message === "profile") {
-        toast({ title: "Complete seu perfil", description: "Preencha WhatsApp e endereço antes de criar pedidos.", variant: "destructive" });
+        toast({ title: "Complete seu perfil", description: "Preencha WhatsApp e endereço no seu perfil.", variant: "destructive" });
+      } else if (err.message === "required") {
+        toast({ title: "Campos obrigatórios", description: "Selecione o tipo de veículo, marca e a peça.", variant: "destructive" });
       } else {
         toast({ title: "Erro", description: err.message || "Não foi possível criar o pedido.", variant: "destructive" });
       }
     },
   });
 
-  // ── helpers ────────────────────────────────────────────────────────────────
   const handleClose = () => {
-    setStep(1);
-    setState(EMPTY);
+    setForm(EMPTY);
     setPreviewUrls([]);
     onClose();
   };
@@ -463,423 +419,297 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
   const handlePhotos = (files: FileList | null) => {
     if (!files) return;
     const arr = Array.from(files);
-    const total = state.photos.length + arr.length;
-    if (total > 10) {
-      toast({ title: "Máximo 10 fotos", variant: "destructive" });
+    if (form.photos.length + arr.length > 6) {
+      toast({ title: "Máximo 6 fotos", variant: "destructive" });
       return;
     }
-    set({ photos: [...state.photos, ...arr] });
-    const newUrls = arr.map((f) => URL.createObjectURL(f));
-    setPreviewUrls((prev) => [...prev, ...newUrls]);
+    set({ photos: [...form.photos, ...arr] });
+    setPreviewUrls((prev) => [...prev, ...arr.map((f) => URL.createObjectURL(f))]);
   };
 
   const removePhoto = (i: number) => {
-    const photos = state.photos.filter((_, idx) => idx !== i);
-    const previews = previewUrls.filter((_, idx) => idx !== i);
-    set({ photos });
-    setPreviewUrls(previews);
+    set({ photos: form.photos.filter((_, idx) => idx !== i) });
+    setPreviewUrls((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const canNext = (): boolean => {
-    if (step === 1) return !!state.vehicleType;
-    if (step === 2) return !!state.vehicleBrand && !!state.vehicleModel && !!state.vehicleYear;
-    if (step === 3) return !!state.partCategory;
-    if (step === 4) return !!state.partName;
-    return true;
-  };
+  const isLoading = createMutation.isPending || uploading;
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 40 }, (_, i) => String(currentYear - i));
 
-  const next = () => {
-    if (!canNext()) {
-      toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-    // reset dependent selections when going forward
-    if (step === 1) set({ partCategory: "", partName: "", partPosition: "" });
-    if (step === 3) set({ partName: "", partPosition: "" });
-    if (step === 4) set({ partPosition: "" });
-    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
-  };
-
-  const back = () => setStep((s) => Math.max(s - 1, 1));
-
-  const vt = VEHICLE_TYPES.find((v) => v.id === state.vehicleType);
-
-  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto p-0">
-        {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-xl">Solicitar Peça</DialogTitle>
-          {/* Step indicator */}
-          <div className="flex items-center gap-1 mt-3 mb-1">
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i + 1 <= step ? "bg-primary" : "bg-muted")} />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Etapa {step} de {TOTAL_STEPS} — {["Tipo de Veículo", "Dados do Veículo", "Categoria da Peça", "Peça Específica", "Detalhes e Fotos", "Revisar e Publicar"][step - 1]}
-          </p>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Solicitar Peça</DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 py-4 space-y-4">
-          {/* ── STEP 1: Vehicle Type ─────────────────────────────────────── */}
-          {step === 1 && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Qual é o tipo do veículo?</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {VEHICLE_TYPES.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => set({ vehicleType: v.id })}
-                    className={cn(
-                      "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center hover:border-primary/60",
-                      state.vehicleType === v.id ? "border-primary bg-primary/5" : "border-muted"
-                    )}
-                  >
-                    <span className="text-3xl">{v.icon}</span>
-                    <span className="text-xs font-medium leading-tight">{v.label}</span>
-                  </button>
-                ))}
-              </div>
+        <div className="space-y-6 py-2">
+
+          {/* ── Tipo de Veículo ───────────────────────────────── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tipo de Veículo <span className="text-destructive">*</span></Label>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {VEHICLE_TYPES.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => set({ vehicleType: v.id })}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-xs font-medium transition-all",
+                    form.vehicleType === v.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <span className="text-xl">{v.icon}</span>
+                  <span className="leading-tight text-center">{v.label}</span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* ── STEP 2: Vehicle Details ──────────────────────────────────── */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                <span className="text-2xl">{vt?.icon}</span>
-                <div>
-                  <p className="font-medium text-sm">{vt?.label}</p>
-                  <p className="text-xs text-muted-foreground">Informe os dados do veículo</p>
-                </div>
-              </div>
-
+          {form.vehicleType && (
+            <>
+              {/* ── Veículo ───────────────────────────────────────── */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-sm">Marca *</Label>
-                  <Input
-                    value={state.vehicleBrand}
-                    onChange={(e) => set({ vehicleBrand: e.target.value })}
-                    placeholder={vt?.brands[0] || "Ex: Honda"}
-                    list="brands-list"
-                  />
-                  <datalist id="brands-list">
-                    {(vt?.brands ?? []).map((b) => <option key={b} value={b} />)}
-                  </datalist>
+
+                {/* Marca */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">
+                    Marca <span className="text-destructive">*</span>
+                    {loadingBrands && <Loader2 className="inline ml-1 h-3 w-3 animate-spin" />}
+                  </Label>
+                  {hasFipe ? (
+                    <Select
+                      value={form.vehicleBrandCode}
+                      onValueChange={(val) => {
+                        const brand = fipeBrands.find((b) => b.codigo === val);
+                        set({ vehicleBrandCode: val, vehicleBrand: brand?.nome || val, vehicleModel: "" });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingBrands ? "Carregando..." : "Selecione"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {fipeBrands.map((b) => (
+                          <SelectItem key={b.codigo} value={b.codigo}>{b.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : staticBrands.length > 0 ? (
+                    <Select value={form.vehicleBrand} onValueChange={(v) => set({ vehicleBrand: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {staticBrands.map((b) => (
+                          <SelectItem key={b} value={b}>{b}</SelectItem>
+                        ))}
+                        <SelectItem value="Outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Ex: Fiat, Toyota..."
+                      value={form.vehicleBrand}
+                      onChange={(e) => set({ vehicleBrand: e.target.value })}
+                    />
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Modelo *</Label>
-                  <Input value={state.vehicleModel} onChange={(e) => set({ vehicleModel: e.target.value })} placeholder="Ex: Civic, CG 160..." />
+
+                {/* Modelo */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">
+                    Modelo
+                    {loadingModels && <Loader2 className="inline ml-1 h-3 w-3 animate-spin" />}
+                  </Label>
+                  {hasFipe && form.vehicleBrandCode ? (
+                    <Select value={form.vehicleModel} onValueChange={(v) => set({ vehicleModel: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingModels ? "Carregando..." : "Selecione"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {fipeModels.map((m) => (
+                          <SelectItem key={m.codigo} value={m.nome}>{m.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Ex: Gol, Civic, S10..."
+                      value={form.vehicleModel}
+                      onChange={(e) => set({ vehicleModel: e.target.value })}
+                      disabled={hasFipe && !form.vehicleBrandCode}
+                    />
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Ano *</Label>
-                  <Select value={state.vehicleYear} onValueChange={(v) => set({ vehicleYear: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o ano" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
-                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+
+                {/* Ano */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Ano</Label>
+                  <Select value={form.vehicleYear} onValueChange={(v) => set({ vehicleYear: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent className="max-h-52">
+                      {years.map((y) => (
+                        <SelectItem key={y} value={y}>{y}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Cor <span className="text-muted-foreground">(para lataria)</span></Label>
-                  <Input value={state.vehicleColor} onChange={(e) => set({ vehicleColor: e.target.value })} placeholder="Ex: Prata, Preto..." />
+
+                {/* Placa */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Placa <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                  <Input
+                    placeholder="AAA-0000"
+                    value={form.vehiclePlate}
+                    onChange={(e) => set({ vehiclePlate: e.target.value.toUpperCase() })}
+                    maxLength={8}
+                  />
                 </div>
-                {(state.vehicleType === "car" || state.vehicleType === "motorcycle" || state.vehicleType === "truck" || state.vehicleType === "van" || state.vehicleType === "bus") && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Motor <span className="text-muted-foreground">(opcional)</span></Label>
-                      <Input value={state.vehicleEngine} onChange={(e) => set({ vehicleEngine: e.target.value })} placeholder="Ex: 1.8, 2.0 Turbo..." />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Placa <span className="text-muted-foreground">(opcional)</span></Label>
-                      <Input value={state.vehiclePlate} onChange={(e) => set({ vehiclePlate: e.target.value })} placeholder="ABC-1234" maxLength={8} />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 3: Part Category ────────────────────────────────────── */}
-          {step === 3 && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Qual categoria de peça você precisa?</p>
-              <div className="grid grid-cols-2 gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => set({ partCategory: cat.id })}
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all hover:border-primary/60",
-                      state.partCategory === cat.id ? "border-primary bg-primary/5" : "border-muted"
-                    )}
-                  >
-                    <span className="text-2xl">{cat.emoji}</span>
-                    <span className="text-sm font-medium leading-tight">{cat.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 4: Specific Part ────────────────────────────────────── */}
-          {step === 4 && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Qual é a peça específica?</p>
-              <div className="grid gap-2">
-                {(PARTS[state.partCategory] ?? PARTS.other).map((part) => (
-                  <button
-                    key={part.id}
-                    onClick={() => set({ partName: part.id, partPosition: "" })}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border-2 text-left transition-all hover:border-primary/60",
-                      state.partName === part.id ? "border-primary bg-primary/5" : "border-muted"
-                    )}
-                  >
-                    <span className="text-sm font-medium">{part.label}</span>
-                    {part.pos && <Badge variant="outline" className="text-xs ml-2 shrink-0">requer posição</Badge>}
-                  </button>
-                ))}
               </div>
 
-              {/* Position selector (shows when part has positions) */}
-              {state.partName && positionOptions && positionOptions.length > 0 && (
-                <div className="space-y-2 pt-2 border-t">
-                  <p className="text-sm font-medium">Qual a posição da peça?</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {positionOptions.map((pos) => (
-                      <button
-                        key={pos.id}
-                        onClick={() => set({ partPosition: pos.id })}
-                        className={cn(
-                          "p-2.5 rounded-lg border-2 text-sm font-medium transition-all hover:border-primary/60",
-                          state.partPosition === pos.id ? "border-primary bg-primary/5" : "border-muted"
-                        )}
-                      >
-                        {pos.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── STEP 5: Details + Photos ─────────────────────────────────── */}
-          {step === 5 && (
-            <div className="space-y-4">
-              {/* Condition */}
+              {/* ── Categoria da Peça ─────────────────────────────── */}
               <div className="space-y-2">
-                <p className="text-sm font-medium">Condição aceita para a peça?</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {CONDITIONS.map((c) => (
+                <Label className="text-sm font-semibold">Categoria <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {categories.map((c) => (
                     <button
                       key={c.id}
-                      onClick={() => set({ partConditionAccepted: c.id })}
+                      type="button"
+                      onClick={() => set({ partCategory: c.id })}
                       className={cn(
-                        "p-3 rounded-xl border-2 text-left transition-all hover:border-primary/60",
-                        state.partConditionAccepted === c.id ? "border-primary bg-primary/5" : "border-muted"
+                        "flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-xs font-medium transition-all text-left",
+                        form.partCategory === c.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/50"
                       )}
                     >
-                      <p className="text-sm font-semibold">{c.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{c.desc}</p>
+                      <span>{c.emoji}</span>
+                      <span>{c.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Description */}
-              <div className="space-y-1">
-                <Label className="text-sm">Observações adicionais <span className="text-muted-foreground">(opcional)</span></Label>
+              {/* ── Peça ─────────────────────────────────────────── */}
+              {form.partCategory && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Peça <span className="text-destructive">*</span></Label>
+                    <Select value={form.partName} onValueChange={(v) => set({ partName: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione a peça" /></SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {partOptions.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Posição */}
+                  {positionOptions && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Posição</Label>
+                      <Select value={form.partPosition} onValueChange={(v) => set({ partPosition: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {positionOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Urgência + Descrição ──────────────────────────── */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Urgência</Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => set({ urgency: "normal" })}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg border-2 py-2 text-xs font-medium transition-all",
+                        form.urgency === "normal"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <Clock className="h-3.5 w-3.5" /> Normal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set({ urgency: "urgent" })}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg border-2 py-2 text-xs font-medium transition-all",
+                        form.urgency === "urgent"
+                          ? "border-orange-500 bg-orange-50 text-orange-600"
+                          : "border-border hover:border-orange-300"
+                      )}
+                    >
+                      <Zap className="h-3.5 w-3.5" /> Urgente
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Observações <span className="text-muted-foreground text-xs">(opcional)</span></Label>
                 <Textarea
-                  value={state.description}
+                  placeholder="Descreva detalhes extras: condição do veículo, se a peça tem defeito específico, referência de outra marca aceita, etc."
+                  value={form.description}
                   onChange={(e) => set({ description: e.target.value })}
-                  placeholder="Descreva detalhes importantes: número do motor, código da peça, condições que não podem estar presentes, etc."
                   rows={3}
                 />
               </div>
 
-              {/* Urgency */}
-              <div className="space-y-1">
-                <Label className="text-sm">Urgência</Label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => set({ urgency: "normal" })}
-                    className={cn(
-                      "flex-1 p-2.5 rounded-lg border-2 text-sm font-medium transition-all flex items-center justify-center gap-2",
-                      state.urgency === "normal" ? "border-primary bg-primary/5" : "border-muted"
-                    )}
-                  >
-                    <Package className="h-4 w-4" /> Normal
-                  </button>
-                  <button
-                    onClick={() => set({ urgency: "urgent" })}
-                    className={cn(
-                      "flex-1 p-2.5 rounded-lg border-2 text-sm font-medium transition-all flex items-center justify-center gap-2",
-                      state.urgency === "urgent" ? "border-destructive bg-destructive/5" : "border-muted"
-                    )}
-                  >
-                    <Zap className="h-4 w-4" /> Urgente
-                  </button>
-                </div>
-              </div>
-
-              {/* Photo upload */}
+              {/* ── Fotos ─────────────────────────────────────────── */}
               <div className="space-y-2">
-                <Label className="text-sm">
-                  Fotos da peça / veículo <span className="text-muted-foreground">(até 10 fotos, opcional)</span>
-                </Label>
-                <p className="text-xs text-muted-foreground">Fotos ajudam o desmanche a identificar a peça exata que você precisa.</p>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handlePhotos(e.target.files)}
-                />
-                {previewUrls.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {previewUrls.map((url, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
-                        <img src={url} alt="" className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => removePhoto(i)}
-                          className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-black"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                    {state.photos.length < 10 && (
+                <Label className="text-sm font-semibold">Fotos do Veículo <span className="text-muted-foreground text-xs">(opcional, até 6)</span></Label>
+                <div className="flex flex-wrap gap-2">
+                  {previewUrls.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16">
+                      <img src={url} alt="" className="w-full h-full object-cover rounded-lg border" />
                       <button
-                        onClick={() => photoInputRef.current?.click()}
-                        className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/60 transition-colors"
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center"
                       >
-                        <Camera className="h-5 w-5" />
-                        <span className="text-xs">Adicionar</span>
+                        <X className="h-2.5 w-2.5" />
                       </button>
-                    )}
-                  </div>
-                )}
-                {previewUrls.length === 0 && (
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    className="w-full p-6 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 text-muted-foreground hover:border-primary/60 transition-colors"
-                  >
-                    <Camera className="h-8 w-8" />
-                    <p className="text-sm font-medium">Adicionar fotos</p>
-                    <p className="text-xs">JPG, PNG ou WebP</p>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 6: Review ───────────────────────────────────────────── */}
-          {step === 6 && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Revise seu pedido antes de publicar:</p>
-
-              <div className="rounded-xl border p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{vt?.icon}</span>
-                  <div>
-                    <p className="font-semibold text-sm">{buildTitle(state)}</p>
-                    {state.urgency === "urgent" && (
-                      <Badge variant="destructive" className="text-xs mt-1">
-                        <AlertTriangle className="h-3 w-3 mr-1" /> Urgente
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <ReviewRow label="Tipo" value={vt?.label} />
-                  <ReviewRow label="Marca" value={state.vehicleBrand} />
-                  <ReviewRow label="Modelo" value={state.vehicleModel} />
-                  <ReviewRow label="Ano" value={state.vehicleYear} />
-                  {state.vehicleColor && <ReviewRow label="Cor" value={state.vehicleColor} />}
-                  {state.vehicleEngine && <ReviewRow label="Motor" value={state.vehicleEngine} />}
-                  {state.vehiclePlate && <ReviewRow label="Placa" value={state.vehiclePlate} />}
-                  <ReviewRow label="Categoria" value={categories.find((c) => c.id === state.partCategory)?.label} />
-                  <ReviewRow label="Peça" value={Object.values(PARTS).flat().find((p) => p.id === state.partName)?.label} />
-                  {state.partPosition && (
-                    <ReviewRow label="Posição" value={Object.values(POSITIONS).flat().find((p) => p.id === state.partPosition)?.label} />
-                  )}
-                  <ReviewRow label="Condição aceita" value={CONDITIONS.find((c) => c.id === state.partConditionAccepted)?.label} />
-                </div>
-
-                {state.description && (
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">Observações:</p>
-                    <p className="text-sm">{state.description}</p>
-                  </div>
-                )}
-
-                {state.photos.length > 0 && (
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground mb-2">{state.photos.length} foto(s) anexada(s)</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {previewUrls.map((url, i) => (
-                        <img key={i} src={url} alt="" className="h-14 w-14 rounded-lg object-cover border" />
-                      ))}
                     </div>
-                  </div>
-                )}
+                  ))}
+                  {form.photos.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <Camera className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handlePhotos(e.target.files)} />
               </div>
-
-              <div className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
-                <span>Seu pedido será publicado no mural e desmanches credenciados na sua região poderão enviar propostas de preço.</span>
-              </div>
-            </div>
+            </>
           )}
-        </div>
 
-        {/* Footer buttons */}
-        <div className="flex items-center justify-between px-6 pb-6 pt-2 border-t">
-          <Button variant="outline" onClick={step === 1 ? handleClose : back} disabled={createMutation.isPending}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            {step === 1 ? "Cancelar" : "Voltar"}
+          {/* ── Submit ────────────────────────────────────────────── */}
+          <Button
+            className="w-full h-12 text-base font-semibold"
+            onClick={() => createMutation.mutate()}
+            disabled={isLoading || !form.vehicleType || !form.vehicleBrand || !form.partName}
+          >
+            {isLoading
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Enviando...</>
+              : "Publicar Pedido de Peça"
+            }
           </Button>
 
-          {step < TOTAL_STEPS ? (
-            <Button onClick={next} disabled={!canNext()}>
-              Continuar
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || uploading}
-              className="min-w-32"
-            >
-              {(createMutation.isPending || uploading) ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Publicando...</>
-              ) : (
-                <><CheckCircle2 className="h-4 w-4 mr-2" /> Publicar Pedido</>
-              )}
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ReviewRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) return null;
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-medium">{value}</p>
-    </div>
   );
 }
