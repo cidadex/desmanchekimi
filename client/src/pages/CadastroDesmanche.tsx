@@ -24,6 +24,8 @@ import {
   ArrowLeft,
   Upload,
   ChevronRight,
+  Search,
+  AlertCircle,
 } from "lucide-react";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
@@ -99,9 +101,48 @@ export default function CadastroDesmanche() {
   const [alvaraFile, setAlvaraFile] = useState<File | null>(null);
   const [docResponsavelFile, setDocResponsavelFile] = useState<File | null>(null);
   const [docEmpresaFile, setDocEmpresaFile] = useState<File | null>(null);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
 
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const formatPhone = (ddd: string, phone: string) => {
+    const raw = (ddd + phone).replace(/\D/g, "");
+    if (raw.length === 11) return `(${raw.slice(0,2)}) ${raw.slice(2,7)}-${raw.slice(7)}`;
+    if (raw.length === 10) return `(${raw.slice(0,2)}) ${raw.slice(2,6)}-${raw.slice(6)}`;
+    return raw;
+  };
+
+  const fetchCnpj = async (cnpj: string) => {
+    const clean = cnpj.replace(/\D/g, "");
+    if (clean.length !== 14) return;
+    setCnpjLoading(true);
+    setCnpjStatus("idle");
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
+      if (!res.ok) throw new Error("CNPJ não encontrado");
+      const data = await res.json();
+      const phone = data.ddd_telefone_1 ? formatPhone("", data.ddd_telefone_1) : "";
+      setForm((prev) => ({
+        ...prev,
+        companyName: data.razao_social || prev.companyName,
+        tradingName: data.nome_fantasia || data.razao_social || prev.tradingName,
+        phone: phone || prev.phone,
+        zipCode: data.cep ? data.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2") : prev.zipCode,
+        street: data.logradouro || prev.street,
+        number: data.numero || prev.number,
+        complement: data.complemento || prev.complement,
+        city: data.municipio || prev.city,
+        state: data.uf || prev.state,
+      }));
+      setCnpjStatus("found");
+    } catch {
+      setCnpjStatus("error");
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
 
   const fetchCep = async (cep: string) => {
     const clean = cep.replace(/\D/g, "");
@@ -359,7 +400,34 @@ export default function CadastroDesmanche() {
                   </div>
                   <div className="space-y-2">
                     <Label>CNPJ <span className="text-destructive">*</span></Label>
-                    <Input placeholder="00.000.000/0000-00" value={form.cnpj} onChange={(e) => set("cnpj", e.target.value)} />
+                    <div className="relative">
+                      <Input
+                        placeholder="00.000.000/0000-00"
+                        value={form.cnpj}
+                        onChange={(e) => {
+                          set("cnpj", e.target.value);
+                          setCnpjStatus("idle");
+                          fetchCnpj(e.target.value);
+                        }}
+                        className="pr-10"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {cnpjLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                        {!cnpjLoading && cnpjStatus === "found" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                        {!cnpjLoading && cnpjStatus === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                        {!cnpjLoading && cnpjStatus === "idle" && <Search className="h-4 w-4 text-muted-foreground/40" />}
+                      </div>
+                    </div>
+                    {cnpjStatus === "found" && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Dados preenchidos automaticamente pela Receita Federal
+                      </p>
+                    )}
+                    {cnpjStatus === "error" && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> CNPJ não encontrado na Receita Federal. Preencha manualmente.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Telefone / WhatsApp <span className="text-destructive">*</span></Label>
