@@ -8,68 +8,36 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  CheckCircle2,
-  TrendingUp,
-  ShieldCheck,
-  Users,
-  Star,
-  Package,
-  MapPin,
-  Building2,
-  UserCheck,
-  FileText,
-  ImageIcon,
-  Lock,
-  Loader2,
-  ArrowLeft,
-  Upload,
-  ChevronRight,
-  Search,
-  AlertCircle,
+  CheckCircle2, TrendingUp, ShieldCheck, Users, Star, Package,
+  MapPin, Building2, UserCheck, FileText, ImageIcon, Lock,
+  Loader2, ArrowLeft, Upload, ChevronRight, Search, AlertCircle,
+  Info,
 } from "lucide-react";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 const BENEFITS = [
-  {
-    icon: TrendingUp,
-    title: "Aumente suas vendas",
-    desc: "Acesse milhares de clientes e oficinas buscando peças ativamente. Receba pedidos qualificados direto no seu painel.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Credencial de confiança",
-    desc: "O selo 'Desmanche Credenciado' aumenta a percepção de qualidade e segurança pelos compradores.",
-  },
-  {
-    icon: Users,
-    title: "Rede nacional de compradores",
-    desc: "Conecte-se com oficinas mecânicas, funileiros e clientes de todo o Brasil em um só lugar.",
-  },
-  {
-    icon: Star,
-    title: "Avaliações e reputação",
-    desc: "Construa sua reputação com avaliações reais de clientes. Quanto melhor sua nota, mais visibilidade.",
-  },
-  {
-    icon: Package,
-    title: "Gestão de pedidos",
-    desc: "Painel completo para gerenciar propostas, negociações e histórico de vendas com clareza.",
-  },
-  {
-    icon: Lock,
-    title: "Assinatura única, sem comissão",
-    desc: "Pague apenas uma assinatura mensal fixa. Nenhuma comissão sobre suas vendas, nunca.",
-  },
+  { icon: TrendingUp, title: "Aumente suas vendas", desc: "Acesse milhares de clientes e oficinas buscando peças ativamente. Receba pedidos qualificados direto no seu painel." },
+  { icon: ShieldCheck, title: "Credencial de confiança", desc: "O selo 'Desmanche Credenciado' aumenta a percepção de qualidade e segurança pelos compradores." },
+  { icon: Users, title: "Rede nacional de compradores", desc: "Conecte-se com oficinas mecânicas, funileiros e clientes de todo o Brasil em um só lugar." },
+  { icon: Star, title: "Avaliações e reputação", desc: "Construa sua reputação com avaliações reais de clientes. Quanto melhor sua nota, mais visibilidade." },
+  { icon: Package, title: "Gestão de pedidos", desc: "Painel completo para gerenciar propostas, negociações e histórico de vendas com clareza." },
+  { icon: Lock, title: "Assinatura única, sem comissão", desc: "Pague apenas uma assinatura mensal fixa. Nenhuma comissão sobre suas vendas, nunca." },
 ];
 
 const STEPS = [
   { icon: Building2, label: "Empresa" },
-  { icon: UserCheck, label: "Responsável" },
-  { icon: MapPin, label: "Endereço" },
   { icon: ImageIcon, label: "Logotipo" },
   { icon: FileText, label: "Documentos" },
   { icon: Lock, label: "Acesso" },
 ];
+
+const SITUACAO_MAP: Record<number, { label: string; color: string }> = {
+  1: { label: "Nula",     color: "bg-gray-100 text-gray-600" },
+  2: { label: "Ativa",    color: "bg-green-100 text-green-700" },
+  3: { label: "Suspensa", color: "bg-yellow-100 text-yellow-700" },
+  4: { label: "Inapta",   color: "bg-red-100 text-red-700" },
+  8: { label: "Baixada",  color: "bg-red-100 text-red-700" },
+};
 
 export default function CadastroDesmanche() {
   const { toast } = useToast();
@@ -83,14 +51,21 @@ export default function CadastroDesmanche() {
     tradingName: "",
     cnpj: "",
     phone: "",
-    responsibleName: "",
-    responsibleCpf: "",
+    naturezaJuridica: "",
+    situacaoCadastral: 0,
+    // Address (auto-filled from CNPJ)
     zipCode: "",
     street: "",
     number: "",
     complement: "",
+    neighborhood: "",
     city: "",
     state: "",
+    // Responsible (auto-filled from CNPJ qsa[0])
+    responsibleName: "",
+    responsibleCpf: "",
+    responsibleRole: "",
+    // Access
     email: "",
     password: "",
     confirmPassword: "",
@@ -101,17 +76,18 @@ export default function CadastroDesmanche() {
   const [alvaraFile, setAlvaraFile] = useState<File | null>(null);
   const [docResponsavelFile, setDocResponsavelFile] = useState<File | null>(null);
   const [docEmpresaFile, setDocEmpresaFile] = useState<File | null>(null);
+  const [detranFile, setDetranFile] = useState<File | null>(null);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
 
-  const set = (field: string, value: string) =>
+  const set = (field: string, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const formatPhone = (ddd: string, phone: string) => {
-    const raw = (ddd + phone).replace(/\D/g, "");
-    if (raw.length === 11) return `(${raw.slice(0,2)}) ${raw.slice(2,7)}-${raw.slice(7)}`;
-    if (raw.length === 10) return `(${raw.slice(0,2)}) ${raw.slice(2,6)}-${raw.slice(6)}`;
-    return raw;
+  const formatPhone = (raw: string) => {
+    const clean = raw.replace(/\D/g, "");
+    if (clean.length === 11) return `(${clean.slice(0,2)}) ${clean.slice(2,7)}-${clean.slice(7)}`;
+    if (clean.length === 10) return `(${clean.slice(0,2)}) ${clean.slice(2,6)}-${clean.slice(6)}`;
+    return clean;
   };
 
   const fetchCnpj = async (cnpj: string) => {
@@ -121,20 +97,29 @@ export default function CadastroDesmanche() {
     setCnpjStatus("idle");
     try {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
-      if (!res.ok) throw new Error("CNPJ não encontrado");
+      if (!res.ok) throw new Error("not found");
       const data = await res.json();
-      const phone = data.ddd_telefone_1 ? formatPhone("", data.ddd_telefone_1) : "";
+
+      const phone = data.ddd_telefone_1 ? formatPhone(data.ddd_telefone_1) : "";
+      const cepFormatted = data.cep ? data.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2") : "";
+      const responsible = data.qsa?.[0];
+
       setForm((prev) => ({
         ...prev,
-        companyName: data.razao_social || prev.companyName,
-        tradingName: data.nome_fantasia || data.razao_social || prev.tradingName,
-        phone: phone || prev.phone,
-        zipCode: data.cep ? data.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2") : prev.zipCode,
-        street: data.logradouro || prev.street,
-        number: data.numero || prev.number,
-        complement: data.complemento || prev.complement,
-        city: data.municipio || prev.city,
-        state: data.uf || prev.state,
+        companyName:      data.razao_social        || prev.companyName,
+        tradingName:      data.nome_fantasia || data.razao_social || prev.tradingName,
+        phone:            phone              || prev.phone,
+        naturezaJuridica: data.natureza_juridica   || prev.naturezaJuridica,
+        situacaoCadastral:data.situacao_cadastral  ?? prev.situacaoCadastral,
+        zipCode:          cepFormatted       || prev.zipCode,
+        street:           data.logradouro           || prev.street,
+        number:           data.numero               || prev.number,
+        complement:       data.complemento          || prev.complement,
+        neighborhood:     data.bairro               || prev.neighborhood,
+        city:             data.municipio            || prev.city,
+        state:            data.uf                   || prev.state,
+        responsibleName:  responsible?.nome_socio          || prev.responsibleName,
+        responsibleRole:  responsible?.qualificacao_socio  || prev.responsibleRole,
       }));
       setCnpjStatus("found");
     } catch {
@@ -153,40 +138,31 @@ export default function CadastroDesmanche() {
       if (!data.erro) {
         setForm((prev) => ({
           ...prev,
-          street: data.logradouro || "",
-          city: data.localidade || "",
-          state: data.uf || "",
+          street:       data.logradouro  || "",
+          neighborhood: data.bairro      || "",
+          city:         data.localidade  || "",
+          state:        data.uf          || "",
         }));
       }
     } catch {}
   };
 
   const uploadFile = async (file: File, token: string): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", file);
+    const fd = new FormData();
+    fd.append("file", file);
     const res = await fetch("/api/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
-      body: formData,
+      body: fd,
     });
     if (!res.ok) throw new Error("Falha no upload do arquivo");
-    const data = await res.json();
-    return data.url;
+    return (await res.json()).url;
   };
 
-  const registerDocument = async (
-    desmancheId: string,
-    type: string,
-    name: string,
-    url: string,
-    token: string
-  ) => {
+  const registerDocument = async (desmancheId: string, type: string, name: string, url: string, token: string) => {
     const res = await fetch("/api/documents", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ desmancheId, type, name, url }),
     });
     if (!res.ok) throw new Error("Falha ao registrar documento");
@@ -197,23 +173,23 @@ export default function CadastroDesmanche() {
       toast({ title: "Senhas não conferem", variant: "destructive" });
       return;
     }
-    if (!alvaraFile || !docResponsavelFile || !docEmpresaFile) {
-      toast({ title: "Envie todos os 3 documentos obrigatórios", variant: "destructive" });
+    if (!alvaraFile || !docResponsavelFile || !docEmpresaFile || !detranFile) {
+      toast({ title: "Envie todos os 4 documentos obrigatórios", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const user = await registerDesmanche({
-        companyName: form.companyName,
-        tradingName: form.tradingName,
-        cnpj: form.cnpj,
-        email: form.email,
-        phone: form.phone,
-        password: form.password,
-        plan: "monthly",
+        companyName:     form.companyName,
+        tradingName:     form.tradingName,
+        cnpj:            form.cnpj,
+        email:           form.email,
+        phone:           form.phone,
+        password:        form.password,
+        plan:            "monthly",
         responsibleName: form.responsibleName,
-        responsibleCpf: form.responsibleCpf,
+        responsibleCpf:  form.responsibleCpf,
       });
 
       const token = localStorage.getItem("peca_rapida_token") as string;
@@ -224,12 +200,12 @@ export default function CadastroDesmanche() {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            zipCode: form.zipCode,
-            street: form.street,
-            number: form.number,
+            zipCode:    form.zipCode,
+            street:     form.street,
+            number:     form.number,
             complement: form.complement,
-            city: form.city,
-            state: form.state,
+            city:       form.city,
+            state:      form.state,
           }),
         });
       }
@@ -244,19 +220,17 @@ export default function CadastroDesmanche() {
       }
 
       const docs = [
-        { file: alvaraFile!, type: "alvara", name: "Alvará de Funcionamento" },
+        { file: alvaraFile!,        type: "alvara",              name: "Alvará de Funcionamento" },
         { file: docResponsavelFile!, type: "documento_responsavel", name: "Documento do Responsável" },
-        { file: docEmpresaFile!, type: "documento_empresa", name: "Documento da Empresa / Contrato Social" },
+        { file: docEmpresaFile!,     type: "documento_empresa",   name: "Documento da Empresa / Contrato Social" },
+        { file: detranFile!,         type: "licenca_detran",      name: "Licença do Detran" },
       ];
       for (const doc of docs) {
         const url = await uploadFile(doc.file, token);
         await registerDocument(desmancheId, doc.type, doc.name, url, token);
       }
 
-      toast({
-        title: "Cadastro realizado!",
-        description: "Seu cadastro foi enviado para aprovação. Você já pode acessar seu painel.",
-      });
+      toast({ title: "Cadastro realizado!", description: "Seu cadastro foi enviado para aprovação. Você já pode acessar seu painel." });
       navigate("/desmanche");
     } catch (err: any) {
       toast({ title: "Erro no cadastro", description: err?.message || "Tente novamente.", variant: "destructive" });
@@ -266,47 +240,27 @@ export default function CadastroDesmanche() {
   };
 
   const canAdvance = () => {
-    if (step === 0) return form.companyName && form.tradingName && form.cnpj && form.phone;
-    if (step === 1) return form.responsibleName && form.responsibleCpf;
-    if (step === 2) return form.zipCode && form.street && form.city && form.state;
-    if (step === 3) return true;
-    if (step === 4) return !!alvaraFile && !!docResponsavelFile && !!docEmpresaFile;
-    if (step === 5) return form.email && form.password && form.confirmPassword && form.password === form.confirmPassword;
+    if (step === 0) return !!(form.companyName && form.tradingName && form.cnpj && form.phone);
+    if (step === 1) return true;
+    if (step === 2) return !!(alvaraFile && docResponsavelFile && docEmpresaFile && detranFile);
+    if (step === 3) return !!(form.email && form.password && form.confirmPassword && form.password === form.confirmPassword);
     return false;
   };
 
+  const situacao = form.situacaoCadastral ? SITUACAO_MAP[form.situacaoCadastral] : null;
+
   const FileUploadField = ({
-    label,
-    file,
-    onChange,
-    required = false,
-  }: {
-    label: string;
-    file: File | null;
-    onChange: (f: File) => void;
-    required?: boolean;
-  }) => (
+    label, file, onChange, required = false,
+  }: { label: string; file: File | null; onChange: (f: File) => void; required?: boolean }) => (
     <div className="space-y-2">
-      <Label>
-        {label} {required && <span className="text-destructive">*</span>}
-      </Label>
+      <Label>{label} {required && <span className="text-destructive">*</span>}</Label>
       <label className="flex items-center gap-3 border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors">
-        <input
-          type="file"
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png,.webp"
-          onChange={(e) => e.target.files?.[0] && onChange(e.target.files[0])}
-        />
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
+          onChange={(e) => e.target.files?.[0] && onChange(e.target.files[0])} />
         {file ? (
-          <>
-            <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-            <span className="text-sm font-medium text-green-700 truncate">{file.name}</span>
-          </>
+          <><CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /><span className="text-sm font-medium text-green-700 truncate">{file.name}</span></>
         ) : (
-          <>
-            <Upload className="h-5 w-5 text-muted-foreground shrink-0" />
-            <span className="text-sm text-muted-foreground">Clique para selecionar (PDF, JPG, PNG)</span>
-          </>
+          <><Upload className="h-5 w-5 text-muted-foreground shrink-0" /><span className="text-sm text-muted-foreground">Clique para selecionar (PDF, JPG, PNG)</span></>
         )}
       </label>
     </div>
@@ -346,13 +300,8 @@ export default function CadastroDesmanche() {
             <Card key={b.title} className="border-muted">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                    <b.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">{b.title}</h3>
-                    <p className="text-sm text-muted-foreground">{b.desc}</p>
-                  </div>
+                  <div className="p-2 bg-primary/10 rounded-lg shrink-0"><b.icon className="h-5 w-5 text-primary" /></div>
+                  <div><h3 className="font-semibold mb-1">{b.title}</h3><p className="text-sm text-muted-foreground">{b.desc}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -365,19 +314,14 @@ export default function CadastroDesmanche() {
             <p className="text-muted-foreground">Preencha todos os dados para enviar seu cadastro para análise.</p>
           </div>
 
+          {/* Step indicator */}
           <div className="flex items-center justify-between mb-8 relative">
             <div className="absolute inset-y-1/2 left-0 right-0 h-0.5 bg-muted -z-0" />
             {STEPS.map((s, i) => (
               <div key={i} className="flex flex-col items-center gap-1 z-10">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                    i < step
-                      ? "bg-green-500 text-white"
-                      : i === step
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  i < step ? "bg-green-500 text-white" : i === step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
                   {i < step ? <CheckCircle2 className="h-5 w-5" /> : <s.icon className="h-4 w-4" />}
                 </div>
                 <span className="text-xs text-muted-foreground hidden sm:block">{s.label}</span>
@@ -387,17 +331,15 @@ export default function CadastroDesmanche() {
 
           <Card>
             <CardContent className="p-8 space-y-5">
+
+              {/* ── STEP 0: Empresa (CNPJ auto-fill tudo) ─── */}
               {step === 0 && (
                 <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Dados da Empresa</h3>
-                  <div className="space-y-2">
-                    <Label>Razão Social <span className="text-destructive">*</span></Label>
-                    <Input placeholder="Nome jurídico da empresa" value={form.companyName} onChange={(e) => set("companyName", e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nome Fantasia <span className="text-destructive">*</span></Label>
-                    <Input placeholder="Como é conhecido o seu desmanche" value={form.tradingName} onChange={(e) => set("tradingName", e.target.value)} />
-                  </div>
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" /> Dados da Empresa
+                  </h3>
+
+                  {/* CNPJ */}
                   <div className="space-y-2">
                     <Label>CNPJ <span className="text-destructive">*</span></Label>
                     <div className="relative">
@@ -429,110 +371,150 @@ export default function CadastroDesmanche() {
                       </p>
                     )}
                   </div>
+
+                  {/* Situação Cadastral */}
+                  {situacao && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border">
+                      <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">Situação Receita Federal:</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${situacao.color}`}>{situacao.label}</span>
+                      {form.naturezaJuridica && (
+                        <span className="text-xs text-muted-foreground ml-auto">{form.naturezaJuridica}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Razão Social */}
+                  <div className="space-y-2">
+                    <Label>Razão Social <span className="text-destructive">*</span></Label>
+                    <Input placeholder="Nome jurídico da empresa" value={form.companyName} onChange={(e) => set("companyName", e.target.value)} />
+                  </div>
+
+                  {/* Nome Fantasia */}
+                  <div className="space-y-2">
+                    <Label>Nome Fantasia <span className="text-destructive">*</span></Label>
+                    <Input placeholder="Como é conhecido o seu desmanche" value={form.tradingName} onChange={(e) => set("tradingName", e.target.value)} />
+                  </div>
+
+                  {/* Telefone */}
                   <div className="space-y-2">
                     <Label>Telefone / WhatsApp <span className="text-destructive">*</span></Label>
                     <Input placeholder="(11) 99999-9999" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
                   </div>
+
+                  {/* Endereço */}
+                  <div className="border-t pt-4 mt-2 space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2 text-base">
+                      <MapPin className="h-4 w-4 text-primary" /> Endereço
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>CEP</Label>
+                        <Input
+                          placeholder="00000-000"
+                          value={form.zipCode}
+                          onChange={(e) => { set("zipCode", e.target.value); fetchCep(e.target.value); }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Bairro</Label>
+                        <Input placeholder="Bairro" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Logradouro</Label>
+                      <Input placeholder="Rua, Avenida, Estrada..." value={form.street} onChange={(e) => set("street", e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Número</Label>
+                        <Input placeholder="Nº" value={form.number} onChange={(e) => set("number", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Complemento</Label>
+                        <Input placeholder="Sala, Galpão..." value={form.complement} onChange={(e) => set("complement", e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Cidade</Label>
+                        <Input placeholder="Cidade" value={form.city} onChange={(e) => set("city", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Estado</Label>
+                        <Input placeholder="UF" maxLength={2} value={form.state} onChange={(e) => set("state", e.target.value.toUpperCase())} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Responsável Legal */}
+                  <div className="border-t pt-4 mt-2 space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2 text-base">
+                      <UserCheck className="h-4 w-4 text-primary" /> Responsável Legal
+                    </h4>
+                    {form.responsibleName && form.responsibleRole && (
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border text-sm">
+                        <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-muted-foreground">Responsável encontrado na Receita Federal:</span>
+                        <span className="font-medium ml-1">{form.responsibleName}</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{form.responsibleRole}</Badge>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>Nome do Responsável</Label>
+                      <Input placeholder="Nome completo" value={form.responsibleName} onChange={(e) => set("responsibleName", e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF do Responsável</Label>
+                      <Input placeholder="000.000.000-00" value={form.responsibleCpf} onChange={(e) => set("responsibleCpf", e.target.value)} />
+                    </div>
+                  </div>
                 </>
               )}
 
+              {/* ── STEP 1: Logotipo ────────────────────────── */}
               {step === 1 && (
                 <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" /> Responsável Legal</h3>
-                  <div className="space-y-2">
-                    <Label>Nome do Responsável <span className="text-destructive">*</span></Label>
-                    <Input placeholder="Nome completo" value={form.responsibleName} onChange={(e) => set("responsibleName", e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>CPF do Responsável <span className="text-destructive">*</span></Label>
-                    <Input placeholder="000.000.000-00" value={form.responsibleCpf} onChange={(e) => set("responsibleCpf", e.target.value)} />
-                  </div>
-                </>
-              )}
-
-              {step === 2 && (
-                <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Endereço</h3>
-                  <div className="space-y-2">
-                    <Label>CEP <span className="text-destructive">*</span></Label>
-                    <Input
-                      placeholder="00000-000"
-                      value={form.zipCode}
-                      onChange={(e) => {
-                        set("zipCode", e.target.value);
-                        fetchCep(e.target.value);
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Logradouro <span className="text-destructive">*</span></Label>
-                    <Input placeholder="Rua, Avenida, Estrada..." value={form.street} onChange={(e) => set("street", e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Número</Label>
-                      <Input placeholder="Nº" value={form.number} onChange={(e) => set("number", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Complemento</Label>
-                      <Input placeholder="Sala, Galpão..." value={form.complement} onChange={(e) => set("complement", e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Cidade <span className="text-destructive">*</span></Label>
-                      <Input placeholder="Cidade" value={form.city} onChange={(e) => set("city", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Estado <span className="text-destructive">*</span></Label>
-                      <Input placeholder="UF" maxLength={2} value={form.state} onChange={(e) => set("state", e.target.value.toUpperCase())} />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {step === 3 && (
-                <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary" /> Logotipo</h3>
-                  <p className="text-sm text-muted-foreground">Envie o logotipo ou foto de fachada do seu desmanche. Isso aumenta a confiança dos compradores. (Opcional)</p>
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-primary" /> Logotipo
+                  </h3>
+                  <p className="text-sm text-muted-foreground">Envie o logotipo ou foto de fachada do seu desmanche. Aumenta a confiança dos compradores. (Opcional)</p>
                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/30 rounded-xl p-8 cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
+                    <input type="file" className="hidden" accept="image/*"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) {
-                          setLogoFile(f);
-                          setLogoPreview(URL.createObjectURL(f));
-                        }
+                        if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); }
                       }}
                     />
-                    {logoPreview ? (
-                      <img src={logoPreview} alt="Logo preview" className="h-32 w-32 object-contain rounded-lg mb-2" />
-                    ) : (
-                      <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                    )}
-                    <span className="text-sm text-muted-foreground">
-                      {logoFile ? logoFile.name : "Clique para selecionar (JPG, PNG, WebP)"}
-                    </span>
+                    {logoPreview
+                      ? <img src={logoPreview} alt="Logo preview" className="h-32 w-32 object-contain rounded-lg mb-2" />
+                      : <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                    }
+                    <span className="text-sm text-muted-foreground">{logoFile ? logoFile.name : "Clique para selecionar (JPG, PNG, WebP)"}</span>
                   </label>
                 </>
               )}
 
-              {step === 4 && (
+              {/* ── STEP 2: Documentos ──────────────────────── */}
+              {step === 2 && (
                 <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Documentos</h3>
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" /> Documentos
+                  </h3>
                   <p className="text-sm text-muted-foreground">Todos os documentos abaixo são obrigatórios para análise do credenciamento.</p>
                   <FileUploadField label="Alvará de Funcionamento" file={alvaraFile} onChange={setAlvaraFile} required />
+                  <FileUploadField label="Licença do Detran" file={detranFile} onChange={setDetranFile} required />
                   <FileUploadField label="Documento do Responsável (RG ou CNH)" file={docResponsavelFile} onChange={setDocResponsavelFile} required />
                   <FileUploadField label="Documento da Empresa (Contrato Social ou CNPJ)" file={docEmpresaFile} onChange={setDocEmpresaFile} required />
                 </>
               )}
 
-              {step === 5 && (
+              {/* ── STEP 3: Acesso ──────────────────────────── */}
+              {step === 3 && (
                 <>
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><Lock className="h-5 w-5 text-primary" /> Dados de Acesso</h3>
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-primary" /> Dados de Acesso
+                  </h3>
                   <div className="space-y-2">
                     <Label>E-mail <span className="text-destructive">*</span></Label>
                     <Input type="email" placeholder="contato@seudesmanche.com.br" value={form.email} onChange={(e) => set("email", e.target.value)} />
@@ -548,30 +530,30 @@ export default function CadastroDesmanche() {
                       <p className="text-xs text-destructive">Senhas não conferem</p>
                     )}
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-4 mt-2">
-                    <p className="text-sm font-medium mb-1">Resumo do cadastro</p>
+                  <div className="bg-muted/50 rounded-lg p-4 mt-2 space-y-1">
+                    <p className="text-sm font-medium">Resumo do cadastro</p>
                     <p className="text-sm text-muted-foreground">{form.tradingName} — {form.cnpj}</p>
-                    <p className="text-sm text-muted-foreground">{form.street}{form.number ? `, ${form.number}` : ""} — {form.city}/{form.state}</p>
-                    <p className="text-sm text-muted-foreground">Responsável: {form.responsibleName}</p>
+                    {form.street && <p className="text-sm text-muted-foreground">{form.street}{form.number ? `, ${form.number}` : ""} — {form.city}/{form.state}</p>}
+                    {form.responsibleName && <p className="text-sm text-muted-foreground">Responsável: {form.responsibleName}</p>}
                   </div>
                 </>
               )}
 
+              {/* Navigation */}
               <div className="flex justify-between pt-4 border-t">
                 <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
                   Voltar
                 </Button>
-                {step < 5 ? (
+                {step < 3 ? (
                   <Button onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()} className="gap-1">
                     Continuar <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button onClick={handleSubmit} disabled={isSubmitting || !canAdvance()} className="gap-2">
-                    {isSubmitting ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-                    ) : (
-                      <><CheckCircle2 className="h-4 w-4" /> Enviar Cadastro</>
-                    )}
+                    {isSubmitting
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+                      : <><CheckCircle2 className="h-4 w-4" /> Enviar Cadastro</>
+                    }
                   </Button>
                 )}
               </div>
