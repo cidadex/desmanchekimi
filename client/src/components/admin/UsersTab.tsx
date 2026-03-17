@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Mail, Phone, Calendar } from "lucide-react";
+import { Search, Mail, Phone, Calendar, ChevronRight } from "lucide-react";
 
 function formatMemberSince(dateStr: string) {
   const date = new Date(dateStr);
@@ -35,7 +35,7 @@ function typeBadge(type: string) {
   }
 }
 
-export default function UsersTab() {
+export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string) => void }) {
   const [search, setSearch] = useState("");
 
   const { data: users = [], isLoading } = useQuery<any[]>({
@@ -84,7 +84,11 @@ export default function UsersTab() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {filtered.map((user: any) => (
-            <Card key={user.id} className="hover:border-primary/50 transition-colors">
+            <Card
+              key={user.id}
+              className="hover:border-primary/50 transition-colors cursor-pointer hover:shadow-sm"
+              onClick={() => onSelectUser?.(user.id)}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <Avatar className="h-12 w-12 border-2 border-primary/10">
@@ -97,7 +101,10 @@ export default function UsersTab() {
                         .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  {typeBadge(user.type)}
+                  <div className="flex items-center gap-2">
+                    {typeBadge(user.type)}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
 
                 <h3 className="font-bold text-lg leading-none mb-1">{user.name}</h3>

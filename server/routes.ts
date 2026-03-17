@@ -1189,6 +1189,60 @@ export async function registerRoutes(server: Server, app: Express) {
   // ADMIN ROUTES
   // ============================================
   
+  app.get("/api/admin/users/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUserById(id);
+      if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
+
+      const orders = await storage.getOrdersByClient(id);
+      const negotiations = await storage.getNegotiationsByClient(id);
+
+      const ordersWithCount = orders.map((o: any) => ({
+        id: o.id,
+        title: o.title,
+        vehicleBrand: o.vehicleBrand,
+        vehicleModel: o.vehicleModel,
+        vehicleYear: o.vehicleYear,
+        status: o.status,
+        createdAt: o.createdAt,
+        proposalCount: (o.proposals || []).length,
+      }));
+
+      const negotiationsDetail = negotiations.map((n: any) => ({
+        id: n.id,
+        status: n.status,
+        agreedPrice: n.agreedPrice,
+        createdAt: n.createdAt,
+        orderTitle: n.order?.title || null,
+        desmancheName: n.desmanche?.tradingName || n.desmanche?.companyName || null,
+        desmancheRating: n.desmanche?.rating || null,
+      }));
+
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        whatsapp: user.whatsapp,
+        type: user.type,
+        createdAt: user.createdAt,
+        orders: ordersWithCount,
+        negotiations: negotiationsDetail,
+        stats: {
+          totalOrders: orders.length,
+          totalWithProposals: orders.filter((o: any) => (o.proposals || []).length > 0).length,
+          totalNegotiating: negotiations.filter((n: any) => n.status === "negotiating").length,
+          totalCompleted: negotiations.filter((n: any) => n.status === "completed").length,
+          totalCancelled: negotiations.filter((n: any) => n.status === "cancelled").length,
+        },
+      });
+    } catch (error) {
+      console.error("Get admin user detail error:", error);
+      res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+
   app.get("/api/admin/users", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -1216,6 +1270,58 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  app.get("/api/admin/desmanches/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const desmanche = await storage.getDesmancheById(id);
+      if (!desmanche) return res.status(404).json({ message: "Desmanche não encontrado" });
+      const address = await storage.getDesmancheAddressByDesmancheId(id);
+      const docs = await storage.getDocumentsByDesmanche(id);
+      const negotiations = await storage.getNegotiationsByDesmanche(id);
+      const reviews = await storage.getReviewsByDesmanche(id);
+      const billing = await storage.getDesmancheBilling(id);
+      const transactions = await storage.getBillingTransactionsByDesmanche(id);
+
+      const negotiationsWithClient = await Promise.all(negotiations.map(async (neg: any) => {
+        const order = neg.order || null;
+        const client = neg.client || null;
+        return { ...neg, order, client };
+      }));
+
+      res.json({
+        ...desmanche,
+        password: undefined,
+        address,
+        documents: docs,
+        negotiations: negotiationsWithClient,
+        reviews,
+        billing: billing || null,
+        billingTransactions: transactions,
+        totalPaid: transactions.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + t.amount, 0),
+        totalPending: transactions.filter((t: any) => t.status === "pending").reduce((s: number, t: any) => s + t.amount, 0),
+      });
+    } catch (error) {
+      console.error("Get admin desmanche detail error:", error);
+      res.status(500).json({ message: "Erro ao buscar desmanche" });
+    }
+  });
+
+  app.patch("/api/admin/desmanches/:id/status", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, rejectionReason } = req.body;
+      if (!["active", "inactive", "rejected", "pending"].includes(status)) {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+      await storage.updateDesmancheStatus(id, status, rejectionReason);
+      const updated = await storage.getDesmancheById(id);
+      res.json({ ...updated, password: undefined });
+    } catch (error) {
+      console.error("Update desmanche status error:", error);
+      res.status(500).json({ message: "Erro ao atualizar status" });
+    }
+  });
+
   app.get("/api/admin/desmanches", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const { status } = req.query;

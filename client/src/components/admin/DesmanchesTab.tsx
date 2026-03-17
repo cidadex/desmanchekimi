@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, MoreHorizontal, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Loader2 } from "lucide-react";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -28,7 +28,7 @@ function statusBadge(status: string) {
   );
 }
 
-export default function DesmanchesTab() {
+export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche?: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -126,8 +126,12 @@ export default function DesmanchesTab() {
                     ? `${d.address.city || ""}, ${d.address.state || ""}`.replace(/^, |, $/g, "")
                     : "—";
                   return (
-                    <TableRow key={d.id}>
-                      <TableCell className="pl-6 font-mono text-xs text-muted-foreground">D-{String(d.id).padStart(3, "0")}</TableCell>
+                    <TableRow
+                      key={d.id}
+                      className="cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => onSelectDesmanche?.(d.id)}
+                    >
+                      <TableCell className="pl-6 font-mono text-xs text-muted-foreground">D-{String(d.id).slice(0,8)}</TableCell>
                       <TableCell className="font-medium">{d.tradingName || d.companyName || "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{d.cnpj || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{location}</TableCell>
@@ -140,9 +144,7 @@ export default function DesmanchesTab() {
                       </TableCell>
                       <TableCell>{statusBadge(d.status)}</TableCell>
                       <TableCell className="text-right pr-6">
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
                       </TableCell>
                     </TableRow>
                   );

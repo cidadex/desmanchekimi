@@ -364,8 +364,14 @@ function NegotiationCard({
               <Car className="h-3.5 w-3.5 shrink-0" />
               {[neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ")}
             </p>
-            <p className="text-sm mt-1">
-              Desmanche: <strong>{neg.desmanche?.tradingName}</strong>
+            <p className="text-sm mt-1 flex items-center gap-2 flex-wrap">
+              <span>Desmanche: <strong>{neg.desmanche?.tradingName}</strong></span>
+              {neg.desmanche?.rating != null && (
+                <span className="flex items-center gap-1 text-xs text-yellow-600 font-medium">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  {Number(neg.desmanche.rating).toFixed(1)}
+                </span>
+              )}
             </p>
             {neg.trackingCode && (
               <p className="text-sm mt-1 flex items-center gap-1 text-orange-700">
@@ -559,7 +565,15 @@ function NegotiationDetailDialog({
               </h4>
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-green-800">{neg.desmanche?.tradingName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-green-800">{neg.desmanche?.tradingName}</p>
+                    {neg.desmanche?.rating != null && (
+                      <span className="flex items-center gap-1 text-xs text-yellow-600 font-medium">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        {Number(neg.desmanche.rating).toFixed(1)}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xl font-bold text-green-700">{fmtMoney(neg.proposal.price)}</span>
                 </div>
                 {neg.proposal.message && (

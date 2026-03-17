@@ -30,7 +30,9 @@ import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 // Import Tabs
 import OverviewTab from "@/components/admin/OverviewTab";
 import DesmanchesTab from "@/components/admin/DesmanchesTab";
+import DesmancheDetailPage from "@/components/admin/DesmancheDetailPage";
 import UsersTab from "@/components/admin/UsersTab";
+import ClientDetailPage from "@/components/admin/ClientDetailPage";
 import OrdersTab from "@/components/admin/OrdersTab";
 import AuctionsTab from "@/components/admin/AuctionsTab";
 import FinanceTab from "@/components/admin/FinanceTab";
@@ -42,10 +44,14 @@ const ADMIN_TAB_KEY = "admin_tab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem(ADMIN_TAB_KEY) || "overview");
+  const [selectedDesmancheId, setSelectedDesmancheId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSetTab = (tab: string) => {
     setActiveTab(tab);
+    setSelectedDesmancheId(null);
+    setSelectedUserId(null);
     localStorage.setItem(ADMIN_TAB_KEY, tab);
   };
   const { user } = useAuth();
@@ -169,8 +175,18 @@ export default function AdminDashboard() {
         {/* Dashboard Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {activeTab === 'overview' && <OverviewTab />}
-          {activeTab === 'desmanches' && <DesmanchesTab />}
-          {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'desmanches' && !selectedDesmancheId && (
+            <DesmanchesTab onSelectDesmanche={(id) => setSelectedDesmancheId(id)} />
+          )}
+          {activeTab === 'desmanches' && selectedDesmancheId && (
+            <DesmancheDetailPage id={selectedDesmancheId} onBack={() => setSelectedDesmancheId(null)} />
+          )}
+          {activeTab === 'users' && !selectedUserId && (
+            <UsersTab onSelectUser={(id) => setSelectedUserId(id)} />
+          )}
+          {activeTab === 'users' && selectedUserId && (
+            <ClientDetailPage id={selectedUserId} onBack={() => setSelectedUserId(null)} />
+          )}
           {activeTab === 'orders' && <OrdersTab />}
           {activeTab === 'auctions' && <AuctionsTab />}
           {activeTab === 'finance' && <FinanceTab />}
