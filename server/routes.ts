@@ -1545,12 +1545,17 @@ export async function registerRoutes(server: Server, app: Express) {
 
   app.patch("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
-      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount"];
+      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment"];
       for (const [key, value] of Object.entries(req.body)) {
         if (allowed.includes(key)) {
           await storage.setSystemSetting(key, String(value));
         }
       }
+      // Apply Asaas config dynamically if updated
+      const apiKey = await storage.getSystemSetting("asaasApiKey");
+      const env = await storage.getSystemSetting("asaasEnvironment");
+      asaas.setAsaasConfig(apiKey || "", env || "sandbox");
+
       const settings = await storage.getAllSystemSettings();
       const obj: Record<string, string> = {};
       for (const s of settings) obj[s.key] = s.value;

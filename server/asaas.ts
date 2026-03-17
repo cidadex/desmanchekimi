@@ -1,18 +1,30 @@
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
-const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || "sandbox";
-const ASAAS_BASE_URL = ASAAS_ENVIRONMENT === "production"
-  ? "https://api.asaas.com/v3"
-  : "https://sandbox.asaas.com/api/v3";
+let _apiKey: string = process.env.ASAAS_API_KEY || "";
+let _environment: string = process.env.ASAAS_ENVIRONMENT || "sandbox";
+
+function getBaseUrl() {
+  return _environment === "production"
+    ? "https://api.asaas.com/v3"
+    : "https://sandbox.asaas.com/api/v3";
+}
 
 function getHeaders() {
   return {
     "Content-Type": "application/json",
-    "access_token": ASAAS_API_KEY || "",
+    "access_token": _apiKey,
   };
 }
 
+export function setAsaasConfig(apiKey: string, environment: string) {
+  _apiKey = apiKey;
+  _environment = environment;
+}
+
 export function isAsaasConfigured(): boolean {
-  return !!ASAAS_API_KEY;
+  return !!_apiKey;
+}
+
+export function getAsaasEnvironment(): string {
+  return _environment;
 }
 
 export async function createAsaasCustomer(data: {
@@ -23,7 +35,7 @@ export async function createAsaasCustomer(data: {
 }): Promise<{ id: string } | null> {
   if (!isAsaasConfigured()) return null;
   try {
-    const res = await fetch(`${ASAAS_BASE_URL}/customers`, {
+    const res = await fetch(`${getBaseUrl()}/customers`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({
@@ -54,7 +66,7 @@ export async function createAsaasCharge(data: {
 }): Promise<{ id: string; invoiceUrl?: string; bankSlipUrl?: string; status: string } | null> {
   if (!isAsaasConfigured()) return null;
   try {
-    const res = await fetch(`${ASAAS_BASE_URL}/payments`, {
+    const res = await fetch(`${getBaseUrl()}/payments`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({
@@ -80,7 +92,7 @@ export async function createAsaasCharge(data: {
 export async function getAsaasChargeStatus(chargeId: string): Promise<string | null> {
   if (!isAsaasConfigured()) return null;
   try {
-    const res = await fetch(`${ASAAS_BASE_URL}/payments/${chargeId}`, {
+    const res = await fetch(`${getBaseUrl()}/payments/${chargeId}`, {
       headers: getHeaders(),
     });
     if (!res.ok) return null;
