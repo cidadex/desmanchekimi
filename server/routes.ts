@@ -1662,4 +1662,12 @@ export async function registerRoutes(server: Server, app: Express) {
   // Seed database
   await storage.seedDatabase();
   console.log("Database seeded successfully");
+
+  // Load Asaas config from DB (overrides env var if set in admin panel)
+  const savedApiKey = await storage.getSystemSetting("asaasApiKey");
+  const savedEnv = await storage.getSystemSetting("asaasEnvironment");
+  if (savedApiKey) {
+    asaas.setAsaasConfig(savedApiKey, savedEnv || "sandbox");
+    console.log(`Asaas configured from DB (${savedEnv || "sandbox"})`);
+  }
 }
