@@ -489,6 +489,17 @@ export async function registerRoutes(server: Server, app: Express) {
       res.status(500).json({ message: "Erro ao buscar pedidos" });
     }
   });
+
+  app.get("/api/orders/my-ads", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const orders = await storage.getOrdersByDesmanche(desmancheId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Get my ads error:", error);
+      res.status(500).json({ message: "Erro ao buscar anúncios" });
+    }
+  });
   
   app.get("/api/orders/:id", authMiddleware, async (req, res) => {
     try {
@@ -502,17 +513,34 @@ export async function registerRoutes(server: Server, app: Express) {
       res.status(500).json({ message: "Erro ao buscar pedido" });
     }
   });
-  
-  app.post("/api/orders", authMiddleware, requireType(["client"]), async (req, res) => {
+
+  app.post("/api/orders", authMiddleware, requireType(["client", "desmanche"]), async (req, res) => {
     try {
-      const clientId = (req as any).user.id;
+      const reqUser = (req as any).user;
       
+      if (reqUser.type === "desmanche") {
+        const desmancheId = reqUser.id;
+        const desmanche = await storage.getDesmancheById(desmancheId);
+        if (!desmanche || desmanche.status !== "active") {
+          return res.status(403).json({ message: "Apenas desmanches credenciados podem publicar anúncios" });
+        }
+        const orderData = schema.insertOrderSchema.parse(req.body);
+        const order = await storage.createOrder({
+          ...orderData,
+          clientId: desmancheId,
+          desmancheId,
+          postedByType: "desmanche",
+        });
+        return res.status(201).json(order);
+      }
+
+      // Client flow
+      const clientId = reqUser.id;
       const user = await storage.getUserById(clientId);
       if (!user?.profileComplete) {
         return res.status(400).json({ message: "Complete seu perfil (WhatsApp e endereço) antes de criar pedidos" });
       }
       
-      // Verificação de bloqueio por avaliação pendente
       const maxOverdue = await storage.getSystemSettingNumber("maxOverdueBeforeBlock", 1);
       const overdueCount = await storage.getOverdueReviewCountForClient(clientId);
       if (overdueCount >= maxOverdue) {
@@ -525,12 +553,11 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       
       const orderData = schema.insertOrderSchema.parse(req.body);
-      
       const order = await storage.createOrder({
         ...orderData,
         clientId,
+        postedByType: "client",
       });
-      
       res.status(201).json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -538,6 +565,21 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       console.error("Create order error:", error);
       res.status(500).json({ message: "Erro ao criar pedido" });
+    }
+  });
+
+  app.patch("/api/orders/:id/reactivate", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const order = await storage.getOrderById(req.params.id);
+      if (!order) return res.status(404).json({ message: "Anúncio não encontrado" });
+      if (order.desmancheId !== desmancheId) return res.status(403).json({ message: "Sem permissão" });
+      if (order.postedByType !== "desmanche") return res.status(400).json({ message: "Apenas anúncios de desmanche podem ser reativados" });
+      const updated = await storage.reactivateOrder(order.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Reactivate order error:", error);
+      res.status(500).json({ message: "Erro ao reativar anúncio" });
     }
   });
   
@@ -982,7 +1024,7 @@ export async function registerRoutes(server: Server, app: Express) {
   // FILE UPLOAD ROUTE
   // ============================================
   
-  app.post("/api/orders/:id/images", authMiddleware, requireType(["client"]), (req, res, next) => {
+  app.post("/api/orders/:id/images", authMiddleware, requireType(["client", "desmanche"]), (req, res, next) => {
     upload.array("photos", 10)(req, res, (err) => {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({ message: `Erro no upload: ${err.message}` });
@@ -992,10 +1034,13 @@ export async function registerRoutes(server: Server, app: Express) {
     });
   }, async (req, res) => {
     try {
-      const clientId = (req as any).user.id;
+      const reqUser = (req as any).user;
       const order = await storage.getOrderById(req.params.id);
       if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
-      if (order.clientId !== clientId) return res.status(403).json({ message: "Acesso negado" });
+      const isOwner = reqUser.type === "desmanche"
+        ? order.desmancheId === reqUser.id
+        : order.clientId === reqUser.id;
+      if (!isOwner) return res.status(403).json({ message: "Acesso negado" });
       const files = (req as any).files as Express.Multer.File[];
       if (!files || files.length === 0) return res.status(400).json({ message: "Nenhum arquivo enviado" });
       const images = await Promise.all(files.map(f => storage.createOrderImage(order.id, `/uploads/${f.filename}`)));
@@ -1416,6 +1461,7 @@ export async function registerRoutes(server: Server, app: Express) {
   async function runAutoExpire() {
     try {
       await storage.autoExpireOverdueReviews();
+      await storage.expireOldOrders();
     } catch (e) {
       console.error("Auto-expire error:", e);
     }

@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 const NEGOTIATION_STATUS: Record<string, { label: string; color: string; icon: any }> = {
   negotiating: { label: "Negociando", color: "bg-blue-100 text-blue-800 border-blue-200", icon: MessageSquare },
   shipped: { label: "Peça Enviada", color: "bg-orange-100 text-orange-800 border-orange-200", icon: Truck },
+  awaiting_review: { label: "Aguard. Avaliação", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
   delivered: { label: "Entregue", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
   completed: { label: "Concluído", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   cancelled: { label: "Cancelado", color: "bg-red-100 text-red-800 border-red-200", icon: XCircle },
@@ -443,10 +444,10 @@ function NegotiationCard({
           </div>
         )}
 
-        {neg.status === "delivered" && !readonly && (
+        {(neg.status === "awaiting_review" || neg.status === "delivered") && !readonly && (
           <div className="bg-purple-50 border border-purple-200 rounded p-2 text-xs text-purple-700">
             <div className="font-semibold flex items-center gap-1">
-              <Package className="h-3.5 w-3.5" /> Entregue — aguardando confirmação e avaliação do cliente
+              <Package className="h-3.5 w-3.5" /> Entregue — aguardando avaliação do cliente
             </div>
           </div>
         )}

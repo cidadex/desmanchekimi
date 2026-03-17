@@ -13,6 +13,7 @@ import {
   Users,
   MessageCircle,
   MessageSquare,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,14 +26,24 @@ import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 import DesmancheOverviewTab from "@/components/desmanche/DesmancheOverviewTab";
 import DesmancheOrdersTab from "@/components/desmanche/DesmancheOrdersTab";
+import DesmancheAdsTab from "@/components/desmanche/DesmancheAdsTab";
 import DesmancheDocsTab from "@/components/desmanche/DesmancheDocsTab";
 import DesmancheFinanceTab from "@/components/desmanche/DesmancheFinanceTab";
 import DesmancheProfileTab from "@/components/desmanche/DesmancheProfileTab";
 import DesmancheNegotiationsTab from "@/components/desmanche/DesmancheNegotiationsTab";
 import { ChatTab } from "@/components/chat/ChatTab";
 
+const DESMANCHE_TAB_KEY = "desmanche_tab";
+
 export default function DesmancheDashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem(DESMANCHE_TAB_KEY) || "overview";
+  });
+
+  const handleSetTab = (tab: string) => {
+    setActiveTab(tab);
+    localStorage.setItem(DESMANCHE_TAB_KEY, tab);
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
 
@@ -99,27 +110,28 @@ export default function DesmancheDashboard() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        <SidebarItem icon={<TrendingUp />} label="Meu Painel" active={activeTab === 'overview'} onClick={() => {setActiveTab('overview'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<TrendingUp />} label="Meu Painel" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />
         <SidebarItem
           icon={<Package />}
           label="Mural de Pedidos"
           badge={openOrdersCount > 0 ? String(openOrdersCount) : undefined}
           badgeAlert={openOrdersCount > 0}
           active={activeTab === 'orders'}
-          onClick={() => {setActiveTab('orders'); setIsMobileMenuOpen(false);}}
+          onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}}
         />
-        <SidebarItem icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {setActiveTab('negotiations'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Megaphone />} label="Meus Anúncios" active={activeTab === 'ads'} onClick={() => {handleSetTab('ads'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {handleSetTab('negotiations'); setIsMobileMenuOpen(false);}} />
         <SidebarItem
           icon={<MessageSquare />}
           label="Mensagens"
           badge={totalUnread > 0 ? String(totalUnread) : undefined}
           badgeAlert={totalUnread > 0}
           active={activeTab === 'chat'}
-          onClick={() => {setActiveTab('chat'); setIsMobileMenuOpen(false);}}
+          onClick={() => {handleSetTab('chat'); setIsMobileMenuOpen(false);}}
         />
-        <SidebarItem icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {setActiveTab('docs'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {setActiveTab('finance'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {setActiveTab('profile'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {handleSetTab('docs'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
       </div>
     </>
   );
@@ -153,7 +165,7 @@ export default function DesmancheDashboard() {
           <div className="flex items-center gap-4">
             {totalUnread > 0 && (
               <button
-                onClick={() => setActiveTab('chat')}
+                onClick={() => handleSetTab('chat')}
                 className="relative text-slate-600 hover:text-primary transition-colors"
               >
                 <MessageSquare className="h-5 w-5" />
@@ -170,8 +182,9 @@ export default function DesmancheDashboard() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={setActiveTab} />}
+          {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={handleSetTab} />}
           {activeTab === 'orders' && <DesmancheOrdersTab />}
+          {activeTab === 'ads' && <DesmancheAdsTab />}
           {activeTab === 'negotiations' && <DesmancheNegotiationsTab />}
           {activeTab === 'chat' && <ChatTab />}
           {activeTab === 'docs' && <DesmancheDocsTab />}

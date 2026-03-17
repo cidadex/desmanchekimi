@@ -38,9 +38,16 @@ import ApprovalsTab from "@/components/admin/ApprovalsTab";
 import PlansTab from "@/components/admin/PlansTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 
+const ADMIN_TAB_KEY = "admin_tab";
+
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem(ADMIN_TAB_KEY) || "overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleSetTab = (tab: string) => {
+    setActiveTab(tab);
+    localStorage.setItem(ADMIN_TAB_KEY, tab);
+  };
   const { user } = useAuth();
 
   const { data: stats } = useQuery<{
@@ -71,15 +78,15 @@ export default function AdminDashboard() {
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {setActiveTab('overview'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {setActiveTab('desmanches'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {setActiveTab('users'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {setActiveTab('orders'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {setActiveTab('auctions'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {setActiveTab('finance'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {setActiveTab('plans'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {setActiveTab('approvals'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {setActiveTab('settings'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {handleSetTab('auctions'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {handleSetTab('plans'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />
       </div>
       
       <div className="p-4 border-t border-border">

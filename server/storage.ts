@@ -243,6 +243,10 @@ try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_position TEXT`); } catch (
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_condition_accepted TEXT DEFAULT 'any'`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN city TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN state TEXT`); } catch (e) {}
+// Desmanche ads: new columns
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN desmanche_id TEXT REFERENCES desmanches(id)`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN posted_by_type TEXT NOT NULL DEFAULT 'client'`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE orders ADD COLUMN expires_at INTEGER`); } catch (e) {}
 // Negotiations: new columns for review gate
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN received_at INTEGER`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGER`); } catch (e) {}
@@ -490,10 +494,49 @@ export async function getOrderImages(orderId: string) {
 }
 
 // ==================== ORDERS ====================
-export async function createOrder(data: schema.InsertOrder & { clientId: string }) {
+const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
+
+export async function createOrder(data: schema.InsertOrder & { clientId: string; desmancheId?: string }) {
   const id = randomUUID();
-  await db.insert(schema.orders).values({ id, ...data });
+  const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
+  await db.insert(schema.orders).values({ id, ...data, expiresAt });
   return getOrderById(id);
+}
+
+export async function reactivateOrder(orderId: string) {
+  const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
+  await db.update(schema.orders)
+    .set({ status: "open", expiresAt, updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(eq(schema.orders.id, orderId));
+  return getOrderById(orderId);
+}
+
+export async function expireOldOrders() {
+  const now = new Date();
+  await db.update(schema.orders)
+    .set({ status: "expired", updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(
+      and(
+        sql`${schema.orders.expiresAt} IS NOT NULL`,
+        lte(schema.orders.expiresAt, now),
+        sql`${schema.orders.status} IN ('open', 'negotiating')`
+      )
+    );
+}
+
+export async function getOrdersByDesmanche(desmancheId: string) {
+  return db.query.orders.findMany({
+    where: eq(schema.orders.desmancheId, desmancheId),
+    orderBy: desc(schema.orders.createdAt),
+    with: {
+      images: true,
+      proposals: {
+        with: {
+          desmanche: true,
+        },
+      },
+    },
+  });
 }
 
 export async function getOrderById(id: string) {
@@ -512,7 +555,10 @@ export async function getOrderById(id: string) {
 
 export async function getOrdersByClient(clientId: string) {
   return db.query.orders.findMany({
-    where: eq(schema.orders.clientId, clientId),
+    where: and(
+      eq(schema.orders.clientId, clientId),
+      eq(schema.orders.postedByType, "client")
+    ),
     orderBy: desc(schema.orders.createdAt),
     with: {
       images: true,
@@ -525,11 +571,13 @@ export async function getOrdersByClient(clientId: string) {
   });
 }
 
-export async function getAllOrders(filters?: { status?: string; urgency?: string; isPartnerRequest?: boolean }) {
-  let conditions = [];
+export async function getAllOrders(filters?: { status?: string; urgency?: string; isPartnerRequest?: boolean; includeExpired?: boolean }) {
+  let conditions: any[] = [];
   
   if (filters?.status) {
     conditions.push(eq(schema.orders.status, filters.status as any));
+  } else if (!filters?.includeExpired) {
+    conditions.push(sql`${schema.orders.status} != 'expired'`);
   }
   if (filters?.urgency) {
     conditions.push(eq(schema.orders.urgency, filters.urgency as any));
@@ -543,6 +591,7 @@ export async function getAllOrders(filters?: { status?: string; urgency?: string
     orderBy: desc(schema.orders.createdAt),
     with: {
       client: true,
+      desmanche: true,
       images: true,
       proposals: {
         with: {
@@ -1036,7 +1085,7 @@ export async function getOverdueReviewCountForClient(clientId: string): Promise<
     .where(
       and(
         eq(schema.negotiations.clientId, clientId),
-        eq(schema.negotiations.status, 'delivered'),
+        eq(schema.negotiations.status, 'awaiting_review'),
         sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
         sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
       )
@@ -1051,7 +1100,7 @@ export async function getOverdueReviewCountForDesmanche(desmancheId: string): Pr
     .where(
       and(
         eq(schema.negotiations.desmancheId, desmancheId),
-        eq(schema.negotiations.status, 'delivered'),
+        eq(schema.negotiations.status, 'awaiting_review'),
         sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
         sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
       )
@@ -1063,7 +1112,7 @@ export async function getPendingReviewsForClient(clientId: string) {
   return db.query.negotiations.findMany({
     where: and(
       eq(schema.negotiations.clientId, clientId),
-      eq(schema.negotiations.status, 'delivered'),
+      eq(schema.negotiations.status, 'awaiting_review'),
     ),
     with: { order: true, desmanche: true },
   });
@@ -1075,7 +1124,7 @@ export async function autoExpireOverdueReviews() {
     .set({ status: 'completed', updatedAt: sql`(strftime('%s', 'now'))` })
     .where(
       and(
-        eq(schema.negotiations.status, 'delivered'),
+        eq(schema.negotiations.status, 'awaiting_review'),
         sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
         sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
       )
@@ -1087,7 +1136,7 @@ export async function setNegotiationReceived(id: string, reviewDeadlineDays: num
   const deadlineTs = now + (reviewDeadlineDays * 24 * 60 * 60);
   await db.update(schema.negotiations)
     .set({
-      status: 'delivered',
+      status: 'awaiting_review',
       receivedAt: sql`(strftime('%s', 'now'))`,
       reviewDeadlineAt: deadlineTs,
       updatedAt: sql`(strftime('%s', 'now'))`,

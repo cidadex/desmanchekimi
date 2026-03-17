@@ -286,9 +286,9 @@ function buildTitle(s: FormState): string {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
-interface Props { open: boolean; onClose: () => void; onSuccess: () => void }
+interface Props { open: boolean; onClose: () => void; onSuccess: () => void; isDesmancheAd?: boolean }
 
-export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
+export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = false }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -345,7 +345,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
   // Submit
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.profileComplete) throw new Error("profile");
+      if (!isDesmancheAd && !user?.profileComplete) throw new Error("profile");
       if (!form.vehicleType || !form.vehicleBrand || !form.partName) throw new Error("required");
 
       const partDef = Object.values(PARTS).flat().find((p) => p.id === form.partName);
@@ -365,9 +365,12 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
         partName: partDef?.label || form.partName,
         partPosition: posDef?.label || form.partPosition || undefined,
         partConditionAccepted: "any",
-        location: user ? `${(user as any).city || ""},${(user as any).state || ""}`.replace(/^,|,$/g, "").trim() || "Brasil" : "Brasil",
+        location: isDesmancheAd
+          ? ((user as any)?.city ? `${(user as any).city}, ${(user as any).state || ""}`.trim().replace(/,\s*$/, "") : "Brasil")
+          : (user ? `${(user as any).city || ""},${(user as any).state || ""}`.replace(/^,|,$/g, "").trim() || "Brasil" : "Brasil"),
         urgency: form.urgency,
         isPartnerRequest: false,
+        postedByType: isDesmancheAd ? "desmanche" : "client",
       };
 
       const res = await apiRequest("POST", "/api/orders", body);
@@ -393,9 +396,15 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
       return order;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/orders/my"] });
-      qc.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({ title: "Pedido criado!", description: "Seu pedido foi publicado no mural dos desmanches." });
+      if (isDesmancheAd) {
+        qc.invalidateQueries({ queryKey: ["/api/orders/my-ads"] });
+        qc.invalidateQueries({ queryKey: ["/api/orders"] });
+        toast({ title: "Anúncio publicado!", description: "Sua peça aparecerá no mural por 3 dias." });
+      } else {
+        qc.invalidateQueries({ queryKey: ["/api/orders/my"] });
+        qc.invalidateQueries({ queryKey: ["/api/orders"] });
+        toast({ title: "Pedido criado!", description: "Seu pedido foi publicado no mural dos desmanches." });
+      }
       handleClose();
       onSuccess();
     },
@@ -440,7 +449,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess }: Props) {
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Solicitar Peça</DialogTitle>
+          <DialogTitle>{isDesmancheAd ? "Publicar Anúncio de Peça" : "Solicitar Peça"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">

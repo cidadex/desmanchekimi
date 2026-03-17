@@ -139,10 +139,13 @@ export const orders = sqliteTable("orders", {
   city: text("city"),
   state: text("state"),
   clientId: text("client_id").references(() => users.id).notNull(),
+  desmancheId: text("desmanche_id").references(() => desmanches.id),
+  postedByType: text("posted_by_type", { enum: ["client", "desmanche"] }).notNull().default("client"),
   location: text("location").notNull(),
-  status: text("status", { enum: ["open", "negotiating", "closed", "shipped", "completed", "cancelled"] }).notNull().default("open"),
+  status: text("status", { enum: ["open", "negotiating", "closed", "shipped", "completed", "cancelled", "expired"] }).notNull().default("open"),
   urgency: text("urgency", { enum: ["normal", "urgent"] }).notNull().default("normal"),
   isPartnerRequest: integer("is_partner_request", { mode: "boolean" }).notNull().default(false),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
@@ -281,6 +284,7 @@ export const insertOrderSchema = createInsertSchema(orders).pick({
   location: true,
   urgency: true,
   isPartnerRequest: true,
+  postedByType: true,
 });
 
 export const insertProposalSchema = createInsertSchema(proposals).pick({
@@ -367,6 +371,7 @@ export const billingTransactionsRelations = relations(billingTransactions, ({ on
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   client: one(users, { fields: [orders.clientId], references: [users.id] }),
+  desmanche: one(desmanches, { fields: [orders.desmancheId], references: [desmanches.id] }),
   images: many(orderImages),
   proposals: many(proposals),
   negotiations: many(negotiations),

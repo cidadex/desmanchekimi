@@ -34,10 +34,12 @@ const TAB_KEYS = [
   { key: "chat", label: "Mensagens", icon: MessageCircle },
 ];
 
+const CLIENT_TAB_KEY = "client_tab";
+
 export default function ClientDashboard() {
   const { user, isLoading, logout } = useAuth();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem(CLIENT_TAB_KEY) || "overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const token = getToken();
 
@@ -100,6 +102,7 @@ export default function ClientDashboard() {
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
+    localStorage.setItem(CLIENT_TAB_KEY, tab);
     setSidebarOpen(false);
   };
 

@@ -98,14 +98,17 @@ export default function DesmancheOrdersTab() {
     });
   };
 
-  const filtered = orders.filter((o: any) =>
-    !search ||
-    o.title?.toLowerCase().includes(search.toLowerCase()) ||
-    o.vehicleBrand?.toLowerCase().includes(search.toLowerCase()) ||
-    o.vehicleModel?.toLowerCase().includes(search.toLowerCase()) ||
-    o.partName?.toLowerCase().includes(search.toLowerCase()) ||
-    o.partCategory?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = orders.filter((o: any) => {
+    if (o.desmancheId === user?.id) return false;
+    return (
+      !search ||
+      o.title?.toLowerCase().includes(search.toLowerCase()) ||
+      o.vehicleBrand?.toLowerCase().includes(search.toLowerCase()) ||
+      o.vehicleModel?.toLowerCase().includes(search.toLowerCase()) ||
+      o.partName?.toLowerCase().includes(search.toLowerCase()) ||
+      o.partCategory?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const openDetail = (order: any) => {
     setSelectedOrder(order);
@@ -177,6 +180,11 @@ export default function DesmancheOrdersTab() {
                       <span className="font-mono text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                         #{order.id.slice(0, 8).toUpperCase()}
                       </span>
+                      {order.postedByType === "desmanche" && (
+                        <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] py-0 px-2">
+                          Parceiro
+                        </Badge>
+                      )}
                       {order.urgency === "urgent" && (
                         <Badge className="bg-red-500 hover:bg-red-600 text-[10px] py-0 px-2 gap-1">
                           <AlertTriangle className="h-3 w-3" /> URGENTE
@@ -255,6 +263,9 @@ export default function DesmancheOrdersTab() {
                   <span className="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                     #{selectedOrder.id.slice(0, 8).toUpperCase()}
                   </span>
+                  {selectedOrder.postedByType === "desmanche" && (
+                    <Badge className="bg-amber-500 text-xs">Parceiro</Badge>
+                  )}
                   {selectedOrder.urgency === "urgent" && (
                     <Badge className="bg-red-500 text-xs gap-1">
                       <AlertTriangle className="h-3 w-3" /> URGENTE
