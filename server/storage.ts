@@ -1227,14 +1227,14 @@ export async function autoExpireOverdueReviews() {
 }
 
 export async function setNegotiationReceived(id: string, reviewDeadlineDays: number) {
-  const now = Math.floor(Date.now() / 1000);
-  const deadlineTs = now + (reviewDeadlineDays * 24 * 60 * 60);
+  const now = new Date();
+  const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
   await db.update(schema.negotiations)
     .set({
       status: 'awaiting_review',
-      receivedAt: sql`(strftime('%s', 'now'))`,
-      reviewDeadlineAt: deadlineTs,
-      updatedAt: sql`(strftime('%s', 'now'))`,
+      receivedAt: now,
+      reviewDeadlineAt: deadline,
+      updatedAt: now,
     })
     .where(eq(schema.negotiations.id, id));
   return getNegotiationById(id);

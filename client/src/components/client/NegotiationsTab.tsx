@@ -87,7 +87,7 @@ interface Negotiation {
   proposal?: { price: number; message?: string; createdAt?: any };
 }
 
-export function NegotiationsTab() {
+export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -257,6 +257,7 @@ export function NegotiationsTab() {
               onReview={() => { setReviewDialog(neg); setReviewRating(5); setReviewComment(""); }}
               onCancel={() => cancelMutation.mutate(neg.id)}
               onViewDetail={() => setDetailDialog(neg)}
+              onNavigate={onNavigate}
               isConfirmingReceived={receivedMutation.isPending && receivedMutation.variables === neg.id}
               isCancelling={cancelMutation.isPending && cancelMutation.variables === neg.id}
             />
@@ -313,6 +314,7 @@ export function NegotiationsTab() {
           onReview={() => { setDetailDialog(null); setReviewDialog(detailDialog); setReviewRating(5); setReviewComment(""); }}
           onConfirmReceived={() => { receivedMutation.mutate(detailDialog.id); }}
           onCancel={() => { cancelMutation.mutate(detailDialog.id); setDetailDialog(null); }}
+          onNavigate={onNavigate}
         />
       )}
     </div>
@@ -327,6 +329,7 @@ function NegotiationCard({
   onReview,
   onCancel,
   onViewDetail,
+  onNavigate,
   isConfirmingReceived,
   isCancelling,
 }: {
@@ -335,6 +338,7 @@ function NegotiationCard({
   onReview: () => void;
   onCancel: () => void;
   onViewDetail: () => void;
+  onNavigate?: (tab: string) => void;
   isConfirmingReceived: boolean;
   isCancelling: boolean;
 }) {
@@ -452,10 +456,7 @@ function NegotiationCard({
             size="sm"
             variant="outline"
             className="gap-1.5 flex-1 min-w-[110px] border-blue-300 text-blue-700 hover:bg-blue-50"
-            onClick={() => {
-              const el = document.querySelector('[data-tab="mensagens"]') as HTMLElement;
-              if (el) el.click();
-            }}
+            onClick={() => onNavigate?.("chat")}
           >
             <MessageCircle className="h-3.5 w-3.5" /> Conversar
           </Button>
@@ -486,12 +487,14 @@ function NegotiationDetailDialog({
   onReview,
   onConfirmReceived,
   onCancel,
+  onNavigate,
 }: {
   neg: Negotiation;
   onClose: () => void;
   onReview: () => void;
   onConfirmReceived: () => void;
   onCancel: () => void;
+  onNavigate?: (tab: string) => void;
 }) {
   const config = statusConfig[neg.status] || { label: neg.status, color: "bg-slate-100 text-slate-700", step: 0 };
   const phone = neg.desmanche?.phone || "";
@@ -628,11 +631,7 @@ function NegotiationDetailDialog({
               <Button
                 variant="outline"
                 className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => {
-                  onClose();
-                  const el = document.querySelector('[data-tab="mensagens"]') as HTMLElement;
-                  if (el) el.click();
-                }}
+                onClick={() => { onClose(); onNavigate?.("chat"); }}
               >
                 <MessageCircle className="h-4 w-4" /> Conversar
               </Button>

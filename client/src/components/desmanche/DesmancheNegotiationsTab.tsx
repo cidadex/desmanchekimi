@@ -60,7 +60,7 @@ function whatsapp(phone: string, message?: string) {
   return `https://wa.me/${num}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }
 
-export default function DesmancheNegotiationsTab() {
+export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [shipDialog, setShipDialog] = useState<any>(null);
@@ -338,6 +338,7 @@ export default function DesmancheNegotiationsTab() {
           onClose={() => setDetailDialog(null)}
           onShip={() => { setDetailDialog(null); setShipDialog(detailDialog); setTrackingCode(""); }}
           onCancel={() => { updateNegMutation.mutate({ id: detailDialog.id, status: "cancelled" }); setDetailDialog(null); }}
+          onNavigate={onNavigate}
         />
       )}
     </div>
@@ -346,7 +347,7 @@ export default function DesmancheNegotiationsTab() {
 
 // ─── Proposal Card ────────────────────────────────────────────────────────────
 
-function ProposalCard({ proposal }: { proposal: any }) {
+function ProposalCard({ proposal, onNavigate }: { proposal: any; onNavigate?: (tab: string) => void }) {
   const status = PROPOSAL_STATUS[proposal.status] || { label: proposal.status, color: "bg-slate-100 text-slate-700" };
   const order = proposal.order;
   const clientPhone = proposal.client?.phone || "";
@@ -406,7 +407,7 @@ function ProposalCard({ proposal }: { proposal: any }) {
                 <Phone className="h-3.5 w-3.5" /> WhatsApp cliente
               </a>
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 flex-1 border-blue-300 text-blue-700 hover:bg-blue-50">
+            <Button size="sm" variant="outline" className="gap-1.5 flex-1 border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => onNavigate?.("chat")}>
               <MessageCircle className="h-3.5 w-3.5" /> Conversar
             </Button>
           </div>
@@ -423,6 +424,7 @@ function NegotiationCard({
   onShip,
   onUpdateStatus,
   onViewDetail,
+  onNavigate,
   isPending,
   readonly = false,
 }: {
@@ -430,6 +432,7 @@ function NegotiationCard({
   onShip?: () => void;
   onUpdateStatus?: (status: string) => void;
   onViewDetail: () => void;
+  onNavigate?: (tab: string) => void;
   isPending: boolean;
   readonly?: boolean;
 }) {
@@ -565,7 +568,7 @@ function NegotiationCard({
             </Button>
           )}
 
-          <Button size="sm" variant="outline" className="gap-1.5 flex-1 min-w-[100px] border-blue-300 text-blue-700 hover:bg-blue-50">
+          <Button size="sm" variant="outline" className="gap-1.5 flex-1 min-w-[100px] border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => onNavigate?.("chat")}>
             <MessageCircle className="h-3.5 w-3.5" /> Conversar
           </Button>
 
@@ -593,11 +596,13 @@ function DesmancheNegotiationDetailDialog({
   onClose,
   onShip,
   onCancel,
+  onNavigate,
 }: {
   neg: any;
   onClose: () => void;
   onShip: () => void;
   onCancel: () => void;
+  onNavigate?: (tab: string) => void;
 }) {
   const st = NEGOTIATION_STATUS[neg.status] || { label: neg.status, color: "bg-slate-100 text-slate-700", icon: Package };
   const clientPhone = neg.client?.phone || "";
@@ -749,7 +754,7 @@ function DesmancheNegotiationDetailDialog({
                   </a>
                 </Button>
               )}
-              <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50" onClick={onClose}>
+              <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => { onClose(); onNavigate?.("chat"); }}>
                 <MessageCircle className="h-4 w-4" /> Conversar
               </Button>
             </div>

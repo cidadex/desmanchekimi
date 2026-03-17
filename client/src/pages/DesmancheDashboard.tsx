@@ -185,7 +185,7 @@ export default function DesmancheDashboard() {
           {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={handleSetTab} />}
           {activeTab === 'orders' && <DesmancheOrdersTab />}
           {activeTab === 'ads' && <DesmancheAdsTab />}
-          {activeTab === 'negotiations' && <DesmancheNegotiationsTab />}
+          {activeTab === 'negotiations' && <DesmancheNegotiationsTab onNavigate={handleSetTab} />}
           {activeTab === 'chat' && <ChatTab />}
           {activeTab === 'docs' && <DesmancheDocsTab />}
           {activeTab === 'finance' && <DesmancheFinanceTab />}

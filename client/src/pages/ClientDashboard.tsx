@@ -232,7 +232,7 @@ export default function ClientDashboard() {
           {activeTab === "profile" && <ProfileTab />}
           {activeTab === "orders" && <OrdersTab />}
           {activeTab === "proposals" && <ProposalsTab />}
-          {activeTab === "negotiations" && <NegotiationsTab />}
+          {activeTab === "negotiations" && <NegotiationsTab onNavigate={handleNavigate} />}
           {activeTab === "chat" && <ChatTab />}
         </div>
       </main>
