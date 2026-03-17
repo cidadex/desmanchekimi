@@ -283,6 +283,7 @@ export async function registerRoutes(server: Server, app: Express) {
           return res.status(404).json({ message: "Usuário não encontrado" });
         }
         const address = await storage.getAddressByUserId(userId);
+        const profileComplete = !!(user.whatsapp && address?.zipCode && address?.street && address?.city);
         res.json({
           id: user.id,
           name: user.name,
@@ -291,7 +292,7 @@ export async function registerRoutes(server: Server, app: Express) {
           whatsapp: user.whatsapp,
           type: user.type,
           avatar: user.avatar,
-          profileComplete: user.profileComplete,
+          profileComplete,
           address: address || null,
         });
       }
