@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import {
   Package, Truck, CheckCircle2, Clock, Loader2, Car, MapPin,
-  SendHorizonal, XCircle, MessageSquare, ShieldAlert,
+  SendHorizonal, XCircle, MessageSquare, ShieldAlert, Phone, Eye,
+  Handshake, FileText, MessageCircle, Ban, CalendarDays, Star,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,18 +19,18 @@ import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 const NEGOTIATION_STATUS: Record<string, { label: string; color: string; icon: any }> = {
-  negotiating: { label: "Negociando", color: "bg-blue-100 text-blue-800 border-blue-200", icon: MessageSquare },
-  shipped: { label: "Peça Enviada", color: "bg-orange-100 text-orange-800 border-orange-200", icon: Truck },
+  negotiating:     { label: "Negociando",       color: "bg-blue-100 text-blue-800 border-blue-200",   icon: MessageSquare },
+  shipped:         { label: "Peça Enviada",      color: "bg-orange-100 text-orange-800 border-orange-200", icon: Truck },
   awaiting_review: { label: "Aguard. Avaliação", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
-  delivered: { label: "Entregue", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
-  completed: { label: "Concluído", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
-  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-800 border-red-200", icon: XCircle },
+  delivered:       { label: "Entregue",          color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
+  completed:       { label: "Concluído",         color: "bg-green-100 text-green-800 border-green-200",  icon: CheckCircle2 },
+  cancelled:       { label: "Cancelado",         color: "bg-red-100 text-red-800 border-red-200",       icon: XCircle },
 };
 
 const PROPOSAL_STATUS: Record<string, { label: string; color: string }> = {
-  sent: { label: "Aguardando Resposta", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  accepted: { label: "Aceita ✓", color: "bg-green-100 text-green-800 border-green-200" },
-  rejected: { label: "Recusada", color: "bg-red-100 text-red-800 border-red-200" },
+  sent:     { label: "Aguardando Resposta", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+  accepted: { label: "Aceita ✓",           color: "bg-green-100 text-green-800 border-green-200" },
+  rejected: { label: "Recusada",           color: "bg-red-100 text-red-800 border-red-200" },
 };
 
 function timeAgo(dateStr: string | number): string {
@@ -43,11 +45,27 @@ function timeAgo(dateStr: string | number): string {
   return d === 1 ? "Ontem" : `Há ${d} dias`;
 }
 
+function fmt(ts: any) {
+  if (!ts) return "—";
+  return new Date(typeof ts === "number" ? ts * 1000 : ts).toLocaleDateString("pt-BR");
+}
+
+function fmtMoney(v: number | string) {
+  return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
+
+function whatsapp(phone: string, message?: string) {
+  const digits = phone.replace(/\D/g, "");
+  const num = digits.startsWith("55") ? digits : `55${digits}`;
+  return `https://wa.me/${num}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+}
+
 export default function DesmancheNegotiationsTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [shipDialog, setShipDialog] = useState<any>(null);
   const [trackingCode, setTrackingCode] = useState("");
+  const [detailDialog, setDetailDialog] = useState<any>(null);
 
   const { data: blockStatus } = useQuery<{ isBlocked: boolean; overdueCount: number }>({
     queryKey: ["/api/desmanche/review-block-status"],
@@ -105,7 +123,6 @@ export default function DesmancheNegotiationsTab() {
   const answeredProposals = proposals.filter((p: any) => p.status !== "sent");
   const activeNeg = negotiations.filter((n: any) => !["completed", "cancelled"].includes(n.status));
   const finishedNeg = negotiations.filter((n: any) => ["completed", "cancelled"].includes(n.status));
-
   const isLoading = loadingProposals || loadingNeg;
 
   if (isLoading) {
@@ -164,6 +181,11 @@ export default function DesmancheNegotiationsTab() {
             className="data-[state=active]:bg-slate-600 data-[state=active]:text-white bg-slate-100 py-2"
           >
             Histórico
+            {finishedNeg.length > 0 && (
+              <span className="ml-1.5 bg-slate-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {finishedNeg.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -216,6 +238,7 @@ export default function DesmancheNegotiationsTab() {
                 neg={neg}
                 onShip={() => { setShipDialog(neg); setTrackingCode(""); }}
                 onUpdateStatus={(status) => updateNegMutation.mutate({ id: neg.id, status })}
+                onViewDetail={() => setDetailDialog(neg)}
                 isPending={updateNegMutation.isPending}
               />
             ))
@@ -236,6 +259,7 @@ export default function DesmancheNegotiationsTab() {
                 key={neg.id}
                 neg={neg}
                 readonly
+                onViewDetail={() => setDetailDialog(neg)}
                 isPending={false}
               />
             ))
@@ -260,6 +284,17 @@ export default function DesmancheNegotiationsTab() {
               <span className="text-slate-500">Pedido:</span>{" "}
               <span className="font-semibold">{shipDialog?.order?.title}</span>
             </div>
+            {shipDialog?.client && (
+              <div className="bg-slate-50 rounded-lg p-3 text-sm flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                  {shipDialog.client.name?.[0]?.toUpperCase() || "C"}
+                </div>
+                <div>
+                  <p className="font-medium">{shipDialog.client.name}</p>
+                  <p className="text-slate-500 text-xs">{shipDialog.client.email}</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="tracking">Código de Rastreamento (opcional)</Label>
               <Input
@@ -295,17 +330,31 @@ export default function DesmancheNegotiationsTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Detail Dialog ─────────────────────────────────────── */}
+      {detailDialog && (
+        <DesmancheNegotiationDetailDialog
+          neg={detailDialog}
+          onClose={() => setDetailDialog(null)}
+          onShip={() => { setDetailDialog(null); setShipDialog(detailDialog); setTrackingCode(""); }}
+          onCancel={() => { updateNegMutation.mutate({ id: detailDialog.id, status: "cancelled" }); setDetailDialog(null); }}
+        />
+      )}
     </div>
   );
 }
 
+// ─── Proposal Card ────────────────────────────────────────────────────────────
+
 function ProposalCard({ proposal }: { proposal: any }) {
   const status = PROPOSAL_STATUS[proposal.status] || { label: proposal.status, color: "bg-slate-100 text-slate-700" };
   const order = proposal.order;
+  const clientPhone = proposal.client?.phone || "";
+  const waMsg = `Olá! Quero falar sobre a proposta da peça: ${order?.title || ""}`;
 
   return (
     <Card className="border-slate-200 hover:border-primary/30 transition-all">
-      <CardContent className="p-4">
+      <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -316,7 +365,7 @@ function ProposalCard({ proposal }: { proposal: any }) {
             {order && (
               <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
                 <Car className="h-3.5 w-3.5 shrink-0" />
-                {[order.vehicleBrand, order.vehicleModel, order.vehicleYear].filter(Boolean).join(" • ")}
+                {[order.vehicleBrand, order.vehicleModel, order.vehicleYear].filter(Boolean).join(" · ")}
               </div>
             )}
             <div className="mt-2 bg-slate-50 rounded p-2 text-sm text-slate-600 border border-slate-100">
@@ -325,27 +374,41 @@ function ProposalCard({ proposal }: { proposal: any }) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-2xl font-bold text-primary">R$ {Number(proposal.price).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-primary">{fmtMoney(proposal.price)}</div>
             <div className="text-xs text-slate-400">valor proposto</div>
           </div>
         </div>
 
         {proposal.status === "sent" && (
-          <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-700 flex items-center gap-2">
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-700 flex items-center gap-2">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             O cliente ainda não respondeu. Você será notificado quando houver uma resposta.
           </div>
         )}
         {proposal.status === "rejected" && (
-          <div className="mt-3 bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-center gap-2">
+          <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-center gap-2">
             <XCircle className="h-3.5 w-3.5 shrink-0" />
             O cliente recusou esta proposta.
           </div>
         )}
         {proposal.status === "accepted" && (
-          <div className="mt-3 bg-green-50 border border-green-200 rounded p-2 text-xs text-green-700 flex items-center gap-2">
+          <div className="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-700 flex items-center gap-2">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
             Proposta aceita! A negociação está na aba "Em Andamento".
+          </div>
+        )}
+
+        {/* Action bar */}
+        {(proposal.status === "sent" || proposal.status === "accepted") && clientPhone && (
+          <div className="border-t pt-2 flex gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5 flex-1 border-green-300 text-green-700 hover:bg-green-50" asChild>
+              <a href={whatsapp(clientPhone, waMsg)} target="_blank" rel="noopener noreferrer">
+                <Phone className="h-3.5 w-3.5" /> WhatsApp cliente
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 flex-1 border-blue-300 text-blue-700 hover:bg-blue-50">
+              <MessageCircle className="h-3.5 w-3.5" /> Conversar
+            </Button>
           </div>
         )}
       </CardContent>
@@ -353,16 +416,20 @@ function ProposalCard({ proposal }: { proposal: any }) {
   );
 }
 
+// ─── Negotiation Card ─────────────────────────────────────────────────────────
+
 function NegotiationCard({
   neg,
   onShip,
   onUpdateStatus,
+  onViewDetail,
   isPending,
   readonly = false,
 }: {
   neg: any;
   onShip?: () => void;
   onUpdateStatus?: (status: string) => void;
+  onViewDetail: () => void;
   isPending: boolean;
   readonly?: boolean;
 }) {
@@ -372,49 +439,67 @@ function NegotiationCard({
     icon: Package,
   };
   const StIcon = st.icon;
+  const clientPhone = neg.client?.phone || "";
+  const waMsg = `Olá ${neg.client?.name || "cliente"}! Quero falar sobre a negociação: ${neg.order?.title || ""}`;
 
   return (
-    <Card className={`border-slate-200 transition-all ${readonly ? "opacity-75" : "hover:border-primary/30"}`}>
+    <Card className={`border-slate-200 transition-all ${readonly ? "opacity-80" : "hover:border-primary/30"}`}>
       <CardContent className="p-4 space-y-3">
+        {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Badge variant="outline" className={`text-xs gap-1 ${st.color}`}>
                 <StIcon className="h-3 w-3" /> {st.label}
               </Badge>
-              <span className="font-mono text-xs text-slate-400">{timeAgo(neg.createdAt)}</span>
+              <span className="font-mono text-xs text-slate-400 flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" /> {timeAgo(neg.createdAt)}
+              </span>
             </div>
             <h3 className="font-semibold text-slate-800">{neg.order?.title || "Negociação"}</h3>
             {neg.order && (
               <div className="text-sm text-slate-500 flex items-center gap-1">
                 <Car className="h-3.5 w-3.5" />
-                {[neg.order.vehicleBrand, neg.order.vehicleModel, neg.order.vehicleYear].filter(Boolean).join(" • ")}
+                {[neg.order.vehicleBrand, neg.order.vehicleModel, neg.order.vehicleYear].filter(Boolean).join(" · ")}
               </div>
             )}
           </div>
           <div className="text-right shrink-0">
-            <div className="text-2xl font-bold text-primary">R$ {Number(neg.price).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-primary">{fmtMoney(neg.price)}</div>
             <div className="text-xs text-slate-400">valor acordado</div>
           </div>
         </div>
 
+        {/* Cliente */}
         {neg.client && (
-          <div className="bg-slate-50 rounded p-2.5 text-sm flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+          <div className="bg-slate-50 rounded p-2.5 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
               {neg.client.name?.[0]?.toUpperCase() || "C"}
             </div>
-            <div>
-              <span className="font-medium">{neg.client.name}</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm">{neg.client.name}</p>
               {(neg.order?.city || neg.order?.state) && (
-                <span className="text-slate-400 ml-2 inline-flex items-center gap-1">
+                <p className="text-slate-400 text-xs flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   {[neg.order.city, neg.order.state].filter(Boolean).join(", ")}
-                </span>
+                </p>
               )}
             </div>
           </div>
         )}
 
+        {/* Proposta original */}
+        {neg.proposal && (
+          <div className="bg-blue-50 border border-blue-100 rounded p-2 text-sm">
+            <p className="text-xs text-blue-500 mb-0.5">Sua proposta original:</p>
+            <p className="text-blue-800 font-medium">{fmtMoney(neg.proposal.price)}</p>
+            {neg.proposal.message && (
+              <p className="text-blue-700 text-xs mt-0.5 italic">"{neg.proposal.message}"</p>
+            )}
+          </div>
+        )}
+
+        {/* Status banners */}
         {neg.status === "negotiating" && !readonly && (
           <div className="space-y-2">
             <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
@@ -437,9 +522,7 @@ function NegotiationCard({
               <Truck className="h-3.5 w-3.5" /> Peça enviada — aguardando confirmação de entrega pelo cliente
             </div>
             {neg.trackingCode && (
-              <div>
-                Rastreamento: <span className="font-mono font-bold">{neg.trackingCode}</span>
-              </div>
+              <p>Rastreamento: <span className="font-mono font-bold">{neg.trackingCode}</span></p>
             )}
           </div>
         )}
@@ -459,8 +542,231 @@ function NegotiationCard({
             </div>
           </div>
         )}
+
+        {neg.status === "cancelled" && (
+          <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+            <div className="font-semibold flex items-center gap-1">
+              <XCircle className="h-3.5 w-3.5" /> Negociação cancelada
+            </div>
+          </div>
+        )}
+
+        {/* Action bar */}
+        <div className="border-t pt-2 flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 flex-1 min-w-[100px]" onClick={onViewDetail}>
+            <Eye className="h-3.5 w-3.5" /> Ver detalhes
+          </Button>
+
+          {clientPhone && (
+            <Button size="sm" variant="outline" className="gap-1.5 flex-1 min-w-[100px] border-green-300 text-green-700 hover:bg-green-50" asChild>
+              <a href={whatsapp(clientPhone, waMsg)} target="_blank" rel="noopener noreferrer">
+                <Phone className="h-3.5 w-3.5" /> WhatsApp
+              </a>
+            </Button>
+          )}
+
+          <Button size="sm" variant="outline" className="gap-1.5 flex-1 min-w-[100px] border-blue-300 text-blue-700 hover:bg-blue-50">
+            <MessageCircle className="h-3.5 w-3.5" /> Conversar
+          </Button>
+
+          {neg.status === "negotiating" && !readonly && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50"
+              onClick={() => onUpdateStatus?.("cancelled")}
+              disabled={isPending}
+            >
+              <Ban className="h-3.5 w-3.5" /> Cancelar
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Detail Dialog (Desmanche) ────────────────────────────────────────────────
+
+function DesmancheNegotiationDetailDialog({
+  neg,
+  onClose,
+  onShip,
+  onCancel,
+}: {
+  neg: any;
+  onClose: () => void;
+  onShip: () => void;
+  onCancel: () => void;
+}) {
+  const st = NEGOTIATION_STATUS[neg.status] || { label: neg.status, color: "bg-slate-100 text-slate-700", icon: Package };
+  const clientPhone = neg.client?.phone || "";
+  const waMsg = `Olá ${neg.client?.name || "cliente"}! Quero falar sobre a negociação da peça: ${neg.order?.title || ""}`;
+
+  const timeline = [
+    { label: "Proposta aceita pelo cliente", date: neg.createdAt,  done: true },
+    { label: "Peça enviada",                 date: neg.status !== "negotiating" ? neg.updatedAt : null, done: neg.status !== "negotiating" && neg.status !== "cancelled" },
+    { label: "Entrega confirmada",           date: neg.receivedAt, done: !!neg.receivedAt || ["awaiting_review", "completed"].includes(neg.status) },
+    { label: "Cliente avaliou",              date: null,           done: neg.status === "completed" },
+  ];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Detalhes da Negociação</DialogTitle>
+          <DialogDescription className="flex items-center gap-2">
+            <Badge variant="outline" className={st.color}>{st.label}</Badge>
+            <span className="text-xs text-muted-foreground">desde {fmt(neg.createdAt)}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          {/* Pedido do cliente */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" /> Pedido do Cliente
+            </h4>
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+              <p className="font-semibold">{neg.order?.title}</p>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Car className="h-3.5 w-3.5" />
+                {[neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ")}
+              </p>
+              {neg.order?.partName && (
+                <p className="text-sm"><span className="text-muted-foreground">Peça:</span> {neg.order.partName}</p>
+              )}
+              {neg.order?.partPosition && (
+                <p className="text-sm"><span className="text-muted-foreground">Posição:</span> {neg.order.partPosition}</p>
+              )}
+              {(neg.order?.city || neg.order?.state) && (
+                <p className="text-sm flex items-center gap-1 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {[neg.order?.city, neg.order?.state].filter(Boolean).join(", ")}
+                </p>
+              )}
+              {neg.order?.description && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <p className="text-xs text-muted-foreground mb-0.5">Descrição:</p>
+                  <p className="text-sm">{neg.order.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Cliente */}
+          {neg.client && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Handshake className="h-3.5 w-3.5" /> Cliente
+              </h4>
+              <div className="bg-slate-50 rounded-lg p-3 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                  {neg.client.name?.[0]?.toUpperCase() || "C"}
+                </div>
+                <div>
+                  <p className="font-semibold">{neg.client.name}</p>
+                  <p className="text-sm text-muted-foreground">{neg.client.email}</p>
+                  {neg.client.phone && (
+                    <p className="text-sm text-muted-foreground">{neg.client.phone}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Proposta */}
+          {neg.proposal && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5" /> Sua Proposta
+              </h4>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-green-700">Valor proposto</span>
+                  <span className="text-xl font-bold text-green-700">{fmtMoney(neg.proposal.price)}</span>
+                </div>
+                {neg.proposal.message && (
+                  <div className="bg-white rounded p-2 text-sm italic text-slate-600 border border-green-100">
+                    "{neg.proposal.message}"
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Enviada em {fmt(neg.proposal.createdAt)}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" /> Linha do Tempo
+            </h4>
+            <div className="space-y-2">
+              {neg.status === "cancelled" ? (
+                <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Negociação cancelada</p>
+                    <p className="text-xs text-red-600">{fmt(neg.updatedAt || neg.createdAt)}</p>
+                  </div>
+                </div>
+              ) : (
+                timeline.map((t, i) => (
+                  <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg border ${t.done ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200"}`}>
+                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${t.done ? "bg-green-500 text-white" : "bg-slate-300 text-slate-600"}`}>
+                      {t.done ? "✓" : i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${t.done ? "text-green-800" : "text-slate-500"}`}>{t.label}</p>
+                      {t.date && <p className="text-xs text-muted-foreground">{fmt(t.date)}</p>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {neg.trackingCode && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+              <Truck className="h-4 w-4 text-orange-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-orange-800">Código de rastreamento:</p>
+                <p className="font-mono font-bold text-orange-700">{neg.trackingCode}</p>
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Ações */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ações</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {clientPhone && (
+                <Button variant="outline" className="gap-2 border-green-300 text-green-700 hover:bg-green-50" asChild>
+                  <a href={whatsapp(clientPhone, waMsg)} target="_blank" rel="noopener noreferrer">
+                    <Phone className="h-4 w-4" /> WhatsApp
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50" onClick={onClose}>
+                <MessageCircle className="h-4 w-4" /> Conversar
+              </Button>
+            </div>
+            {neg.status === "negotiating" && (
+              <>
+                <Button className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white" onClick={onShip}>
+                  <Truck className="h-4 w-4" /> Informar Envio da Peça
+                </Button>
+                <Button variant="outline" className="w-full gap-2 border-red-300 text-red-600 hover:bg-red-50" onClick={onCancel}>
+                  <Ban className="h-4 w-4" /> Cancelar Negociação
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

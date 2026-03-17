@@ -772,6 +772,7 @@ export async function getNegotiationsByClient(clientId: string) {
     with: {
       order: true,
       desmanche: true,
+      proposal: true,
     },
   });
 }
