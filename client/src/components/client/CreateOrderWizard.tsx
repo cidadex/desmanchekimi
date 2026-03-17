@@ -258,6 +258,7 @@ interface FormState {
   vehiclePlate: string;
   partCategory: string;
   partName: string;
+  customPartName: string;
   partPosition: string;
   description: string;
   urgency: string;
@@ -267,14 +268,22 @@ interface FormState {
 const EMPTY: FormState = {
   vehicleType: "", vehicleBrand: "", vehicleBrandCode: "", vehicleModel: "",
   vehicleYear: "", vehiclePlate: "", partCategory: "", partName: "",
-  partPosition: "", description: "", urgency: "normal", photos: [],
+  customPartName: "", partPosition: "", description: "", urgency: "normal", photos: [],
 };
+
+function isCustomPart(partId: string): boolean {
+  return partId.startsWith("outro") || partId === "outro";
+}
 
 function buildTitle(s: FormState): string {
   const parts: string[] = [];
   if (s.partName) {
-    const partDef = Object.values(PARTS).flat().find((p) => p.id === s.partName);
-    if (partDef) parts.push(partDef.label);
+    if (isCustomPart(s.partName) && s.customPartName.trim()) {
+      parts.push(s.customPartName.trim());
+    } else {
+      const partDef = Object.values(PARTS).flat().find((p) => p.id === s.partName);
+      if (partDef) parts.push(partDef.label);
+    }
   }
   const vehicle: string[] = [];
   if (s.vehicleBrand) vehicle.push(s.vehicleBrand);
@@ -335,7 +344,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
   }, [form.vehicleBrand]);
 
   useEffect(() => {
-    set({ partName: "", partPosition: "" });
+    set({ partName: "", customPartName: "", partPosition: "" });
   }, [form.partCategory]);
 
   useEffect(() => {
@@ -347,10 +356,14 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
     mutationFn: async () => {
       if (!isDesmancheAd && !user?.profileComplete) throw new Error("profile");
       if (!form.vehicleType || !form.vehicleBrand || !form.partName) throw new Error("required");
+      if (isCustomPart(form.partName) && !form.customPartName.trim()) throw new Error("required");
 
       const partDef = Object.values(PARTS).flat().find((p) => p.id === form.partName);
       const posDef = positionOptions?.find((p) => p.id === form.partPosition);
       const catDef = categories.find((c) => c.id === form.partCategory);
+      const resolvedPartName = isCustomPart(form.partName) && form.customPartName.trim()
+        ? form.customPartName.trim()
+        : (partDef?.label || form.partName);
       const title = buildTitle(form);
 
       const body: Record<string, any> = {
@@ -362,7 +375,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
         vehicleYear: parseInt(form.vehicleYear) || new Date().getFullYear(),
         vehiclePlate: form.vehiclePlate || undefined,
         partCategory: catDef?.label || form.partCategory,
-        partName: partDef?.label || form.partName,
+        partName: resolvedPartName,
         partPosition: posDef?.label || form.partPosition || undefined,
         partConditionAccepted: "any",
         location: isDesmancheAd
@@ -601,31 +614,51 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
 
               {/* ── Peça ─────────────────────────────────────────── */}
               {form.partCategory && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Peça <span className="text-destructive">*</span></Label>
-                    <Select value={form.partName} onValueChange={(v) => set({ partName: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione a peça" /></SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {partOptions.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Posição */}
-                  {positionOptions && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Posição</Label>
-                      <Select value={form.partPosition} onValueChange={(v) => set({ partPosition: v })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {positionOptions.map((p) => (
+                      <Label className="text-sm font-semibold">Peça <span className="text-destructive">*</span></Label>
+                      <Select value={form.partName} onValueChange={(v) => set({ partName: v, customPartName: "" })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a peça" /></SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {partOptions.map((p) => (
                             <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
                           ))}
+                          <SelectItem value="outro-custom">✏️ Outro (digitar o nome)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Posição */}
+                    {positionOptions && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Posição</Label>
+                        <Select value={form.partPosition} onValueChange={(v) => set({ partPosition: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {positionOptions.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Campo de nome livre quando "Outro" é selecionado */}
+                  {form.partName && isCustomPart(form.partName) && (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold">
+                        Nome da peça <span className="text-destructive">*</span>
+                        <span className="font-normal text-muted-foreground ml-1">(descreva a peça que você precisa)</span>
+                      </Label>
+                      <Input
+                        placeholder="Ex: Coxim do motor, tensor da correia, bomba d'água..."
+                        value={form.customPartName}
+                        onChange={(e) => set({ customPartName: e.target.value })}
+                        className="bg-white"
+                        autoFocus
+                      />
                     </div>
                   )}
                 </div>
@@ -709,7 +742,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
           <Button
             className="w-full h-12 text-base font-semibold"
             onClick={() => createMutation.mutate()}
-            disabled={isLoading || !form.vehicleType || !form.vehicleBrand || !form.partName}
+            disabled={isLoading || !form.vehicleType || !form.vehicleBrand || !form.partName || (isCustomPart(form.partName) && !form.customPartName.trim())}
           >
             {isLoading
               ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Enviando...</>
