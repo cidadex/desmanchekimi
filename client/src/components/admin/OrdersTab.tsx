@@ -24,7 +24,6 @@ type Order = {
 const statusLabels: Record<string, string> = {
   open: "Propostas Abertas",
   negotiating: "Em Negociação",
-  closed: "Concluído",
   completed: "Concluído",
   shipped: "Enviado",
   cancelled: "Cancelado",
@@ -103,7 +102,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
         </Badge>
         {Object.entries(statusLabels).map(([key, label]) => {
           const count = countByStatus(key);
-          if (count === 0 && key !== "open" && key !== "negotiating" && key !== "closed") return null;
+          if (count === 0 && key !== "open" && key !== "negotiating" && key !== "completed") return null;
           return (
             <Badge
               key={key}
@@ -143,7 +142,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
             const proposalCount = order.proposals ? order.proposals.length : 0;
 
             return (
-              <Card key={order.id} className="overflow-hidden hover:border-primary/40 transition-all cursor-pointer">
+              <Card key={order.id} className="overflow-hidden hover:border-primary/40 transition-all cursor-pointer" onClick={() => onSelectOrder?.(order.id)}>
                 <CardContent className="p-0 sm:flex items-center">
                   <div className="bg-muted/50 p-4 sm:p-6 sm:w-1/4 flex flex-col justify-center border-r">
                     <span className="font-mono text-xs text-muted-foreground mb-1">PED-{order.id}</span>
