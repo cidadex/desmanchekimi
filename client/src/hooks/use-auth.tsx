@@ -131,9 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       return data.user;
     },
-    onSuccess: (userData) => {
+    onSuccess: () => {
       queryClient.clear();
-      queryClient.setQueryData(["/api/users/me"], userData);
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",
@@ -165,8 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(result.token);
       return result.user;
     },
-    onSuccess: (userData) => {
-      queryClient.setQueryData(["/api/users/me"], userData);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Cadastro realizado com sucesso",
@@ -199,8 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(result.token);
       return result.user;
     },
-    onSuccess: (userData) => {
-      queryClient.setQueryData(["/api/users/me"], userData);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({
         title: "Cadastro realizado com sucesso",
