@@ -1,0 +1,99 @@
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
+const ASAAS_ENVIRONMENT = process.env.ASAAS_ENVIRONMENT || "sandbox";
+const ASAAS_BASE_URL = ASAAS_ENVIRONMENT === "production"
+  ? "https://api.asaas.com/v3"
+  : "https://sandbox.asaas.com/api/v3";
+
+function getHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "access_token": ASAAS_API_KEY || "",
+  };
+}
+
+export function isAsaasConfigured(): boolean {
+  return !!ASAAS_API_KEY;
+}
+
+export async function createAsaasCustomer(data: {
+  name: string;
+  email: string;
+  phone: string;
+  cpfCnpj: string;
+}): Promise<{ id: string } | null> {
+  if (!isAsaasConfigured()) return null;
+  try {
+    const res = await fetch(`${ASAAS_BASE_URL}/customers`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        cpfCnpj: data.cpfCnpj.replace(/\D/g, ""),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Asaas create customer error:", err);
+      return null;
+    }
+    return res.json();
+  } catch (e) {
+    console.error("Asaas customer error:", e);
+    return null;
+  }
+}
+
+export async function createAsaasCharge(data: {
+  customerId: string;
+  value: number;
+  dueDate: string;
+  description: string;
+  billingType: "BOLETO" | "PIX" | "UNDEFINED";
+}): Promise<{ id: string; invoiceUrl?: string; bankSlipUrl?: string; status: string } | null> {
+  if (!isAsaasConfigured()) return null;
+  try {
+    const res = await fetch(`${ASAAS_BASE_URL}/payments`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        customer: data.customerId,
+        billingType: data.billingType,
+        value: data.value,
+        dueDate: data.dueDate,
+        description: data.description,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Asaas create charge error:", err);
+      return null;
+    }
+    return res.json();
+  } catch (e) {
+    console.error("Asaas charge error:", e);
+    return null;
+  }
+}
+
+export async function getAsaasChargeStatus(chargeId: string): Promise<string | null> {
+  if (!isAsaasConfigured()) return null;
+  try {
+    const res = await fetch(`${ASAAS_BASE_URL}/payments/${chargeId}`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return data.status;
+  } catch (e) {
+    console.error("Asaas get charge error:", e);
+    return null;
+  }
+}
+
+export function getDueDateString(daysFromNow: number = 3): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().split("T")[0];
+}

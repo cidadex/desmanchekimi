@@ -11,8 +11,10 @@ import {
   CheckCircle2, TrendingUp, ShieldCheck, Users, Star, Package,
   MapPin, Building2, UserCheck, FileText, ImageIcon, Lock,
   Loader2, ArrowLeft, Upload, ChevronRight, Search, AlertCircle,
-  Info,
+  Info, CreditCard,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 const BENEFITS = [
@@ -29,6 +31,7 @@ const STEPS = [
   { icon: ImageIcon, label: "Logotipo" },
   { icon: FileText, label: "Documentos" },
   { icon: Lock, label: "Acesso" },
+  { icon: CreditCard, label: "Plano" },
 ];
 
 const SITUACAO_MAP: Record<number, { label: string; color: string }> = {
@@ -45,6 +48,17 @@ export default function CadastroDesmanche() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedBillingModel, setSelectedBillingModel] = useState<"per_transaction" | "subscription">("per_transaction");
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+
+  const { data: plansData = [] } = useQuery<any[]>({
+    queryKey: ["/api/subscription-plans-public"],
+    queryFn: async () => {
+      const res = await fetch("/api/subscription-plans");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const [form, setForm] = useState({
     companyName: "",
@@ -230,6 +244,23 @@ export default function CadastroDesmanche() {
         await registerDocument(desmancheId, doc.type, doc.name, url, token);
       }
 
+      // Configura cobrança se selecionada
+      if (selectedBillingModel) {
+        try {
+          const billingToken = localStorage.getItem("peca_rapida_token") as string;
+          await fetch("/api/billing/setup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${billingToken}` },
+            body: JSON.stringify({
+              billingModel: selectedBillingModel,
+              planId: selectedBillingModel === "subscription" ? (selectedPlanId || undefined) : undefined,
+            }),
+          });
+        } catch {
+          // Não-crítico: pode configurar depois pelo painel
+        }
+      }
+
       toast({ title: "Cadastro realizado!", description: "Seu cadastro foi enviado para aprovação. Você já pode acessar seu painel." });
       navigate("/desmanche");
     } catch (err: any) {
@@ -244,6 +275,7 @@ export default function CadastroDesmanche() {
     if (step === 1) return true;
     if (step === 2) return !!(alvaraFile && docResponsavelFile && docEmpresaFile && detranFile);
     if (step === 3) return !!(form.email && form.password && form.confirmPassword && form.password === form.confirmPassword);
+    if (step === 4) return true; // Plano é opcional
     return false;
   };
 
@@ -509,6 +541,100 @@ export default function CadastroDesmanche() {
                 </>
               )}
 
+              {/* ── STEP 4: Plano ───────────────────────────── */}
+              {step === 4 && (
+                <>
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-primary" /> Escolha seu Modelo de Cobrança
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Você pode alterar isso a qualquer momento no painel financeiro.
+                  </p>
+
+                  <div className="grid gap-3">
+                    {/* Por Transação */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBillingModel("per_transaction")}
+                      className={`text-left rounded-xl border-2 p-4 transition-all ${
+                        selectedBillingModel === "per_transaction"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold">Por Transação</span>
+                        {selectedBillingModel === "per_transaction" && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Pague apenas quando fechar negócios. Valor por transação concluída, com teto mensal.
+                      </p>
+                      <Badge variant="outline" className="mt-2 text-xs bg-green-50 text-green-700 border-green-200">
+                        Recomendado para começar
+                      </Badge>
+                    </button>
+
+                    {/* Assinatura */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBillingModel("subscription")}
+                      className={`text-left rounded-xl border-2 p-4 transition-all ${
+                        selectedBillingModel === "subscription"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold">Assinatura Mensal</span>
+                        {selectedBillingModel === "subscription" && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Valor fixo por mês. Ideal para desmanches com alto volume de propostas.
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Seleção de plano específico */}
+                  {selectedBillingModel === "subscription" && plansData.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      <Label>Selecione o Plano</Label>
+                      <div className="grid gap-2">
+                        {plansData.filter((p) => p.active).map((plan) => (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setSelectedPlanId(plan.id)}
+                            className={`text-left rounded-lg border-2 p-3 transition-all ${
+                              selectedPlanId === plan.id
+                                ? "border-primary bg-primary/5"
+                                : "border-muted hover:border-primary/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold">{plan.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-primary">
+                                  R$ {plan.price.toFixed(2).replace(".", ",")}
+                                  <span className="text-xs text-muted-foreground font-normal">/mês</span>
+                                </span>
+                                {selectedPlanId === plan.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Até {plan.proposalLimit >= 999 ? "ilimitadas" : plan.proposalLimit} propostas • {plan.exclusivitySlots} slots exclusivos
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
               {/* ── STEP 3: Acesso ──────────────────────────── */}
               {step === 3 && (
                 <>
@@ -544,12 +670,18 @@ export default function CadastroDesmanche() {
                 <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
                   Voltar
                 </Button>
-                {step < 3 ? (
+                {step < 3 && (
                   <Button onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()} className="gap-1">
                     Continuar <ChevronRight className="h-4 w-4" />
                   </Button>
-                ) : (
-                  <Button onClick={handleSubmit} disabled={isSubmitting || !canAdvance()} className="gap-2">
+                )}
+                {step === 3 && (
+                  <Button onClick={() => setStep(4)} disabled={!canAdvance()} className="gap-1">
+                    Escolher Plano <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+                {step === 4 && (
+                  <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
                     {isSubmitting
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
                       : <><CheckCircle2 className="h-4 w-4" /> Enviar Cadastro</>

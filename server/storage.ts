@@ -172,6 +172,49 @@ sqlite.exec(`
     read_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
+
+  CREATE TABLE IF NOT EXISTS subscription_plans (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    proposal_limit INTEGER NOT NULL DEFAULT 10,
+    exclusivity_slots INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS desmanche_billing (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    desmanche_id TEXT NOT NULL UNIQUE REFERENCES desmanches(id),
+    billing_model TEXT NOT NULL DEFAULT 'per_transaction',
+    plan_id TEXT REFERENCES subscription_plans(id),
+    monthly_transaction_count INTEGER NOT NULL DEFAULT 0,
+    monthly_amount_paid REAL NOT NULL DEFAULT 0,
+    current_period_start INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    asaas_customer_id TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS billing_transactions (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    desmanche_id TEXT NOT NULL REFERENCES desmanches(id),
+    negotiation_id TEXT,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    type TEXT NOT NULL DEFAULT 'per_transaction',
+    asaas_charge_id TEXT,
+    payment_link TEXT,
+    description TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    paid_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
 `);
 
 // Migrate existing database - add new columns if they don't exist
@@ -200,6 +243,30 @@ try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_position TEXT`); } catch (
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN part_condition_accepted TEXT DEFAULT 'any'`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN city TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN state TEXT`); } catch (e) {}
+// Negotiations: new columns for review gate
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN received_at INTEGER`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGER`); } catch (e) {}
+// Seed default system settings
+const defaultSettings = [
+  { key: 'reviewDeadlineDays', value: '10' },
+  { key: 'maxOverdueBeforeBlock', value: '1' },
+  { key: 'perTransactionAmount', value: '25' },
+  { key: 'monthlyCapAmount', value: '200' },
+];
+for (const s of defaultSettings) {
+  sqlite.exec(`INSERT OR IGNORE INTO system_settings (key, value) VALUES ('${s.key}', '${s.value}')`);
+}
+// Seed default subscription plans if none exist
+const planCount = (sqlite.prepare('SELECT count(*) as c FROM subscription_plans').get() as any).c;
+if (planCount === 0) {
+  sqlite.exec(`
+    INSERT INTO subscription_plans (id, name, price, proposal_limit, exclusivity_slots, description, active)
+    VALUES
+      (lower(hex(randomblob(16))), 'Plano Básico', 99.90, 20, 0, 'Responda até 20 pedidos por mês', 1),
+      (lower(hex(randomblob(16))), 'Plano Plus', 199.90, 50, 5, 'Responda até 50 pedidos + 5 slots exclusivos', 1),
+      (lower(hex(randomblob(16))), 'Plano Pro', 349.90, 999, 15, 'Propostas ilimitadas + 15 slots exclusivos', 1)
+  `);
+}
 
 // Hash de senha
 export async function hashPassword(password: string): Promise<string> {
@@ -806,6 +873,227 @@ export async function countUnreadMessages(roomId: string, readerId: string) {
       )
     );
   return result[0]?.count || 0;
+}
+
+// ==================== SYSTEM SETTINGS ====================
+export async function getSystemSetting(key: string): Promise<string | null> {
+  const row = await db.query.systemSettings.findFirst({
+    where: eq(schema.systemSettings.key, key),
+  });
+  return row?.value ?? null;
+}
+
+export async function getSystemSettingNumber(key: string, fallback: number): Promise<number> {
+  const v = await getSystemSetting(key);
+  if (!v) return fallback;
+  const n = parseFloat(v);
+  return isNaN(n) ? fallback : n;
+}
+
+export async function getAllSystemSettings() {
+  return db.query.systemSettings.findMany();
+}
+
+export async function setSystemSetting(key: string, value: string) {
+  await db.insert(schema.systemSettings)
+    .values({ key, value, updatedAt: sql`(strftime('%s', 'now'))` })
+    .onConflictDoUpdate({ target: schema.systemSettings.key, set: { value, updatedAt: sql`(strftime('%s', 'now'))` } });
+}
+
+// ==================== SUBSCRIPTION PLANS ====================
+export async function getAllSubscriptionPlans(onlyActive = false) {
+  return db.query.subscriptionPlans.findMany({
+    where: onlyActive ? eq(schema.subscriptionPlans.active, true) : undefined,
+    orderBy: asc(schema.subscriptionPlans.price),
+  });
+}
+
+export async function getSubscriptionPlanById(id: string) {
+  return db.query.subscriptionPlans.findFirst({
+    where: eq(schema.subscriptionPlans.id, id),
+  });
+}
+
+export async function createSubscriptionPlan(data: schema.InsertSubscriptionPlan) {
+  const id = randomUUID();
+  await db.insert(schema.subscriptionPlans).values({ id, ...data });
+  return getSubscriptionPlanById(id);
+}
+
+export async function updateSubscriptionPlan(id: string, data: Partial<schema.InsertSubscriptionPlan>) {
+  await db.update(schema.subscriptionPlans).set(data).where(eq(schema.subscriptionPlans.id, id));
+  return getSubscriptionPlanById(id);
+}
+
+export async function deleteSubscriptionPlan(id: string) {
+  await db.delete(schema.subscriptionPlans).where(eq(schema.subscriptionPlans.id, id));
+}
+
+// ==================== DESMANCHE BILLING ====================
+export async function getDesmancheBilling(desmancheId: string) {
+  return db.query.desmancheBilling.findFirst({
+    where: eq(schema.desmancheBilling.desmancheId, desmancheId),
+    with: { plan: true },
+  });
+}
+
+export async function createOrUpdateDesmancheBilling(desmancheId: string, data: {
+  billingModel: "subscription" | "per_transaction";
+  planId?: string | null;
+  asaasCustomerId?: string;
+}) {
+  const existing = await getDesmancheBilling(desmancheId);
+  if (existing) {
+    await db.update(schema.desmancheBilling)
+      .set({ billingModel: data.billingModel, planId: data.planId ?? null, ...(data.asaasCustomerId ? { asaasCustomerId: data.asaasCustomerId } : {}) })
+      .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+  } else {
+    const id = randomUUID();
+    await db.insert(schema.desmancheBilling).values({
+      id,
+      desmancheId,
+      billingModel: data.billingModel,
+      planId: data.planId ?? null,
+      asaasCustomerId: data.asaasCustomerId,
+      currentPeriodStart: sql`(strftime('%s', 'now'))`,
+    });
+  }
+  return getDesmancheBilling(desmancheId);
+}
+
+export async function incrementBillingTransaction(desmancheId: string, amount: number) {
+  await db.update(schema.desmancheBilling)
+    .set({
+      monthlyTransactionCount: sql`monthly_transaction_count + 1`,
+      monthlyAmountPaid: sql`monthly_amount_paid + ${amount}`,
+    })
+    .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+}
+
+export async function resetMonthlyBillingCounters(desmancheId: string) {
+  await db.update(schema.desmancheBilling)
+    .set({
+      monthlyTransactionCount: 0,
+      monthlyAmountPaid: 0,
+      currentPeriodStart: sql`(strftime('%s', 'now'))`,
+    })
+    .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+}
+
+// ==================== BILLING TRANSACTIONS ====================
+export async function getBillingTransactionsByDesmanche(desmancheId: string) {
+  return db.query.billingTransactions.findMany({
+    where: eq(schema.billingTransactions.desmancheId, desmancheId),
+    orderBy: desc(schema.billingTransactions.createdAt),
+  });
+}
+
+export async function getAllBillingTransactions() {
+  return db.query.billingTransactions.findMany({
+    orderBy: desc(schema.billingTransactions.createdAt),
+    with: { desmanche: true },
+  });
+}
+
+export async function createBillingTransaction(data: {
+  desmancheId: string;
+  negotiationId?: string;
+  amount: number;
+  type: "per_transaction" | "subscription";
+  description?: string;
+  asaasChargeId?: string;
+  paymentLink?: string;
+  status?: "pending" | "paid" | "failed" | "exempt";
+}) {
+  const id = randomUUID();
+  await db.insert(schema.billingTransactions).values({
+    id,
+    desmancheId: data.desmancheId,
+    negotiationId: data.negotiationId,
+    amount: data.amount,
+    type: data.type,
+    description: data.description,
+    asaasChargeId: data.asaasChargeId,
+    paymentLink: data.paymentLink,
+    status: data.status ?? "pending",
+  });
+  return db.query.billingTransactions.findFirst({ where: eq(schema.billingTransactions.id, id) });
+}
+
+export async function updateBillingTransactionStatus(id: string, status: "pending" | "paid" | "failed" | "exempt", asaasChargeId?: string, paymentLink?: string) {
+  const updateData: any = { status };
+  if (asaasChargeId) updateData.asaasChargeId = asaasChargeId;
+  if (paymentLink) updateData.paymentLink = paymentLink;
+  if (status === "paid") updateData.paidAt = sql`(strftime('%s', 'now'))`;
+  await db.update(schema.billingTransactions).set(updateData).where(eq(schema.billingTransactions.id, id));
+}
+
+// ==================== REVIEW GATE / BLOCKING ====================
+export async function getOverdueReviewCountForClient(clientId: string): Promise<number> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db.select({ count: sql<number>`count(*)` })
+    .from(schema.negotiations)
+    .where(
+      and(
+        eq(schema.negotiations.clientId, clientId),
+        eq(schema.negotiations.status, 'delivered'),
+        sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
+        sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
+      )
+    );
+  return result[0]?.count || 0;
+}
+
+export async function getOverdueReviewCountForDesmanche(desmancheId: string): Promise<number> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db.select({ count: sql<number>`count(*)` })
+    .from(schema.negotiations)
+    .where(
+      and(
+        eq(schema.negotiations.desmancheId, desmancheId),
+        eq(schema.negotiations.status, 'delivered'),
+        sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
+        sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
+      )
+    );
+  return result[0]?.count || 0;
+}
+
+export async function getPendingReviewsForClient(clientId: string) {
+  return db.query.negotiations.findMany({
+    where: and(
+      eq(schema.negotiations.clientId, clientId),
+      eq(schema.negotiations.status, 'delivered'),
+    ),
+    with: { order: true, desmanche: true },
+  });
+}
+
+export async function autoExpireOverdueReviews() {
+  const now = Math.floor(Date.now() / 1000);
+  await db.update(schema.negotiations)
+    .set({ status: 'completed', updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(
+      and(
+        eq(schema.negotiations.status, 'delivered'),
+        sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
+        sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
+      )
+    );
+}
+
+export async function setNegotiationReceived(id: string, reviewDeadlineDays: number) {
+  const now = Math.floor(Date.now() / 1000);
+  const deadlineTs = now + (reviewDeadlineDays * 24 * 60 * 60);
+  await db.update(schema.negotiations)
+    .set({
+      status: 'delivered',
+      receivedAt: sql`(strftime('%s', 'now'))`,
+      reviewDeadlineAt: deadlineTs,
+      updatedAt: sql`(strftime('%s', 'now'))`,
+    })
+    .where(eq(schema.negotiations.id, id));
+  return getNegotiationById(id);
 }
 
 // ==================== SEED DATA ====================

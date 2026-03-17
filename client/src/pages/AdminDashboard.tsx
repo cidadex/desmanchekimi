@@ -15,7 +15,9 @@ import {
   Package,
   Gavel,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Settings,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,8 @@ import OrdersTab from "@/components/admin/OrdersTab";
 import AuctionsTab from "@/components/admin/AuctionsTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import ApprovalsTab from "@/components/admin/ApprovalsTab";
+import PlansTab from "@/components/admin/PlansTab";
+import SettingsTab from "@/components/admin/SettingsTab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -73,7 +77,9 @@ export default function AdminDashboard() {
         <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {setActiveTab('orders'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {setActiveTab('auctions'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {setActiveTab('finance'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {setActiveTab('plans'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {setActiveTab('approvals'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {setActiveTab('settings'); setIsMobileMenuOpen(false);}} />
       </div>
       
       <div className="p-4 border-t border-border">
@@ -161,7 +167,9 @@ export default function AdminDashboard() {
           {activeTab === 'orders' && <OrdersTab />}
           {activeTab === 'auctions' && <AuctionsTab />}
           {activeTab === 'finance' && <FinanceTab />}
+          {activeTab === 'plans' && <PlansTab />}
           {activeTab === 'approvals' && <ApprovalsTab />}
+          {activeTab === 'settings' && <SettingsTab />}
         </div>
       </main>
     </div>

@@ -41,7 +41,7 @@ npm start         # Run production build
 
 ## Database Tables
 
-users, addresses, desmanches, desmanche_addresses, documents, orders, order_images, proposals, negotiations, auctions, invoices, reviews
+users, addresses, desmanches, desmanche_addresses, documents, orders, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings
 
 ### Desmanches Table Fields
 - companyName, tradingName, cnpj, email, phone, password
@@ -64,11 +64,14 @@ Files are uploaded via `POST /api/upload` (multipart, field "file") and stored i
 
 - Profile completion (name, phone, whatsapp, address with CEP auto-fill)
 - Profile completeness check (whatsapp + address required to create orders)
-- Create/list/cancel orders
+- Create/list/cancel orders (blocked if has overdue reviews)
 - View/accept/reject proposals from desmanches
 - WhatsApp unlock for contacting desmanches
-- Negotiations pipeline (negotiating -> shipped -> delivered -> completed)
-- Review/rate desmanches after delivery
+- Negotiations pipeline: negotiating → shipped → awaiting_review → completed
+- Confirm receipt (PATCH /received) starts review deadline countdown
+- Review gate with countdown timer (days/hours until deadline)
+- Block banner shown when reviews are overdue
+- Review/rate desmanches triggers billing and auto-completes negotiation
 
 ## Admin Panel Features (Fully Connected to API)
 
@@ -77,7 +80,9 @@ Files are uploaded via `POST /api/upload` (multipart, field "file") and stored i
 - Users list with cards, search filter
 - Orders list with status badges, search, filters
 - Approvals: view pending desmanches with uploaded documents, approve/reject with reason
-- Auctions and Finance tabs (still use mock data - no real endpoints yet)
+- Finance tab: real billing data (transactions, totals, plan list)
+- Plans tab: full CRUD for subscription plans (name, price, limits, active toggle)
+- Settings tab: system config (review deadline days, overdue block threshold, per-tx amount, monthly cap)
 
 ## Desmanche Registration Flow
 
@@ -112,6 +117,28 @@ Files are uploaded via `POST /api/upload` (multipart, field "file") and stored i
 
 ### Orders, Proposals, Negotiations, Documents, Reviews, Auctions, Invoices
 - Standard CRUD with auth middleware
+
+### Negotiations (new)
+- PATCH /api/negotiations/:id/ship — desmanche marks as shipped (with trackingCode)
+- PATCH /api/negotiations/:id/received — client confirms receipt, starts review deadline
+- GET /api/client/review-block-status — client check if blocked by overdue reviews
+- GET /api/desmanche/review-block-status — desmanche check if blocked
+
+### Billing / Asaas
+- GET /api/billing/my — desmanche billing info + transactions
+- POST /api/billing/setup — configure billing model (per_transaction | subscription)
+- POST /api/billing/webhook — Asaas webhook receiver
+
+### Subscription Plans (admin)
+- GET /api/subscription-plans — list plans (admin sees all, others see active only)
+- POST /api/subscription-plans — create plan
+- PATCH /api/subscription-plans/:id — update plan
+- DELETE /api/subscription-plans/:id — delete plan
+
+### System Settings (admin)
+- GET /api/admin/settings — all system settings as key/value
+- PATCH /api/admin/settings — update settings (reviewDeadlineDays, maxOverdueBeforeBlock, perTransactionAmount, monthlyCapAmount)
+- GET /api/admin/billing — all transactions + totals + plans
 
 ### Admin
 - GET /api/admin/users, /api/admin/orders, /api/admin/desmanches

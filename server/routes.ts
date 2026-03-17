@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import * as storage from "./storage";
 import * as schema from "@shared/schema";
+import * as asaas from "./asaas";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -511,6 +512,18 @@ export async function registerRoutes(server: Server, app: Express) {
         return res.status(400).json({ message: "Complete seu perfil (WhatsApp e endereço) antes de criar pedidos" });
       }
       
+      // Verificação de bloqueio por avaliação pendente
+      const maxOverdue = await storage.getSystemSettingNumber("maxOverdueBeforeBlock", 1);
+      const overdueCount = await storage.getOverdueReviewCountForClient(clientId);
+      if (overdueCount >= maxOverdue) {
+        const pending = await storage.getPendingReviewsForClient(clientId);
+        return res.status(403).json({
+          message: "Você possui avaliações atrasadas. Avalie as negociações concluídas para criar novos pedidos.",
+          blocked: true,
+          pendingReviews: pending,
+        });
+      }
+      
       const orderData = schema.insertOrderSchema.parse(req.body);
       
       const order = await storage.createOrder({
@@ -581,6 +594,16 @@ export async function registerRoutes(server: Server, app: Express) {
       // Verifica se o desmanche está fazendo a proposta
       if (proposalData.desmancheId !== desmancheId) {
         return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      // Verificação de bloqueio por avaliação pendente
+      const maxOverdue = await storage.getSystemSettingNumber("maxOverdueBeforeBlock", 1);
+      const overdueCount = await storage.getOverdueReviewCountForDesmanche(desmancheId);
+      if (overdueCount >= maxOverdue) {
+        return res.status(403).json({
+          message: "Você possui avaliações atrasadas. Aguarde a avaliação do cliente para enviar novas propostas.",
+          blocked: true,
+        });
       }
       
       const proposal = await storage.createProposal(proposalData);
@@ -916,6 +939,16 @@ export async function registerRoutes(server: Server, app: Express) {
       
       const review = await storage.createReview(reviewData);
       
+      // Marca negociação como concluída após avaliação
+      await storage.updateNegotiationStatus(reviewData.negotiationId, 'completed');
+      
+      // Dispara cobrança por transação se aplicável
+      try {
+        await triggerTransactionBilling(reviewData.desmancheId, reviewData.negotiationId);
+      } catch (billingErr) {
+        console.error("Billing trigger error (non-critical):", billingErr);
+      }
+      
       // Atualiza a nota do desmanche
       const reviews = await storage.getReviewsByDesmanche(reviewData.desmancheId);
       const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
@@ -1134,6 +1167,317 @@ export async function registerRoutes(server: Server, app: Express) {
       res.status(500).json({ message: "Erro ao enviar mensagem" });
     }
   });
+
+  // ============================================
+  // NEGOTIATION - SHIP / RECEIVED
+  // ============================================
+
+  app.patch("/api/negotiations/:id/ship", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { trackingCode } = req.body;
+      const negotiation = await storage.getNegotiationById(req.params.id);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      if (negotiation.desmancheId !== desmancheId) return res.status(403).json({ message: "Acesso negado" });
+      if (negotiation.status !== "negotiating") {
+        return res.status(400).json({ message: "Negociação não está no status correto para marcar envio" });
+      }
+      const updated = await storage.updateNegotiationStatus(req.params.id, "shipped", trackingCode);
+      res.json(updated);
+    } catch (error) {
+      console.error("Ship negotiation error:", error);
+      res.status(500).json({ message: "Erro ao marcar envio" });
+    }
+  });
+
+  app.patch("/api/negotiations/:id/received", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const negotiation = await storage.getNegotiationById(req.params.id);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      if (negotiation.clientId !== clientId) return res.status(403).json({ message: "Acesso negado" });
+      if (negotiation.status !== "shipped") {
+        return res.status(400).json({ message: "Negociação não está no status correto" });
+      }
+      const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
+      const updated = await storage.setNegotiationReceived(req.params.id, reviewDeadlineDays);
+      res.json(updated);
+    } catch (error) {
+      console.error("Received negotiation error:", error);
+      res.status(500).json({ message: "Erro ao confirmar recebimento" });
+    }
+  });
+
+  // Endpoint para checar bloqueio do cliente (usado no frontend)
+  app.get("/api/client/review-block-status", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const maxOverdue = await storage.getSystemSettingNumber("maxOverdueBeforeBlock", 1);
+      const overdueCount = await storage.getOverdueReviewCountForClient(clientId);
+      const isBlocked = overdueCount >= maxOverdue;
+      const pending = isBlocked ? await storage.getPendingReviewsForClient(clientId) : [];
+      res.json({ isBlocked, overdueCount, pendingReviews: pending });
+    } catch (error) {
+      res.status(500).json({ message: "Erro" });
+    }
+  });
+
+  // Endpoint para checar bloqueio do desmanche
+  app.get("/api/desmanche/review-block-status", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const maxOverdue = await storage.getSystemSettingNumber("maxOverdueBeforeBlock", 1);
+      const overdueCount = await storage.getOverdueReviewCountForDesmanche(desmancheId);
+      const isBlocked = overdueCount >= maxOverdue;
+      res.json({ isBlocked, overdueCount });
+    } catch (error) {
+      res.status(500).json({ message: "Erro" });
+    }
+  });
+
+  // ============================================
+  // BILLING / ASAAS ROUTES
+  // ============================================
+
+  app.get("/api/billing/my", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const billing = await storage.getDesmancheBilling(desmancheId);
+      const transactions = await storage.getBillingTransactionsByDesmanche(desmancheId);
+      const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
+      const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
+      res.json({
+        billing: billing || null,
+        transactions,
+        settings: { capAmount, perTxAmount },
+        asaasConfigured: asaas.isAsaasConfigured(),
+      });
+    } catch (error) {
+      console.error("Get billing error:", error);
+      res.status(500).json({ message: "Erro ao buscar cobrança" });
+    }
+  });
+
+  app.post("/api/billing/setup", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { billingModel, planId } = req.body;
+      if (!billingModel || !["subscription", "per_transaction"].includes(billingModel)) {
+        return res.status(400).json({ message: "Modelo de cobrança inválido" });
+      }
+      if (billingModel === "subscription" && !planId) {
+        return res.status(400).json({ message: "Plano obrigatório para assinatura" });
+      }
+      const desmanche = await storage.getDesmancheById(desmancheId);
+      if (!desmanche) return res.status(404).json({ message: "Desmanche não encontrado" });
+
+      let asaasCustomerId: string | undefined;
+      if (asaas.isAsaasConfigured()) {
+        const customer = await asaas.createAsaasCustomer({
+          name: desmanche.companyName,
+          email: desmanche.email,
+          phone: desmanche.phone,
+          cpfCnpj: desmanche.cnpj,
+        });
+        if (customer) asaasCustomerId = customer.id;
+      }
+
+      const billing = await storage.createOrUpdateDesmancheBilling(desmancheId, {
+        billingModel,
+        planId: planId || null,
+        asaasCustomerId,
+      });
+      res.json(billing);
+    } catch (error) {
+      console.error("Billing setup error:", error);
+      res.status(500).json({ message: "Erro ao configurar cobrança" });
+    }
+  });
+
+  // Webhook Asaas - confirma pagamento
+  app.post("/api/billing/webhook", async (req, res) => {
+    try {
+      const { event, payment } = req.body;
+      if (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") {
+        if (payment?.id) {
+          const allTx = await storage.getAllBillingTransactions();
+          const tx = allTx.find((t: any) => t.asaasChargeId === payment.id);
+          if (tx) {
+            await storage.updateBillingTransactionStatus(tx.id, "paid");
+          }
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      res.status(500).json({ message: "Erro no webhook" });
+    }
+  });
+
+  // ============================================
+  // SUBSCRIPTION PLANS (ADMIN)
+  // ============================================
+
+  app.get("/api/subscription-plans", authMiddleware, async (req, res) => {
+    try {
+      const userType = (req as any).user.type;
+      const onlyActive = userType !== "admin";
+      const plans = await storage.getAllSubscriptionPlans(onlyActive);
+      res.json(plans);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar planos" });
+    }
+  });
+
+  app.post("/api/subscription-plans", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const data = schema.insertSubscriptionPlanSchema.parse(req.body);
+      const plan = await storage.createSubscriptionPlan(data);
+      res.status(201).json(plan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar plano" });
+    }
+  });
+
+  app.patch("/api/subscription-plans/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const plan = await storage.updateSubscriptionPlan(req.params.id, req.body);
+      res.json(plan);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar plano" });
+    }
+  });
+
+  app.delete("/api/subscription-plans/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      await storage.deleteSubscriptionPlan(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar plano" });
+    }
+  });
+
+  // ============================================
+  // SYSTEM SETTINGS (ADMIN)
+  // ============================================
+
+  app.get("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const settings = await storage.getAllSystemSettings();
+      const obj: Record<string, string> = {};
+      for (const s of settings) obj[s.key] = s.value;
+      res.json(obj);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar configurações" });
+    }
+  });
+
+  app.patch("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount"];
+      for (const [key, value] of Object.entries(req.body)) {
+        if (allowed.includes(key)) {
+          await storage.setSystemSetting(key, String(value));
+        }
+      }
+      const settings = await storage.getAllSystemSettings();
+      const obj: Record<string, string> = {};
+      for (const s of settings) obj[s.key] = s.value;
+      res.json(obj);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao salvar configurações" });
+    }
+  });
+
+  // ============================================
+  // ADMIN FINANCE
+  // ============================================
+
+  app.get("/api/admin/billing", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const transactions = await storage.getAllBillingTransactions();
+      const totalPaid = transactions
+        .filter((t: any) => t.status === "paid")
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
+      const totalPending = transactions
+        .filter((t: any) => t.status === "pending")
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
+      const plans = await storage.getAllSubscriptionPlans();
+      res.json({ transactions, totalPaid, totalPending, plans });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar financeiro" });
+    }
+  });
+
+  // Auto-expire overdue reviews
+  async function runAutoExpire() {
+    try {
+      await storage.autoExpireOverdueReviews();
+    } catch (e) {
+      console.error("Auto-expire error:", e);
+    }
+  }
+
+  // Billing helper
+  async function triggerTransactionBilling(desmancheId: string, negotiationId: string) {
+    const billing = await storage.getDesmancheBilling(desmancheId);
+    if (!billing || billing.billingModel !== "per_transaction") return;
+
+    const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
+    const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
+
+    // Se já atingiu o teto este mês, isento
+    if (billing.monthlyAmountPaid >= capAmount) {
+      await storage.createBillingTransaction({
+        desmancheId,
+        negotiationId,
+        amount: 0,
+        type: "per_transaction",
+        description: "Isento — teto mensal atingido",
+        status: "exempt",
+      });
+      return;
+    }
+
+    const chargeAmount = Math.min(perTxAmount, capAmount - billing.monthlyAmountPaid);
+    let asaasChargeId: string | undefined;
+    let paymentLink: string | undefined;
+
+    if (asaas.isAsaasConfigured() && billing.asaasCustomerId) {
+      const charge = await asaas.createAsaasCharge({
+        customerId: billing.asaasCustomerId,
+        value: chargeAmount,
+        dueDate: asaas.getDueDateString(3),
+        description: `Central dos Desmanches — transação #${negotiationId.slice(0, 8)}`,
+        billingType: "PIX",
+      });
+      if (charge) {
+        asaasChargeId = charge.id;
+        paymentLink = charge.invoiceUrl || charge.bankSlipUrl;
+      }
+    }
+
+    const tx = await storage.createBillingTransaction({
+      desmancheId,
+      negotiationId,
+      amount: chargeAmount,
+      type: "per_transaction",
+      description: `Transação — negociação #${negotiationId.slice(0, 8)}`,
+      asaasChargeId,
+      paymentLink,
+      status: asaas.isAsaasConfigured() ? "pending" : "pending",
+    });
+
+    await storage.incrementBillingTransaction(desmancheId, chargeAmount);
+    return tx;
+  }
+
+  // Run auto-expire on startup and every hour
+  runAutoExpire();
+  setInterval(runAutoExpire, 60 * 60 * 1000);
 
   // Seed database
   await storage.seedDatabase();

@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Package, Truck, CheckCircle2, Clock, Loader2, Car, MapPin,
-  SendHorizonal, XCircle, MessageSquare,
+  SendHorizonal, XCircle, MessageSquare, ShieldAlert,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -48,6 +48,16 @@ export default function DesmancheNegotiationsTab() {
   const [shipDialog, setShipDialog] = useState<any>(null);
   const [trackingCode, setTrackingCode] = useState("");
 
+  const { data: blockStatus } = useQuery<{ isBlocked: boolean; overdueCount: number }>({
+    queryKey: ["/api/desmanche/review-block-status"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/desmanche/review-block-status");
+      return res.json();
+    },
+    enabled: !!getToken(),
+    refetchInterval: 60 * 1000,
+  });
+
   const { data: proposals = [], isLoading: loadingProposals } = useQuery({
     queryKey: ["/api/proposals/my-sent"],
     queryFn: async () => {
@@ -72,6 +82,10 @@ export default function DesmancheNegotiationsTab() {
 
   const updateNegMutation = useMutation({
     mutationFn: async ({ id, status, trackingCode }: { id: string; status: string; trackingCode?: string }) => {
+      if (status === "shipped") {
+        const res = await apiRequest("PATCH", `/api/negotiations/${id}/ship`, { trackingCode });
+        return res.json();
+      }
       const res = await apiRequest("PATCH", `/api/negotiations/${id}/status`, { status, trackingCode });
       return res.json();
     },
@@ -107,6 +121,18 @@ export default function DesmancheNegotiationsTab() {
         <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Minhas Negociações</h1>
         <p className="text-slate-500 mt-1">Acompanhe propostas enviadas e negociações em andamento.</p>
       </div>
+
+      {blockStatus?.isBlocked && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 flex items-start gap-3">
+          <ShieldAlert className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-red-800">Envio de propostas bloqueado</p>
+            <p className="text-sm text-red-700 mt-1">
+              Você tem {blockStatus.overdueCount} avaliação(ões) do cliente atrasada(s). Aguarde o cliente avaliar as negociações pendentes.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="propostas" className="w-full">
         <TabsList className="grid grid-cols-3 h-auto gap-2 bg-transparent p-0 mb-6">

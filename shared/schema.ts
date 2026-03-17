@@ -29,6 +29,18 @@ export const addresses = sqliteTable("addresses", {
   state: text("state").notNull(),
 });
 
+// Tabela de Planos de Assinatura
+export const subscriptionPlans = sqliteTable("subscription_plans", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  name: text("name").notNull(),
+  price: real("price").notNull(),
+  proposalLimit: integer("proposal_limit").notNull().default(10),
+  exclusivitySlots: integer("exclusivity_slots").notNull().default(0),
+  description: text("description"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
 // Tabela de Desmanches
 export const desmanches = sqliteTable("desmanches", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
@@ -47,6 +59,41 @@ export const desmanches = sqliteTable("desmanches", {
   rating: real("rating").notNull().default(0),
   salesCount: integer("sales_count").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+// Tabela de Cobrança dos Desmanches
+export const desmancheBilling = sqliteTable("desmanche_billing", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  desmancheId: text("desmanche_id").references(() => desmanches.id).notNull().unique(),
+  billingModel: text("billing_model", { enum: ["subscription", "per_transaction"] }).notNull().default("per_transaction"),
+  planId: text("plan_id").references(() => subscriptionPlans.id),
+  monthlyTransactionCount: integer("monthly_transaction_count").notNull().default(0),
+  monthlyAmountPaid: real("monthly_amount_paid").notNull().default(0),
+  currentPeriodStart: integer("current_period_start", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  asaasCustomerId: text("asaas_customer_id"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+// Tabela de Transações de Cobrança
+export const billingTransactions = sqliteTable("billing_transactions", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
+  negotiationId: text("negotiation_id").references(() => desmanches.id),
+  amount: real("amount").notNull(),
+  status: text("status", { enum: ["pending", "paid", "failed", "exempt"] }).notNull().default("pending"),
+  type: text("type", { enum: ["per_transaction", "subscription"] }).notNull().default("per_transaction"),
+  asaasChargeId: text("asaas_charge_id"),
+  paymentLink: text("payment_link"),
+  description: text("description"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  paidAt: integer("paid_at", { mode: "timestamp" }),
+});
+
+// Tabela de Configurações do Sistema
+export const systemSettings = sqliteTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
 // Tabela de Endereços dos Desmanches
@@ -128,8 +175,10 @@ export const negotiations = sqliteTable("negotiations", {
   clientId: text("client_id").references(() => users.id).notNull(),
   desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
   price: real("price").notNull(),
-  status: text("status", { enum: ["negotiating", "paid", "shipped", "delivered", "completed", "cancelled"] }).notNull().default("negotiating"),
+  status: text("status", { enum: ["negotiating", "paid", "shipped", "delivered", "awaiting_review", "completed", "cancelled"] }).notNull().default("negotiating"),
   trackingCode: text("tracking_code"),
+  receivedAt: integer("received_at", { mode: "timestamp" }),
+  reviewDeadlineAt: integer("review_deadline_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
@@ -275,6 +324,15 @@ export const insertReviewSchema = createInsertSchema(reviews).pick({
   comment: true,
 });
 
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).pick({
+  name: true,
+  price: true,
+  proposalLimit: true,
+  exclusivitySlots: true,
+  description: true,
+  active: true,
+});
+
 // Relações
 export const usersRelations = relations(users, ({ many }) => ({
   addresses: many(addresses),
@@ -283,13 +341,28 @@ export const usersRelations = relations(users, ({ many }) => ({
   reviews: many(reviews),
 }));
 
-export const desmanchesRelations = relations(desmanches, ({ many }) => ({
+export const desmanchesRelations = relations(desmanches, ({ many, one }) => ({
   addresses: many(desmancheAddresses),
   documents: many(documents),
   proposals: many(proposals),
   negotiations: many(negotiations),
   invoices: many(invoices),
   reviews: many(reviews),
+  billing: one(desmancheBilling, { fields: [desmanches.id], references: [desmancheBilling.desmancheId] }),
+  billingTransactions: many(billingTransactions),
+}));
+
+export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
+  billings: many(desmancheBilling),
+}));
+
+export const desmancheBillingRelations = relations(desmancheBilling, ({ one }) => ({
+  desmanche: one(desmanches, { fields: [desmancheBilling.desmancheId], references: [desmanches.id] }),
+  plan: one(subscriptionPlans, { fields: [desmancheBilling.planId], references: [subscriptionPlans.id] }),
+}));
+
+export const billingTransactionsRelations = relations(billingTransactions, ({ one }) => ({
+  desmanche: one(desmanches, { fields: [billingTransactions.desmancheId], references: [desmanches.id] }),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -381,3 +454,9 @@ export type OrderImage = typeof orderImages.$inferSelect;
 export type Negotiation = typeof negotiations.$inferSelect;
 export type ChatRoom = typeof chatRooms.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type DesmancheBilling = typeof desmancheBilling.$inferSelect;
+export type BillingTransaction = typeof billingTransactions.$inferSelect;
+export type SystemSetting = typeof systemSettings.$inferSelect;
