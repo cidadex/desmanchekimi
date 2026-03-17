@@ -13,6 +13,7 @@ import { CreateOrderWizard } from "./CreateOrderWizard";
 import {
   Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock,
 } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   open:        { label: "Aberto",     variant: "default" },
@@ -213,7 +214,11 @@ export function OrdersTab() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    {order.vehicleBrand && (
+                      <BrandLogo brand={order.vehicleBrand} size={44} />
+                    )}
+                    <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
                       <Eye className="h-4 w-4 mr-1" /> Ver
                     </Button>
@@ -227,6 +232,7 @@ export function OrdersTab() {
                         <X className="h-4 w-4" />
                       </Button>
                     )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

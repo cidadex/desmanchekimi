@@ -10,6 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { CreateOrderWizard } from "@/components/client/CreateOrderWizard";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   car: "Carro", motorcycle: "Moto", truck: "Caminhão", bus: "Ônibus",
@@ -217,6 +218,9 @@ export default function DesmancheAdsTab() {
                     </div>
 
                     <div className="flex flex-col gap-2 items-end shrink-0">
+                      {ad.vehicleBrand && (
+                        <BrandLogo brand={ad.vehicleBrand} size={52} />
+                      )}
                       {subTab === "disabled" && (
                         <Button
                           size="sm"

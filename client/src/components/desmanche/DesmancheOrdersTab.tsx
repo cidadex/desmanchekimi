@@ -17,6 +17,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   car: "Carro", motorcycle: "Moto", truck: "Caminhão", bus: "Ônibus",
@@ -233,6 +234,9 @@ export default function DesmancheOrdersTab() {
                   </div>
 
                   <div className="p-5 sm:w-1/3 flex flex-col justify-center items-start sm:items-end gap-3 border-t sm:border-t-0 sm:border-l border-slate-100 bg-slate-50">
+                    {order.vehicleBrand && (
+                      <BrandLogo brand={order.vehicleBrand} size={56} />
+                    )}
                     <div className="text-center sm:text-right">
                       <div className="text-2xl font-bold text-primary">{order.proposals?.length || 0}</div>
                       <div className="text-xs text-slate-500">proposta{(order.proposals?.length || 0) !== 1 ? "s" : ""} enviada{(order.proposals?.length || 0) !== 1 ? "s" : ""}</div>
