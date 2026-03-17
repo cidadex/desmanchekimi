@@ -191,8 +191,9 @@
       <a href="#banco-dados">8. Banco de Dados</a>
       <a href="#api">9. Todas as Rotas API</a>
       <a href="#integracao-asaas">10. Integração Asaas</a>
-      <a href="#variaveis">11. Variáveis de Ambiente</a>
-      <a href="#credenciais">12. Credenciais de Teste</a>
+      <a href="#apis-externas">11. APIs Externas Gratuitas</a>
+      <a href="#variaveis">12. Variáveis de Ambiente</a>
+      <a href="#credenciais">13. Credenciais de Teste</a>
     </div>
   </div>
 
@@ -863,11 +864,207 @@
     </div>
   </section>
 
-  <!-- ======== 11. ENV ======== -->
+  <!-- ======== 11. APIS EXTERNAS ======== -->
+  <section id="apis-externas">
+    <div class="section-header">
+      <div class="section-icon icon-cyan">🌐</div>
+      <h2 class="section-title">11. APIs Externas Gratuitas</h2>
+    </div>
+    <p class="text-muted" style="margin-bottom:1.5rem;">O sistema utiliza <strong>4 APIs externas gratuitas</strong>, sem necessidade de chaves de API ou autenticação. Todas são chamadas diretamente do frontend (browser).</p>
+
+    <!-- BrasilAPI CNPJ -->
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <div class="panel-header" style="background:rgba(16,185,129,.1);border-bottom:1px solid rgba(16,185,129,.2);">
+        🏛️ BrasilAPI — Consulta CNPJ (Receita Federal)
+      </div>
+      <div class="panel-body">
+        <div class="card-grid">
+          <div class="card">
+            <h4>📌 URL Base</h4>
+            <p><code>https://brasilapi.com.br/api/cnpj/v1/{cnpj}</code></p>
+          </div>
+          <div class="card">
+            <h4>📍 Onde é usado</h4>
+            <p><code>client/src/pages/CadastroDesmanche.tsx</code><br/>Função: <code>fetchCnpj()</code><br/>Trigger: ao digitar o CNPJ no wizard de cadastro do desmanche</p>
+          </div>
+          <div class="card">
+            <h4>⚙️ Comportamento</h4>
+            <p>Ao digitar um CNPJ de 14 dígitos, o sistema consulta a Receita Federal via BrasilAPI e <strong>auto-preenche</strong> todos os campos do formulário automaticamente.</p>
+          </div>
+          <div class="card">
+            <h4>📦 Campos Auto-preenchidos</h4>
+            <p><code>razao_social</code> → Razão Social<br/><code>nome_fantasia</code> → Nome Fantasia<br/><code>ddd_telefone_1</code> → Telefone<br/><code>logradouro</code>, <code>numero</code>, <code>complemento</code> → Endereço<br/><code>bairro</code>, <code>municipio</code>, <code>uf</code> → Cidade/Estado<br/><code>cep</code> → CEP<br/><code>qsa[0].nome_socio</code> → Nome do Responsável<br/><code>natureza_juridica</code>, <code>situacao_cadastral</code></p>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-top:.75rem;font-size:.82rem;">
+          <div style="color:#64748b;margin-bottom:.3rem;"># Exemplo de requisição (sem autenticação)</div>
+          <div style="color:#34d399;">GET https://brasilapi.com.br/api/cnpj/v1/98765432000110</div>
+          <div style="color:#64748b;margin-top:.3rem;"># Retorna: razão social, endereço, sócios, situação cadastral, atividades, etc.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ViaCEP -->
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <div class="panel-header" style="background:rgba(59,130,246,.1);border-bottom:1px solid rgba(59,130,246,.2);">
+        📬 ViaCEP — Busca de Endereço por CEP (Correios)
+      </div>
+      <div class="panel-body">
+        <div class="card-grid">
+          <div class="card">
+            <h4>📌 URL Base</h4>
+            <p><code>https://viacep.com.br/ws/{cep}/json/</code></p>
+          </div>
+          <div class="card">
+            <h4>📍 Onde é usado</h4>
+            <p><strong>1.</strong> <code>CadastroDesmanche.tsx</code> — step de endereço no wizard de cadastro<br/><strong>2.</strong> <code>ProfileTab.tsx</code> — aba de perfil do cliente<br/>Função: <code>fetchCep()</code></p>
+          </div>
+          <div class="card">
+            <h4>⚙️ Comportamento</h4>
+            <p>Ao digitar um CEP de 8 dígitos, o sistema consulta o ViaCEP e <strong>auto-preenche</strong> rua, bairro, cidade e estado. O usuário só precisa informar o número e complemento.</p>
+          </div>
+          <div class="card">
+            <h4>📦 Campos Auto-preenchidos</h4>
+            <p><code>logradouro</code> → Rua/Avenida<br/><code>bairro</code> → Bairro<br/><code>localidade</code> → Cidade<br/><code>uf</code> → Estado (sigla)<br/><code>cep</code> → CEP formatado</p>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-top:.75rem;font-size:.82rem;">
+          <div style="color:#64748b;margin-bottom:.3rem;"># Exemplo de requisição (sem autenticação)</div>
+          <div style="color:#60a5fa;">GET https://viacep.com.br/ws/01310100/json/</div>
+          <div style="color:#64748b;margin-top:.3rem;"># Retorna: {"cep":"01310-100","logradouro":"Avenida Paulista","bairro":"Bela Vista","localidade":"São Paulo","uf":"SP"}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIPE API -->
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <div class="panel-header" style="background:rgba(245,158,11,.1);border-bottom:1px solid rgba(245,158,11,.2);">
+        🚗 API FIPE (Parallelum) — Marcas e Modelos de Veículos
+      </div>
+      <div class="panel-body">
+        <div class="card-grid">
+          <div class="card">
+            <h4>📌 URL Base</h4>
+            <p><code>https://parallelum.com.br/fipe/api/v1/</code></p>
+          </div>
+          <div class="card">
+            <h4>📍 Onde é usado</h4>
+            <p><code>client/src/components/client/CreateOrderWizard.tsx</code><br/>Funções: <code>fetchFipeBrands()</code> e <code>fetchFipeModels()</code><br/>Trigger: Passo 2 do wizard de criação de pedido</p>
+          </div>
+          <div class="card">
+            <h4>🔗 Endpoints Consumidos</h4>
+            <p><code>GET /carros/marcas</code> → marcas de carros<br/><code>GET /motos/marcas</code> → marcas de motos<br/><code>GET /caminhoes/marcas</code> → marcas de caminhões<br/><code>GET /{tipo}/marcas/{codigo}/modelos</code> → modelos de uma marca</p>
+          </div>
+          <div class="card">
+            <h4>⚙️ Comportamento</h4>
+            <p>Quando o usuário seleciona carro, moto ou caminhão, o wizard busca automaticamente as marcas disponíveis na tabela FIPE. Ao escolher a marca, busca os modelos. Outros tipos (van, barco, avião etc.) usam lista estática.</p>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-top:.75rem;font-size:.82rem;">
+          <div style="color:#64748b;margin-bottom:.3rem;"># Buscar marcas de carros</div>
+          <div style="color:#fbbf24;">GET https://parallelum.com.br/fipe/api/v1/carros/marcas</div>
+          <div style="color:#64748b;margin-top:.4rem;"># Buscar modelos da Volkswagen (código 59)</div>
+          <div style="color:#fbbf24;">GET https://parallelum.com.br/fipe/api/v1/carros/marcas/59/modelos</div>
+          <div style="color:#64748b;margin-top:.3rem;"># Retorna: [{"codigo":"59","nome":"Volkswagen"}, ...] / {"modelos":[{"codigo":829,"nome":"Gol"}...]}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-top:.5rem;font-size:.82rem;">
+          <div style="color:#94a3b8;font-size:.78rem;font-weight:600;">Tipos com FIPE integrada:</div>
+          <div style="margin-top:.3rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+            <span style="background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.3);padding:2px 10px;border-radius:5px;font-size:.75rem;">🚗 carros</span>
+            <span style="background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.3);padding:2px 10px;border-radius:5px;font-size:.75rem;">🏍️ motos</span>
+            <span style="background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.3);padding:2px 10px;border-radius:5px;font-size:.75rem;">🚛 caminhoes</span>
+          </div>
+          <div style="color:#64748b;font-size:.77rem;margin-top:.4rem;">Outros tipos usam lista estática: ônibus, van, barco, avião, helicóptero, bicicleta, trator, outro</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Correios -->
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <div class="panel-header" style="background:rgba(239,68,68,.1);border-bottom:1px solid rgba(239,68,68,.2);">
+        📦 Correios — Rastreamento de Encomendas
+      </div>
+      <div class="panel-body">
+        <div class="card-grid">
+          <div class="card">
+            <h4>📌 Status Atual</h4>
+            <p><span style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3);padding:2px 8px;border-radius:5px;font-size:.78rem;">PARCIALMENTE INTEGRADO</span><br/>O código de rastreio é <strong>armazenado no banco</strong> e exibido para o cliente, mas a consulta de status em tempo real nos Correios ainda não está implementada como chamada de API automática.</p>
+          </div>
+          <div class="card">
+            <h4>📍 Como funciona hoje</h4>
+            <p><strong>1.</strong> Desmanche digita o código de rastreio ao marcar envio (<code>PATCH /api/negotiations/:id/ship</code>)<br/><strong>2.</strong> Código é salvo em <code>negotiations.tracking_code</code><br/><strong>3.</strong> Exibido ao cliente na aba Negociações<br/><strong>4.</strong> Cliente acessa os Correios manualmente para rastrear</p>
+          </div>
+          <div class="card">
+            <h4>🔮 Próximo Passo Sugerido</h4>
+            <p>Integrar a API não-oficial dos Correios ou o serviço <strong>Jadlog</strong> / <strong>Melhor Envio</strong> para rastreamento automático em tempo real diretamente no painel do cliente.</p>
+          </div>
+          <div class="card">
+            <h4>🔗 Opções de API</h4>
+            <p><code>https://trackingmore.com</code> — API paga multi-carrier<br/><code>https://melhorenvio.com.br</code> — BR, com Correios + privadas<br/><code>https://www.correios.com.br/rastreamento</code> — link direto para rastrear</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.25rem;">
+      <h3 style="margin:0 0 .75rem;font-size:.9rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Resumo das APIs Externas</h3>
+      <div style="overflow-x:auto;">
+        <table class="schema-table">
+          <thead>
+            <tr>
+              <th>API</th>
+              <th>Provedor</th>
+              <th>URL</th>
+              <th>Auth</th>
+              <th>Onde é chamada</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-name">BrasilAPI CNPJ</td>
+              <td class="col-note">Receita Federal (via BrasilAPI)</td>
+              <td class="col-type">brasilapi.com.br/api/cnpj/v1/</td>
+              <td class="col-note">Nenhuma</td>
+              <td class="col-note">CadastroDesmanche.tsx</td>
+              <td><span style="color:#34d399;">✅ Ativo</span></td>
+            </tr>
+            <tr>
+              <td class="col-name">ViaCEP</td>
+              <td class="col-note">Open Source (Correios)</td>
+              <td class="col-type">viacep.com.br/ws/{cep}/json/</td>
+              <td class="col-note">Nenhuma</td>
+              <td class="col-note">CadastroDesmanche, ProfileTab</td>
+              <td><span style="color:#34d399;">✅ Ativo</span></td>
+            </tr>
+            <tr>
+              <td class="col-name">FIPE (Parallelum)</td>
+              <td class="col-note">Tabela FIPE brasileira</td>
+              <td class="col-type">parallelum.com.br/fipe/api/v1/</td>
+              <td class="col-note">Nenhuma</td>
+              <td class="col-note">CreateOrderWizard.tsx</td>
+              <td><span style="color:#34d399;">✅ Ativo</span></td>
+            </tr>
+            <tr>
+              <td class="col-name">Correios Rastreio</td>
+              <td class="col-note">Correios</td>
+              <td class="col-type">—</td>
+              <td class="col-note">—</td>
+              <td class="col-note">Armazenado em negotiations.tracking_code</td>
+              <td><span style="color:#fbbf24;">⚠️ Pendente</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== 12. ENV ======== -->
   <section id="variaveis">
     <div class="section-header">
       <div class="section-icon icon-red">🔑</div>
-      <h2 class="section-title">11. Variáveis de Ambiente</h2>
+      <h2 class="section-title">12. Variáveis de Ambiente (servidor)</h2>
     </div>
     <div class="env-row"><span class="env-name">ASAAS_API_KEY</span><span class="env-desc">API Key do Asaas para cobranças reais</span><span class="env-optional">opcional</span></div>
     <div class="env-row"><span class="env-name">ASAAS_ENVIRONMENT</span><span class="env-desc">sandbox (padrão) ou production</span><span class="env-optional">opcional</span></div>

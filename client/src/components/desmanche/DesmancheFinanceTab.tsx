@@ -37,6 +37,7 @@ export default function DesmancheFinanceTab() {
     transactions: any[];
     settings: { capAmount: number; perTxAmount: number };
     asaasConfigured: boolean;
+    monthlyProposalCount: number;
   }>({
     queryKey: ["/api/billing/my"],
     queryFn: async () => {
@@ -69,6 +70,7 @@ export default function DesmancheFinanceTab() {
   const billing = billingData?.billing;
   const transactions = billingData?.transactions || [];
   const settings = billingData?.settings || { capAmount: 200, perTxAmount: 25 };
+  const monthlyProposalCount = billingData?.monthlyProposalCount ?? 0;
 
   const monthlyPaid = billing?.monthlyAmountPaid || 0;
   const capAmount = settings.capAmount;
@@ -141,6 +143,42 @@ export default function DesmancheFinanceTab() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Uso do mês — assinatura: progresso de propostas */}
+          {!isPerTransaction && currentPlan && currentPlan.proposalLimit < 999 && (
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="font-mono text-base">Propostas Enviadas Este Mês</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-slate-600">
+                    Enviadas: <strong>{monthlyProposalCount}</strong>
+                  </span>
+                  <span className="text-slate-600">
+                    Limite: <strong>{currentPlan.proposalLimit}</strong>
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min((monthlyProposalCount / currentPlan.proposalLimit) * 100, 100)}
+                  className="h-3"
+                />
+                {monthlyProposalCount >= currentPlan.proposalLimit ? (
+                  <div className="flex items-center gap-1.5 text-red-700 bg-red-50 border border-red-200 rounded p-2 w-full text-sm">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span><strong>Limite atingido!</strong> Você não pode enviar mais propostas este mês. Considere fazer upgrade do plano.</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 border border-slate-200 rounded p-2 w-full text-sm">
+                    <TrendingUp className="h-4 w-4 shrink-0" />
+                    <span>
+                      Restam <strong>{currentPlan.proposalLimit - monthlyProposalCount}</strong> proposta(s) este mês no plano <strong>{currentPlan.name}</strong>.
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Uso do mês (só para por transação) */}
           {isPerTransaction && (

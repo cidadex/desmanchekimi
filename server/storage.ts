@@ -1156,6 +1156,21 @@ export async function updateBillingTransactionStatus(id: string, status: "pendin
   await db.update(schema.billingTransactions).set(updateData).where(eq(schema.billingTransactions.id, id));
 }
 
+// ==================== PROPOSAL LIMIT (subscription plans) ====================
+export async function getMonthlyProposalCountForDesmanche(desmancheId: string): Promise<number> {
+  const now = new Date();
+  const startOfMonth = Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
+  const result = await db.select({ count: sql<number>`count(*)` })
+    .from(schema.proposals)
+    .where(
+      and(
+        eq(schema.proposals.desmancheId, desmancheId),
+        sql`${schema.proposals.createdAt} >= ${startOfMonth}`,
+      )
+    );
+  return Number(result[0]?.count ?? 0);
+}
+
 // ==================== REVIEW GATE / BLOCKING ====================
 export async function getOverdueReviewCountForClient(clientId: string): Promise<number> {
   const now = Math.floor(Date.now() / 1000);

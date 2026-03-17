@@ -708,7 +708,24 @@ export async function registerRoutes(server: Server, app: Express) {
           blocked: true,
         });
       }
-      
+
+      // Verificação de limite de propostas mensais (modelo assinatura)
+      const billing = await storage.getDesmancheBilling(desmancheId);
+      if (billing && billing.billingModel === "subscription" && billing.planId) {
+        const plan = await storage.getSubscriptionPlanById(billing.planId);
+        if (plan && plan.proposalLimit < 999) {
+          const monthlyCount = await storage.getMonthlyProposalCountForDesmanche(desmancheId);
+          if (monthlyCount >= plan.proposalLimit) {
+            return res.status(429).json({
+              message: `Limite de ${plan.proposalLimit} propostas do plano ${plan.name} atingido este mês. Aguarde o próximo ciclo ou faça upgrade do plano.`,
+              proposalLimitReached: true,
+              limit: plan.proposalLimit,
+              currentCount: monthlyCount,
+            });
+          }
+        }
+      }
+
       const proposal = await storage.createProposal(proposalData);
       
       // Auto-create chat room when proposal is sent (only for client orders; deferred to acceptance for desmanche ads)
@@ -1384,11 +1401,13 @@ export async function registerRoutes(server: Server, app: Express) {
       const transactions = await storage.getBillingTransactionsByDesmanche(desmancheId);
       const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
       const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
+      const monthlyProposalCount = await storage.getMonthlyProposalCountForDesmanche(desmancheId);
       res.json({
         billing: billing || null,
         transactions,
         settings: { capAmount, perTxAmount },
         asaasConfigured: asaas.isAsaasConfigured(),
+        monthlyProposalCount,
       });
     } catch (error) {
       console.error("Get billing error:", error);
@@ -1456,10 +1475,16 @@ export async function registerRoutes(server: Server, app: Express) {
   // SUBSCRIPTION PLANS (ADMIN)
   // ============================================
 
-  app.get("/api/subscription-plans", authMiddleware, async (req, res) => {
+  app.get("/api/subscription-plans", async (req, res) => {
     try {
-      const userType = (req as any).user.type;
-      const onlyActive = userType !== "admin";
+      let onlyActive = true;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET) as any;
+          if (decoded?.type === "admin") onlyActive = false;
+        } catch {}
+      }
       const plans = await storage.getAllSubscriptionPlans(onlyActive);
       res.json(plans);
     } catch (error) {
