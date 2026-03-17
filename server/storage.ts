@@ -76,15 +76,27 @@ sqlite.exec(`
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     title TEXT NOT NULL,
     description TEXT NOT NULL,
+    vehicle_type TEXT,
     vehicle_brand TEXT NOT NULL,
     vehicle_model TEXT NOT NULL,
     vehicle_year INTEGER NOT NULL,
     vehicle_plate TEXT,
-    client_id TEXT NOT NULL REFERENCES users(id),
+    vehicle_color TEXT,
+    vehicle_engine TEXT,
+    part_category TEXT,
+    part_name TEXT,
+    part_position TEXT,
+    part_condition_accepted TEXT DEFAULT 'any',
+    city TEXT,
+    state TEXT,
+    client_id TEXT REFERENCES users(id),
+    desmanche_id TEXT REFERENCES desmanches(id),
+    posted_by_type TEXT NOT NULL DEFAULT 'client',
     location TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'open',
     urgency TEXT NOT NULL DEFAULT 'normal',
     is_partner_request INTEGER NOT NULL DEFAULT 0,
+    expires_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
@@ -216,6 +228,73 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
 `);
+
+// ── Migrate orders.client_id to be nullable (SQLite requires table rebuild) ──
+try {
+  const colInfo = sqlite.prepare("PRAGMA table_info(orders)").all() as any[];
+  const clientIdCol = colInfo.find((c) => c.name === "client_id");
+  if (clientIdCol && clientIdCol.notnull === 1) {
+    sqlite.exec(`
+      PRAGMA foreign_keys=OFF;
+      BEGIN TRANSACTION;
+      CREATE TABLE IF NOT EXISTS orders_rebuild (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        vehicle_type TEXT,
+        vehicle_brand TEXT NOT NULL,
+        vehicle_model TEXT NOT NULL,
+        vehicle_year INTEGER NOT NULL,
+        vehicle_plate TEXT,
+        vehicle_color TEXT,
+        vehicle_engine TEXT,
+        part_category TEXT,
+        part_name TEXT,
+        part_position TEXT,
+        part_condition_accepted TEXT DEFAULT 'any',
+        city TEXT,
+        state TEXT,
+        client_id TEXT REFERENCES users(id),
+        desmanche_id TEXT REFERENCES desmanches(id),
+        posted_by_type TEXT NOT NULL DEFAULT 'client',
+        location TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        urgency TEXT NOT NULL DEFAULT 'normal',
+        is_partner_request INTEGER NOT NULL DEFAULT 0,
+        expires_at INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+      INSERT INTO orders_rebuild
+        SELECT
+          id, title, description,
+          COALESCE(vehicle_type, NULL),
+          vehicle_brand, vehicle_model, vehicle_year,
+          COALESCE(vehicle_plate, NULL),
+          COALESCE(vehicle_color, NULL),
+          COALESCE(vehicle_engine, NULL),
+          COALESCE(part_category, NULL),
+          COALESCE(part_name, NULL),
+          COALESCE(part_position, NULL),
+          COALESCE(part_condition_accepted, 'any'),
+          COALESCE(city, NULL),
+          COALESCE(state, NULL),
+          COALESCE(client_id, NULL),
+          COALESCE(desmanche_id, NULL),
+          COALESCE(posted_by_type, 'client'),
+          location, status, urgency, is_partner_request,
+          COALESCE(expires_at, NULL),
+          created_at, updated_at
+        FROM orders;
+      DROP TABLE orders;
+      ALTER TABLE orders_rebuild RENAME TO orders;
+      COMMIT;
+      PRAGMA foreign_keys=ON;
+    `);
+  }
+} catch (e) {
+  console.error("orders migration error (non-critical):", e);
+}
 
 // Migrate existing database - add new columns if they don't exist
 try {
@@ -496,7 +575,7 @@ export async function getOrderImages(orderId: string) {
 // ==================== ORDERS ====================
 const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
 
-export async function createOrder(data: schema.InsertOrder & { clientId: string; desmancheId?: string }) {
+export async function createOrder(data: schema.InsertOrder & { clientId: string | null; desmancheId?: string }) {
   const id = randomUUID();
   const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
   await db.insert(schema.orders).values({ id, ...data, expiresAt });

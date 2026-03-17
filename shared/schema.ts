@@ -138,7 +138,7 @@ export const orders = sqliteTable("orders", {
   partConditionAccepted: text("part_condition_accepted").default("any"),
   city: text("city"),
   state: text("state"),
-  clientId: text("client_id").references(() => users.id).notNull(),
+  clientId: text("client_id").references(() => users.id),
   desmancheId: text("desmanche_id").references(() => desmanches.id),
   postedByType: text("posted_by_type", { enum: ["client", "desmanche"] }).notNull().default("client"),
   location: text("location").notNull(),

@@ -527,7 +527,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const orderData = schema.insertOrderSchema.parse(req.body);
         const order = await storage.createOrder({
           ...orderData,
-          clientId: desmancheId,
+          clientId: null,
           desmancheId,
           postedByType: "desmanche",
         });
@@ -591,7 +591,10 @@ export async function registerRoutes(server: Server, app: Express) {
       
       const order = await storage.getOrderById(req.params.id as string);
       if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
-      if (userType !== "admin" && order.clientId !== userId) {
+      const isOwner = order.postedByType === "desmanche"
+        ? order.desmancheId === userId
+        : order.clientId === userId;
+      if (userType !== "admin" && !isOwner) {
         return res.status(403).json({ message: "Acesso negado" });
       }
       
