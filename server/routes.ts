@@ -1398,7 +1398,11 @@ export async function registerRoutes(server: Server, app: Express) {
   app.get("/api/billing/my", authMiddleware, requireType(["desmanche"]), async (req, res) => {
     try {
       const desmancheId = (req as any).user.id;
-      const billing = await storage.getDesmancheBilling(desmancheId);
+      let billing = await storage.getDesmancheBilling(desmancheId);
+      // Auto-create billing record with default model if desmanche hasn't configured it yet
+      if (!billing) {
+        billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "per_transaction" });
+      }
       const transactions = await storage.getBillingTransactionsByDesmanche(desmancheId);
       const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
       const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
@@ -1588,7 +1592,13 @@ export async function registerRoutes(server: Server, app: Express) {
 
   // Billing helper
   async function triggerTransactionBilling(desmancheId: string, negotiationId: string) {
-    const billing = await storage.getDesmancheBilling(desmancheId);
+    let billing = await storage.getDesmancheBilling(desmancheId);
+
+    // Auto-create billing record with default per_transaction model if not set up yet
+    if (!billing) {
+      billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "per_transaction" });
+    }
+
     if (!billing || billing.billingModel !== "per_transaction") return;
 
     const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
