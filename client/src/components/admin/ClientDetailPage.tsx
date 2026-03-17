@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, User, Mail, Phone, Calendar, ShoppingBag,
-  Handshake, CheckCircle2, XCircle, Clock, MessageSquare,
-  Star, Package, Loader2, Car,
+  Handshake, CheckCircle2, XCircle, MessageSquare,
+  Star, Package, Loader2, Car, AlertTriangle,
 } from "lucide-react";
 
 const ORDER_STATUS: Record<string, { label: string; color: string }> = {
@@ -54,12 +54,14 @@ function memberSince(dateStr: string) {
 }
 
 export default function ClientDetailPage({ id, onBack }: { id: string; onBack: () => void }) {
-  const { data: u, isLoading } = useQuery<any>({
+  const { data: u, isLoading, isError, refetch } = useQuery<any>({
     queryKey: ["/api/admin/users", id],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/users/${id}`);
       return res.json();
     },
+    retry: 2,
+    retryDelay: 800,
   });
 
   if (isLoading) {
@@ -69,7 +71,18 @@ export default function ClientDetailPage({ id, onBack }: { id: string; onBack: (
       </div>
     );
   }
-  if (!u) return <div className="py-12 text-center text-slate-400">Usuário não encontrado.</div>;
+  if (isError || !u) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <AlertTriangle className="h-10 w-10 text-yellow-500" />
+        <p className="text-slate-500 text-sm">Erro ao carregar dados do usuário.</p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onBack} size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Button>
+          <Button onClick={() => refetch()} size="sm">Tentar novamente</Button>
+        </div>
+      </div>
+    );
+  }
 
   const stats = u.stats || {};
   const orders = u.orders || [];

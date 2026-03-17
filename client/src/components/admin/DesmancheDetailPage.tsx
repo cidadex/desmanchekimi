@@ -59,12 +59,14 @@ export default function DesmancheDetailPage({ id, onBack }: { id: string; onBack
   const qc = useQueryClient();
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
-  const { data: d, isLoading } = useQuery<any>({
+  const { data: d, isLoading, isError, refetch } = useQuery<any>({
     queryKey: ["/api/admin/desmanches", id],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/admin/desmanches/${id}`);
       return res.json();
     },
+    retry: 2,
+    retryDelay: 800,
   });
 
   const statusMutation = useMutation({
@@ -88,7 +90,18 @@ export default function DesmancheDetailPage({ id, onBack }: { id: string; onBack
       </div>
     );
   }
-  if (!d) return <div className="py-12 text-center text-slate-400">Desmanche não encontrado.</div>;
+  if (isError || !d) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <AlertTriangle className="h-10 w-10 text-yellow-500" />
+        <p className="text-slate-500 text-sm">Erro ao carregar dados do desmanche.</p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onBack} size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Button>
+          <Button onClick={() => refetch()} size="sm">Tentar novamente</Button>
+        </div>
+      </div>
+    );
+  }
 
   const negotiations = d.negotiations || [];
   const reviews = d.reviews || [];
