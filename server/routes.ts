@@ -1093,7 +1093,16 @@ export async function registerRoutes(server: Server, app: Express) {
       const review = await storage.createReview(reviewData);
       
       // Marca negociação como concluída após avaliação
-      await storage.updateNegotiationStatus(reviewData.negotiationId, 'completed');
+      const completedNeg = await storage.updateNegotiationStatus(reviewData.negotiationId, 'completed');
+      
+      // Atualiza o status do pedido para "completed"
+      if (completedNeg?.orderId) {
+        try {
+          await storage.updateOrderStatus(completedNeg.orderId, 'completed');
+        } catch (orderErr) {
+          console.error("Order status update error (non-critical):", orderErr);
+        }
+      }
       
       // Dispara cobrança por transação se aplicável
       try {
@@ -1260,6 +1269,49 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  app.get("/api/admin/orders/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const order = await storage.getOrderById(id);
+      if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
+
+      const proposals = await storage.getProposalsByOrder(id);
+      const negotiations = await storage.getNegotiationsByOrder ? await storage.getNegotiationsByOrder(id) : [];
+
+      res.json({
+        ...order,
+        proposals: proposals.map((p: any) => ({
+          id: p.id,
+          price: p.price,
+          message: p.message,
+          status: p.status,
+          createdAt: p.createdAt,
+          whatsappUnlocked: p.whatsappUnlocked,
+          desmanche: p.desmanche ? {
+            id: p.desmanche.id,
+            tradingName: p.desmanche.tradingName,
+            companyName: p.desmanche.companyName,
+            rating: p.desmanche.rating,
+            phone: p.desmanche.phone,
+          } : null,
+        })),
+        negotiations: negotiations.map ? negotiations.map((n: any) => ({
+          id: n.id,
+          status: n.status,
+          agreedPrice: n.agreedPrice,
+          createdAt: n.createdAt,
+          trackingCode: n.trackingCode,
+          desmancheName: n.desmanche?.tradingName || n.desmanche?.companyName || null,
+          desmancheRating: n.desmanche?.rating || null,
+          clientName: n.client?.name || null,
+        })) : [],
+      });
+    } catch (error) {
+      console.error("Get admin order detail error:", error);
+      res.status(500).json({ message: "Erro ao buscar pedido" });
+    }
+  });
+
   app.get("/api/admin/orders", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const orders = await storage.getAllOrders();

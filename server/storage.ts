@@ -765,6 +765,18 @@ export async function getNegotiationById(id: string) {
   });
 }
 
+export async function getNegotiationsByOrder(orderId: string) {
+  return db.query.negotiations.findMany({
+    where: eq(schema.negotiations.orderId, orderId),
+    orderBy: desc(schema.negotiations.createdAt),
+    with: {
+      desmanche: true,
+      client: true,
+      proposal: true,
+    },
+  });
+}
+
 export async function getNegotiationsByClient(clientId: string) {
   return db.query.negotiations.findMany({
     where: eq(schema.negotiations.clientId, clientId),

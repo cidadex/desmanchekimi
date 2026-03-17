@@ -34,6 +34,7 @@ import DesmancheDetailPage from "@/components/admin/DesmancheDetailPage";
 import UsersTab from "@/components/admin/UsersTab";
 import ClientDetailPage from "@/components/admin/ClientDetailPage";
 import OrdersTab from "@/components/admin/OrdersTab";
+import OrderDetailPage from "@/components/admin/OrderDetailPage";
 import AuctionsTab from "@/components/admin/AuctionsTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import ApprovalsTab from "@/components/admin/ApprovalsTab";
@@ -46,12 +47,14 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem(ADMIN_TAB_KEY) || "overview");
   const [selectedDesmancheId, setSelectedDesmancheId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSetTab = (tab: string) => {
     setActiveTab(tab);
     setSelectedDesmancheId(null);
     setSelectedUserId(null);
+    setSelectedOrderId(null);
     localStorage.setItem(ADMIN_TAB_KEY, tab);
   };
   const { user } = useAuth();
@@ -187,7 +190,12 @@ export default function AdminDashboard() {
           {activeTab === 'users' && selectedUserId && (
             <ClientDetailPage id={selectedUserId} onBack={() => setSelectedUserId(null)} />
           )}
-          {activeTab === 'orders' && <OrdersTab />}
+          {activeTab === 'orders' && !selectedOrderId && (
+            <OrdersTab onSelectOrder={(id) => setSelectedOrderId(id)} />
+          )}
+          {activeTab === 'orders' && selectedOrderId && (
+            <OrderDetailPage id={selectedOrderId} onBack={() => setSelectedOrderId(null)} />
+          )}
           {activeTab === 'auctions' && <AuctionsTab />}
           {activeTab === 'finance' && <FinanceTab />}
           {activeTab === 'plans' && <PlansTab />}

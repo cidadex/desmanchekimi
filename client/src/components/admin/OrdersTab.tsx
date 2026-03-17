@@ -24,9 +24,9 @@ type Order = {
 const statusLabels: Record<string, string> = {
   open: "Propostas Abertas",
   negotiating: "Em Negociação",
-  closed: "Fechado",
-  shipped: "Enviado",
+  closed: "Concluído",
   completed: "Concluído",
+  shipped: "Enviado",
   cancelled: "Cancelado",
 };
 
@@ -34,8 +34,8 @@ const statusStyles: Record<string, string> = {
   open: "bg-green-500/10 text-green-600 hover:bg-green-500/20",
   negotiating: "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20",
   closed: "bg-slate-500/10 text-slate-600 hover:bg-slate-500/20",
+  completed: "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20",
   shipped: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20",
-  completed: "bg-green-500/10 text-green-600 hover:bg-green-500/20",
   cancelled: "bg-red-500/10 text-red-600 hover:bg-red-500/20",
 };
 
@@ -53,7 +53,7 @@ function timeAgo(dateStr: string): string {
   return `Há ${diffDays} dias`;
 }
 
-export default function OrdersTab() {
+export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
