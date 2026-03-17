@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   MapPin, Search, Loader2, PackageSearch, SendHorizonal,
-  Car, Wrench, Clock, AlertTriangle, Eye, ChevronRight, ImageIcon, User2, Hash,
+  Car, Wrench, Clock, AlertTriangle, Eye, ChevronRight, ImageIcon, User2,
+  SlidersHorizontal, X, ChevronDown, ChevronUp, Zap, Palette,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,6 +44,16 @@ function timeAgo(dateStr: string): string {
   return `Há ${diffDays} dias`;
 }
 
+const EMPTY_FILTERS = {
+  brand: "",
+  vehicleType: "",
+  partCategory: "",
+  color: "",
+  yearFrom: "",
+  yearTo: "",
+  urgentOnly: false,
+};
+
 export default function DesmancheOrdersTab() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -50,6 +61,8 @@ export default function DesmancheOrdersTab() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [proposalForm, setProposalForm] = useState({ price: "", message: "" });
   const [showProposalForm, setShowProposalForm] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["/api/orders"],
@@ -72,6 +85,34 @@ export default function DesmancheOrdersTab() {
   });
 
   const proposedOrderIds = new Set(myProposals.map((p: any) => p.orderId));
+
+  const uniqueBrands = useMemo(() => {
+    const set = new Set<string>();
+    (orders as any[]).forEach((o: any) => { if (o.vehicleBrand) set.add(o.vehicleBrand); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [orders]);
+
+  const uniqueCategories = useMemo(() => {
+    const set = new Set<string>();
+    (orders as any[]).forEach((o: any) => { if (o.partCategory) set.add(o.partCategory); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [orders]);
+
+  const uniqueColors = useMemo(() => {
+    const set = new Set<string>();
+    (orders as any[]).forEach((o: any) => { if (o.vehicleColor) set.add(o.vehicleColor); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [orders]);
+
+  const activeFilterCount = [
+    filters.brand, filters.vehicleType, filters.partCategory, filters.color,
+    filters.yearFrom, filters.yearTo,
+  ].filter(Boolean).length + (filters.urgentOnly ? 1 : 0);
+
+  const setFilter = (key: keyof typeof EMPTY_FILTERS, value: string | boolean) =>
+    setFilters((prev) => ({ ...prev, [key]: value }));
+
+  const clearFilters = () => setFilters({ ...EMPTY_FILTERS });
 
   const sendProposalMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -99,16 +140,26 @@ export default function DesmancheOrdersTab() {
     });
   };
 
-  const filtered = orders.filter((o: any) => {
+  const filtered = (orders as any[]).filter((o: any) => {
     if (o.desmancheId === user?.id) return false;
-    return (
-      !search ||
-      o.title?.toLowerCase().includes(search.toLowerCase()) ||
-      o.vehicleBrand?.toLowerCase().includes(search.toLowerCase()) ||
-      o.vehicleModel?.toLowerCase().includes(search.toLowerCase()) ||
-      o.partName?.toLowerCase().includes(search.toLowerCase()) ||
-      o.partCategory?.toLowerCase().includes(search.toLowerCase())
-    );
+    if (search) {
+      const q = search.toLowerCase();
+      const hit =
+        o.title?.toLowerCase().includes(q) ||
+        o.vehicleBrand?.toLowerCase().includes(q) ||
+        o.vehicleModel?.toLowerCase().includes(q) ||
+        o.partName?.toLowerCase().includes(q) ||
+        o.partCategory?.toLowerCase().includes(q);
+      if (!hit) return false;
+    }
+    if (filters.brand && o.vehicleBrand?.toLowerCase() !== filters.brand.toLowerCase()) return false;
+    if (filters.vehicleType && o.vehicleType !== filters.vehicleType) return false;
+    if (filters.partCategory && o.partCategory !== filters.partCategory) return false;
+    if (filters.color && !o.vehicleColor?.toLowerCase().includes(filters.color.toLowerCase())) return false;
+    if (filters.yearFrom && Number(o.vehicleYear) < Number(filters.yearFrom)) return false;
+    if (filters.yearTo && Number(o.vehicleYear) > Number(filters.yearTo)) return false;
+    if (filters.urgentOnly && o.urgency !== "urgent") return false;
+    return true;
   });
 
   const openDetail = (order: any) => {
@@ -134,19 +185,230 @@ export default function DesmancheOrdersTab() {
         <p className="text-slate-500 mt-1">Veja o que clientes estão procurando e envie sua proposta.</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por peça, marca, modelo..."
-            className="pl-9 bg-white"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Search + Filters toolbar */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1 max-w-lg">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por peça, marca, modelo..."
+              className="pl-9 bg-white"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+              className="gap-2 h-9 px-4 shrink-0"
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="ml-1 bg-white text-primary text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                  {activeFilterCount}
+                </span>
+              )}
+              {showFilters ? <ChevronUp className="h-3.5 w-3.5 ml-1" /> : <ChevronDown className="h-3.5 w-3.5 ml-1" />}
+            </Button>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" className="h-9 text-slate-500 gap-1 px-3" onClick={clearFilters}>
+                <X className="h-3.5 w-3.5" /> Limpar
+              </Button>
+            )}
+            <span className="text-sm text-slate-500 shrink-0 ml-1">
+              {filtered.length} pedido{filtered.length !== 1 ? "s" : ""}
+            </span>
+          </div>
         </div>
-        <div className="text-sm text-slate-500 shrink-0">
-          {filtered.length} pedido{filtered.length !== 1 ? "s" : ""} disponível{filtered.length !== 1 ? "is" : ""}
-        </div>
+
+        {/* Expandable filter panel */}
+        {showFilters && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+              {/* Marca */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Car className="h-3.5 w-3.5" /> Marca
+                </Label>
+                <div className="relative">
+                  <input
+                    list="brands-list"
+                    className="w-full border border-input rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Ex: Volkswagen, Honda..."
+                    value={filters.brand}
+                    onChange={(e) => setFilter("brand", e.target.value)}
+                  />
+                  {filters.brand && (
+                    <button
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                      onClick={() => setFilter("brand", "")}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <datalist id="brands-list">
+                  {uniqueBrands.map((b) => <option key={b} value={b} />)}
+                </datalist>
+              </div>
+
+              {/* Tipo de Veículo */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Car className="h-3.5 w-3.5" /> Tipo de Veículo
+                </Label>
+                <select
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={filters.vehicleType}
+                  onChange={(e) => setFilter("vehicleType", e.target.value)}
+                >
+                  <option value="">Todos os tipos</option>
+                  {Object.entries(VEHICLE_TYPE_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Categoria de Peça */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Wrench className="h-3.5 w-3.5" /> Categoria da Peça
+                </Label>
+                <select
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={filters.partCategory}
+                  onChange={(e) => setFilter("partCategory", e.target.value)}
+                >
+                  <option value="">Todas as categorias</option>
+                  {uniqueCategories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cor */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Palette className="h-3.5 w-3.5" /> Cor do Veículo
+                </Label>
+                <div className="relative">
+                  <input
+                    list="colors-list"
+                    className="w-full border border-input rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Ex: Preto, Branco, Prata..."
+                    value={filters.color}
+                    onChange={(e) => setFilter("color", e.target.value)}
+                  />
+                  {filters.color && (
+                    <button
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                      onClick={() => setFilter("color", "")}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <datalist id="colors-list">
+                  {uniqueColors.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+
+              {/* Ano De */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" /> Ano — De / Até
+                </Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="number"
+                    min="1950"
+                    max="2030"
+                    placeholder="De"
+                    className="bg-white text-center"
+                    value={filters.yearFrom}
+                    onChange={(e) => setFilter("yearFrom", e.target.value)}
+                  />
+                  <span className="text-slate-400 shrink-0">–</span>
+                  <Input
+                    type="number"
+                    min="1950"
+                    max="2030"
+                    placeholder="Até"
+                    className="bg-white text-center"
+                    value={filters.yearTo}
+                    onChange={(e) => setFilter("yearTo", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Somente Urgentes */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5" /> Urgência
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setFilter("urgentOnly", !filters.urgentOnly)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
+                    filters.urgentOnly
+                      ? "bg-red-50 border-red-300 text-red-700"
+                      : "bg-white border-input text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  {filters.urgentOnly ? "✓ Somente Urgentes" : "Mostrar todos"}
+                </button>
+              </div>
+            </div>
+
+            {/* Active filter chips */}
+            {activeFilterCount > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500 self-center">Filtros ativos:</span>
+                {filters.brand && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    Marca: {filters.brand}
+                    <button onClick={() => setFilter("brand", "")}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {filters.vehicleType && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    {VEHICLE_TYPE_LABELS[filters.vehicleType]}
+                    <button onClick={() => setFilter("vehicleType", "")}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {filters.partCategory && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    {filters.partCategory}
+                    <button onClick={() => setFilter("partCategory", "")}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {filters.color && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    Cor: {filters.color}
+                    <button onClick={() => setFilter("color", "")}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {(filters.yearFrom || filters.yearTo) && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    Ano: {filters.yearFrom || "?"} – {filters.yearTo || "?"}
+                    <button onClick={() => { setFilter("yearFrom", ""); setFilter("yearTo", ""); }}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {filters.urgentOnly && (
+                  <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                    Somente Urgentes
+                    <button onClick={() => setFilter("urgentOnly", false)}><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {filtered.length === 0 ? (
