@@ -869,28 +869,28 @@ export async function getReviewsByDesmanche(desmancheId: string) {
 
 // ==================== DASHBOARD STATS ====================
 export async function getDashboardStats() {
-  const usersCount = await db.select({ count: schema.users.id }).from(schema.users);
-  const desmanchesCount = await db.select({ count: schema.desmanches.id }).from(schema.desmanches);
-  const ordersCount = await db.select({ count: schema.orders.id }).from(schema.orders);
-  const activeDesmanches = await db.select({ count: schema.desmanches.id })
+  const countSql = sql<number>`count(*)`;
+
+  const [usersCount] = await db.select({ count: countSql }).from(schema.users);
+  const [desmanchesCount] = await db.select({ count: countSql }).from(schema.desmanches);
+  const [ordersCount] = await db.select({ count: countSql }).from(schema.orders);
+  const [activeDesmanches] = await db.select({ count: countSql })
     .from(schema.desmanches)
     .where(eq(schema.desmanches.status, 'active'));
-  
-  const pendingApprovals = await db.select({ count: schema.desmanches.id })
+  const [pendingApprovals] = await db.select({ count: countSql })
     .from(schema.desmanches)
     .where(eq(schema.desmanches.status, 'pending'));
-  
-  const openOrders = await db.select({ count: schema.orders.id })
+  const [openOrders] = await db.select({ count: countSql })
     .from(schema.orders)
     .where(eq(schema.orders.status, 'open'));
-  
+
   return {
-    totalUsers: usersCount[0]?.count || 0,
-    totalDesmanches: desmanchesCount[0]?.count || 0,
-    totalOrders: ordersCount[0]?.count || 0,
-    activeDesmanches: activeDesmanches[0]?.count || 0,
-    pendingApprovals: pendingApprovals[0]?.count || 0,
-    openOrders: openOrders[0]?.count || 0,
+    totalUsers: Number(usersCount?.count ?? 0),
+    totalDesmanches: Number(desmanchesCount?.count ?? 0),
+    totalOrders: Number(ordersCount?.count ?? 0),
+    activeDesmanches: Number(activeDesmanches?.count ?? 0),
+    pendingApprovals: Number(pendingApprovals?.count ?? 0),
+    openOrders: Number(openOrders?.count ?? 0),
   };
 }
 
