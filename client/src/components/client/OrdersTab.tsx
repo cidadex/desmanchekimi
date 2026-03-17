@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CreateOrderWizard } from "./CreateOrderWizard";
 import {
-  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle,
+  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock,
 } from "lucide-react";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -21,6 +21,7 @@ const statusLabels: Record<string, { label: string; variant: "default" | "second
   shipped:     { label: "Enviado",    variant: "secondary" },
   completed:   { label: "Concluído",  variant: "default" },
   cancelled:   { label: "Cancelado",  variant: "destructive" },
+  expired:     { label: "Expirado",   variant: "destructive" },
 };
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
@@ -50,14 +51,27 @@ interface Order {
   partName?: string;
   partPosition?: string;
   partConditionAccepted?: string;
-  clientId: string;
+  clientId: string | null;
   location: string;
   status: string;
   urgency: string;
   isPartnerRequest: boolean;
+  expiresAt?: string | number | null;
   createdAt: string;
   images?: OrderImage[];
   proposals?: any[];
+}
+
+function expiryLabel(expiresAt: string | number | null | undefined): string | null {
+  if (!expiresAt) return null;
+  const ms = typeof expiresAt === "number" ? expiresAt * 1000 : new Date(expiresAt).getTime();
+  const diff = ms - Date.now();
+  if (diff <= 0) return "Expirado";
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours < 1) return "< 1h restante";
+  if (hours < 24) return `${hours}h restante`;
+  const days = Math.floor(hours / 24);
+  return `${days}d restante`;
 }
 
 export function OrdersTab() {
@@ -155,6 +169,18 @@ export function OrdersTab() {
                           <AlertTriangle className="h-3 w-3 mr-1" />Urgente
                         </Badge>
                       )}
+                      {(order.status === "open" || order.status === "negotiating") && order.expiresAt && (() => {
+                        const label = expiryLabel(order.expiresAt);
+                        if (!label) return null;
+                        const isUrgent = typeof order.expiresAt === "number"
+                          ? (order.expiresAt * 1000 - Date.now()) < 6 * 3_600_000
+                          : (new Date(order.expiresAt).getTime() - Date.now()) < 6 * 3_600_000;
+                        return (
+                          <Badge variant={isUrgent ? "destructive" : "outline"} className="text-xs gap-1">
+                            <Clock className="h-3 w-3" />{label}
+                          </Badge>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">

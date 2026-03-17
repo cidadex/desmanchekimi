@@ -653,10 +653,10 @@ export async function registerRoutes(server: Server, app: Express) {
       
       const proposal = await storage.createProposal(proposalData);
       
-      // Auto-create chat room when proposal is sent
+      // Auto-create chat room when proposal is sent (only for client orders; deferred to acceptance for desmanche ads)
       try {
         const order = await storage.getOrderById(proposalData.orderId);
-        if (order) {
+        if (order && order.clientId) {
           await storage.createChatRoom({
             proposalId: proposal!.id,
             orderId: proposalData.orderId,
@@ -690,24 +690,56 @@ export async function registerRoutes(server: Server, app: Express) {
       const order = await storage.getOrderById(proposal.orderId);
       if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
       
-      if (userType === "client" && order.clientId !== userId) {
-        return res.status(403).json({ message: "Acesso negado" });
-      }
-      if (userType === "desmanche" && proposal.desmancheId !== userId) {
-        return res.status(403).json({ message: "Acesso negado" });
+      const isDesmancheAd = order.postedByType === "desmanche";
+
+      if (isDesmancheAd) {
+        // For desmanche-posted ads: only clients can "buy" (accept), or the ad-owner desmanche can reject/withdraw
+        if (userType === "client" && status === "accepted") {
+          // Any authenticated client may accept a desmanche ad
+        } else if (userType === "desmanche" && order.desmancheId === userId && status !== "accepted") {
+          // Desmanche owner may reject/withdraw their own proposal
+        } else if (userType === "admin") {
+          // Admin always allowed
+        } else {
+          return res.status(403).json({ message: "Acesso negado" });
+        }
+      } else {
+        // For client-posted orders: only the order's client or an admin may change proposal status
+        if (userType === "client" && order.clientId !== userId) {
+          return res.status(403).json({ message: "Acesso negado" });
+        }
+        if (userType === "desmanche" && proposal.desmancheId !== userId) {
+          return res.status(403).json({ message: "Acesso negado" });
+        }
       }
       
       const updated = await storage.updateProposalStatus(req.params.id as string, status);
       
       if (status === "accepted") {
+        // For desmanche ads the "client" is the user who accepted; for client orders it's order.clientId
+        const negotiationClientId = isDesmancheAd ? userId : order.clientId!;
+        const negotiationDesmancheId = isDesmancheAd ? order.desmancheId! : updated!.desmancheId;
         await storage.createNegotiation({
           orderId: updated!.orderId,
           proposalId: updated!.id,
-          clientId: order.clientId,
-          desmancheId: updated!.desmancheId,
+          clientId: negotiationClientId,
+          desmancheId: negotiationDesmancheId,
           price: updated!.price,
         });
         await storage.updateOrderStatus(updated!.orderId, "negotiating");
+        // For desmanche ads, create the chat room now (deferred from proposal creation)
+        if (isDesmancheAd) {
+          try {
+            await storage.createChatRoom({
+              proposalId: updated!.id,
+              orderId: updated!.orderId,
+              clientId: negotiationClientId,
+              desmancheId: negotiationDesmancheId,
+            });
+          } catch (chatErr) {
+            console.error("Deferred chat room creation error (non-critical):", chatErr);
+          }
+        }
       }
       
       res.json(updated);
