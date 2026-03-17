@@ -606,6 +606,58 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  // Direct buy endpoint for clients purchasing desmanche-posted ads (no proposal needed)
+  app.post("/api/orders/:id/buy", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const order = await storage.getOrderById(req.params.id as string);
+      if (!order) return res.status(404).json({ message: "Anúncio não encontrado" });
+      if (order.postedByType !== "desmanche") {
+        return res.status(400).json({ message: "Este pedido não é um anúncio de desmanche" });
+      }
+      if (order.status !== "open") {
+        return res.status(409).json({ message: "Este anúncio não está disponível" });
+      }
+      if (!order.desmancheId) {
+        return res.status(500).json({ message: "Anúncio sem desmanche associado" });
+      }
+
+      // Create a purchase proposal on behalf of the desmanche owner so the negotiation chain is consistent
+      const proposal = await storage.createProposal({
+        orderId: order.id,
+        desmancheId: order.desmancheId,
+        price: req.body.price ?? 0,
+        message: req.body.message ?? "Compra direta via anúncio",
+      });
+      await storage.updateProposalStatus(proposal!.id, "accepted");
+
+      const negotiation = await storage.createNegotiation({
+        orderId: order.id,
+        proposalId: proposal!.id,
+        clientId,
+        desmancheId: order.desmancheId,
+        price: proposal!.price,
+      });
+      await storage.updateOrderStatus(order.id, "negotiating");
+
+      try {
+        await storage.createChatRoom({
+          proposalId: proposal!.id,
+          orderId: order.id,
+          clientId,
+          desmancheId: order.desmancheId,
+        });
+      } catch (chatErr) {
+        console.error("Buy chat room creation error (non-critical):", chatErr);
+      }
+
+      res.status(201).json(negotiation);
+    } catch (error) {
+      console.error("Buy order error:", error);
+      res.status(500).json({ message: "Erro ao processar compra" });
+    }
+  });
+
   // ============================================
   // PROPOSALS ROUTES
   // ============================================
@@ -639,6 +691,12 @@ export async function registerRoutes(server: Server, app: Express) {
       // Verifica se o desmanche está fazendo a proposta
       if (proposalData.desmancheId !== desmancheId) {
         return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      // Impede que um desmanche responda ao próprio anúncio
+      const proposalOrder = await storage.getOrderById(proposalData.orderId);
+      if (proposalOrder && proposalOrder.postedByType === "desmanche" && proposalOrder.desmancheId === desmancheId) {
+        return res.status(403).json({ message: "Você não pode enviar propostas para o seu próprio anúncio." });
       }
       
       // Verificação de bloqueio por avaliação pendente
