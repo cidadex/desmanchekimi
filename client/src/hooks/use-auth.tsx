@@ -166,8 +166,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(result.token);
       return result.user;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
+    onSuccess: (userData: any) => {
+      // Set user data directly so navigation to /cliente works without race condition
+      queryClient.setQueryData<User | null>(["/api/users/me"], {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        type: "client" as UserType,
+        emailVerified: userData.emailVerified ?? false,
+        profileComplete: false,
+        address: null,
+      });
       toast({
         title: "Cadastro realizado com sucesso",
         description: "Sua conta foi criada!",
