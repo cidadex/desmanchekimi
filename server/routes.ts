@@ -8,6 +8,9 @@ import fs from "fs";
 import * as storage from "./storage";
 import * as schema from "@shared/schema";
 import * as asaas from "./asaas";
+import * as email from "./email";
+import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -173,6 +176,12 @@ export async function registerRoutes(server: Server, app: Express) {
       
       const user = await storage.createUser(userData);
       
+      // Send verification email
+      const verifyToken = randomBytes(32).toString("hex");
+      const verifyExpires = Math.floor(Date.now() / 1000) + 86400; // 24h
+      storage.setEmailVerificationToken(user!.id, verifyToken, verifyExpires);
+      email.sendVerificationEmail(user!.email, verifyToken).catch(err => console.error("Email error:", err));
+      
       const token = jwt.sign(
         { id: user!.id, email: user!.email, type: user!.type },
         JWT_SECRET,
@@ -187,6 +196,7 @@ export async function registerRoutes(server: Server, app: Express) {
           email: user!.email,
           phone: user!.phone,
           type: user!.type,
+          emailVerified: false,
         },
       });
     } catch (error) {
@@ -198,6 +208,87 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
   
+  // ─── EMAIL VERIFICATION ─────────────────────────────────────────────────────
+
+  app.get("/api/auth/verify-email", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) return res.status(400).json({ message: "Token inválido" });
+      const user = storage.getUserByVerificationToken(token);
+      if (!user) return res.status(400).json({ message: "Link inválido ou já utilizado." });
+      const now = Math.floor(Date.now() / 1000);
+      if (user.email_verification_expires && user.email_verification_expires < now) {
+        return res.status(400).json({ message: "Link expirado. Solicite um novo e-mail de verificação." });
+      }
+      storage.markEmailVerified(user.id);
+      res.json({ message: "E-mail verificado com sucesso!" });
+    } catch (error) {
+      console.error("Verify email error:", error);
+      res.status(500).json({ message: "Erro ao verificar e-mail" });
+    }
+  });
+
+  app.post("/api/auth/resend-verification", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      if (storage.isEmailVerified(userId)) {
+        return res.status(400).json({ message: "E-mail já verificado." });
+      }
+      const user = await storage.getUserById(userId);
+      if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
+      const token = randomBytes(32).toString("hex");
+      const expires = Math.floor(Date.now() / 1000) + 86400;
+      storage.setEmailVerificationToken(userId, token, expires);
+      await email.sendVerificationEmail(user.email, token);
+      res.json({ message: "E-mail de verificação reenviado!" });
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      res.status(500).json({ message: "Erro ao reenviar e-mail" });
+    }
+  });
+
+  // ─── PASSWORD RESET ──────────────────────────────────────────────────────────
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email: userEmail } = req.body;
+      if (!userEmail) return res.status(400).json({ message: "E-mail obrigatório" });
+      const user = await storage.getUserByEmail(userEmail);
+      // Always return success to avoid email enumeration
+      if (user) {
+        const token = randomBytes(32).toString("hex");
+        const expires = Math.floor(Date.now() / 1000) + 3600; // 1h
+        storage.setPasswordResetToken(user.id, token, expires);
+        email.sendPasswordResetEmail(user.email, token).catch(err => console.error("Email error:", err));
+      }
+      res.json({ message: "Se este e-mail estiver cadastrado, você receberá as instruções em breve." });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Erro ao processar solicitação" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password: newPassword } = req.body;
+      if (!token || !newPassword) return res.status(400).json({ message: "Token e senha são obrigatórios" });
+      if (newPassword.length < 6) return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
+      const user = storage.getUserByPasswordResetToken(token);
+      if (!user) return res.status(400).json({ message: "Link inválido ou já utilizado." });
+      const now = Math.floor(Date.now() / 1000);
+      if (user.password_reset_expires && user.password_reset_expires < now) {
+        return res.status(400).json({ message: "Link expirado. Solicite um novo." });
+      }
+      const hash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(user.id, hash);
+      storage.clearPasswordResetToken(user.id);
+      res.json({ message: "Senha redefinida com sucesso!" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Erro ao redefinir senha" });
+    }
+  });
+
   // Registro de desmanche
   app.post("/api/auth/register-desmanche", async (req, res) => {
     try {
@@ -284,6 +375,7 @@ export async function registerRoutes(server: Server, app: Express) {
         }
         const address = await storage.getAddressByUserId(userId);
         const profileComplete = !!(user.whatsapp && address?.zipCode && address?.street && address?.city);
+        const emailVerified = storage.isEmailVerified(userId);
         res.json({
           id: user.id,
           name: user.name,
@@ -293,6 +385,7 @@ export async function registerRoutes(server: Server, app: Express) {
           type: user.type,
           avatar: user.avatar,
           profileComplete,
+          emailVerified,
           address: address || null,
         });
       }
@@ -538,6 +631,9 @@ export async function registerRoutes(server: Server, app: Express) {
 
       // Client flow
       const clientId = reqUser.id;
+      if (!storage.isEmailVerified(clientId)) {
+        return res.status(403).json({ message: "Confirme seu e-mail antes de criar pedidos.", emailNotVerified: true });
+      }
       const user = await storage.getUserById(clientId);
       if (!user?.profileComplete) {
         return res.status(400).json({ message: "Complete seu perfil (WhatsApp e endereço) antes de criar pedidos" });

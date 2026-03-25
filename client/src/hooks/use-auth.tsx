@@ -25,6 +25,7 @@ export interface User {
   type: UserType;
   avatar?: string;
   profileComplete?: boolean;
+  emailVerified?: boolean;
   address?: UserAddress | null;
   status?: string;
   rating?: number;

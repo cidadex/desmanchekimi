@@ -22,9 +22,10 @@ npm start         # Run production build
 ## Key Files
 
 - `server/index.ts` — Express app entry point
-- `server/routes.ts` — API routes (auth, users, orders, proposals, negotiations, reviews, auctions, invoices, documents, admin, file upload, chat)
+- `server/routes.ts` — API routes (auth, users, orders, proposals, negotiations, reviews, auctions, invoices, documents, admin, file upload, chat, email verification, password reset, site settings, brand logos)
 - `server/storage.ts` — Drizzle ORM + SQLite database logic + seed data
-- `client/src/App.tsx` — React app root with routes: `/`, `/como-funciona`, `/cadastro-desmanche`, `/cliente`, `/admin`, `/desmanche`
+- `server/email.ts` — Nodemailer email utility (SMTP via env vars; falls back to console logging in dev)
+- `client/src/App.tsx` — React app root with routes: `/`, `/como-funciona`, `/cadastro-desmanche`, `/cliente`, `/admin`, `/desmanche`, `/verificar-email`, `/redefinir-senha`
 - `client/src/pages/CadastroDesmanche.tsx` — Full-page desmanche registration (benefits + 6-step wizard: company, responsible, address, logo, docs, access)
 - `client/src/pages/ComoFunciona.tsx` — How-it-works marketing page for clients and desmanches with FAQ
 - `client/src/pages/ClientDashboard.tsx` — Client panel (profile, orders, proposals, negotiations, chat)
@@ -41,7 +42,14 @@ npm start         # Run production build
 
 ## Database Tables
 
-users, addresses, desmanches, desmanche_addresses, documents, orders, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings
+users, addresses, desmanches, desmanche_addresses, documents, orders, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings, site_settings, brand_logos
+
+### users Table Extra Columns (added via ALTER TABLE)
+- `email_verified` INTEGER DEFAULT 0 — must be 1 to create orders
+- `email_verification_token` TEXT — 24h verification token sent on register
+- `email_verification_expires` INTEGER — unix timestamp
+- `password_reset_token` TEXT — 1h reset token sent on forgot-password
+- `password_reset_expires` INTEGER — unix timestamp
 
 ### Desmanches Table Fields
 - companyName, tradingName, cnpj, email, phone, password

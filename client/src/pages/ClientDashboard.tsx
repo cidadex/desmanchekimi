@@ -23,7 +23,11 @@ import {
   Menu,
   X,
   MessageCircle,
+  MailWarning,
+  RefreshCw,
 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const TAB_KEYS = [
   { key: "overview", label: "Meu Painel", icon: LayoutDashboard },
@@ -38,10 +42,26 @@ const CLIENT_TAB_KEY = "client_tab";
 
 export default function ClientDashboard() {
   const { user, isLoading, logout } = useAuth();
+  const { toast } = useToast();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem(CLIENT_TAB_KEY) || "overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
   const token = getToken();
+
+  const resendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      return data;
+    },
+    onSuccess: (data) => toast({ title: data.message }),
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const { data: orders = [] } = useQuery<any[]>({
     queryKey: ["/api/orders/my"],
@@ -227,6 +247,28 @@ export default function ClientDashboard() {
           </div>
         </header>
 
+        {/* Email verification banner */}
+        {user.emailVerified === false && !verifyBannerDismissed && (
+          <div className="mx-4 md:mx-6 mt-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm" data-testid="banner-email-verify">
+            <MailWarning className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-medium text-amber-800">Confirme seu e-mail</span>
+              <span className="text-amber-700"> — Você precisa verificar seu e-mail para poder criar pedidos de peças. Verifique sua caixa de entrada.</span>
+              <button
+                onClick={() => resendMutation.mutate()}
+                disabled={resendMutation.isPending}
+                className="ml-2 text-amber-900 underline hover:no-underline inline-flex items-center gap-1 font-medium disabled:opacity-60"
+                data-testid="button-resend-verification"
+              >
+                {resendMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
+                Reenviar e-mail
+              </button>
+            </div>
+            <button onClick={() => setVerifyBannerDismissed(true)} className="text-amber-400 hover:text-amber-600 ml-auto">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <div className="p-4 md:p-6 max-w-5xl">
           {activeTab === "overview" && <OverviewTab onNavigate={handleNavigate} />}
           {activeTab === "profile" && <ProfileTab />}

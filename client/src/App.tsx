@@ -12,6 +12,8 @@ import DesmancheDashboard from "@/pages/DesmancheDashboard";
 import DesmancheOrderDetails from "@/pages/DesmancheOrderDetails";
 import CadastroDesmanche from "@/pages/CadastroDesmanche";
 import ComoFunciona from "@/pages/ComoFunciona";
+import VerifyEmail from "@/pages/VerifyEmail";
+import ResetPassword from "@/pages/ResetPassword";
 
 function Router() {
   return (
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/desmanche" component={DesmancheDashboard} />
       <Route path="/desmanche/pedidos/:id" component={DesmancheOrderDetails} />
+      <Route path="/verificar-email" component={VerifyEmail} />
+      <Route path="/redefinir-senha" component={ResetPassword} />
       <Route component={NotFound} />
     </Switch>
   );

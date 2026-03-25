@@ -314,6 +314,11 @@ try {
 } catch (e) { /* column already exists */ }
 sqlite.exec(`UPDATE desmanches SET plan = 'monthly' WHERE plan = 'percentage'`);
 try { sqlite.exec(`ALTER TABLE desmanches ADD COLUMN vehicle_types TEXT DEFAULT '[]'`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE users ADD COLUMN email_verification_token TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE users ADD COLUMN email_verification_expires INTEGER`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE users ADD COLUMN password_reset_token TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE users ADD COLUMN password_reset_expires INTEGER`); } catch (e) {}
 
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS site_settings (
@@ -1269,6 +1274,45 @@ export async function setNegotiationReceived(id: string, reviewDeadlineDays: num
 }
 
 // ==================== SEED DATA ====================
+// ─── EMAIL VERIFICATION + PASSWORD RESET ────────────────────────────────────
+
+export function setEmailVerificationToken(userId: string, token: string, expiresAt: number) {
+  sqlite.prepare("UPDATE users SET email_verification_token = ?, email_verification_expires = ? WHERE id = ?").run(token, expiresAt, userId);
+}
+
+export function getUserByVerificationToken(token: string): any {
+  return sqlite.prepare("SELECT * FROM users WHERE email_verification_token = ?").get(token);
+}
+
+export function markEmailVerified(userId: string) {
+  sqlite.prepare("UPDATE users SET email_verified = 1, email_verification_token = NULL, email_verification_expires = NULL WHERE id = ?").run(userId);
+}
+
+export function isEmailVerified(userId: string): boolean {
+  const row = sqlite.prepare("SELECT email_verified FROM users WHERE id = ?").get(userId) as any;
+  return !!row?.email_verified;
+}
+
+export function setPasswordResetToken(userId: string, token: string, expiresAt: number) {
+  sqlite.prepare("UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?").run(token, expiresAt, userId);
+}
+
+export function getUserByPasswordResetToken(token: string): any {
+  return sqlite.prepare("SELECT * FROM users WHERE password_reset_token = ?").get(token);
+}
+
+export function clearPasswordResetToken(userId: string) {
+  sqlite.prepare("UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?").run(userId);
+}
+
+export async function updateUserPassword(userId: string, hashedPassword: string) {
+  sqlite.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashedPassword, userId);
+}
+
+export function autoVerifyAdmin(email: string) {
+  sqlite.prepare("UPDATE users SET email_verified = 1 WHERE email = ?").run(email);
+}
+
 // ─── SITE SETTINGS ────────────────────────────────────────────────────────────
 
 export function getSiteSettings(): Record<string, string> {
@@ -1318,6 +1362,10 @@ export async function seedDatabase() {
     });
     console.log('Admin criado: admin@centraldesmanches.com / admin123');
   }
+  // Auto-verify admin and all existing/seed users
+  autoVerifyAdmin('admin@centraldesmanches.com');
+  sqlite.prepare("UPDATE users SET email_verified = 1 WHERE type = 'admin'").run();
+  sqlite.prepare("UPDATE users SET email_verified = 1 WHERE email = 'recriarme@gmail.com'").run();
   
   // Verifica se já existe desmanche
   const desmanche = await getDesmancheByEmail('contato@irmaossilva.com');

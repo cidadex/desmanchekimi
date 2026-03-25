@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Info } from "lucide-react";
+import { Loader2, Info, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginModalProps {
   children?: React.ReactNode;
@@ -35,11 +36,77 @@ function TestCredentials({ email, password }: { email: string; password: string 
   );
 }
 
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const { toast } = useToast();
+  const [emailInput, setEmailInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput }),
+      });
+      const data = await res.json();
+      setSent(true);
+      toast({ title: data.message });
+    } catch {
+      toast({ title: "Erro ao enviar. Tente novamente.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="space-y-4 mt-4 text-center">
+        <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
+        <p className="font-semibold text-slate-800">Verifique seu e-mail!</p>
+        <p className="text-sm text-slate-500">Se o endereço estiver cadastrado, você receberá as instruções de recuperação em breve.</p>
+        <Button variant="ghost" className="gap-2 w-full" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" /> Voltar ao login
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+      <div className="text-sm text-slate-500 mb-1">
+        Informe o e-mail cadastrado e enviaremos as instruções para redefinir sua senha.
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="forgot-email">Seu e-mail</Label>
+        <Input
+          id="forgot-email"
+          type="email"
+          placeholder="seu@email.com"
+          value={emailInput}
+          onChange={e => setEmailInput(e.target.value)}
+          required
+          data-testid="input-forgot-email"
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : "Enviar link de recuperação"}
+      </Button>
+      <Button type="button" variant="ghost" className="w-full gap-2" onClick={onBack}>
+        <ArrowLeft className="h-4 w-4" /> Voltar ao login
+      </Button>
+    </form>
+  );
+}
+
 export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [activeTab, setActiveTab] = useState<"client" | "desmanche" | "admin">("client");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
   const { login, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -47,6 +114,12 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
     setActiveTab(tab as "client" | "desmanche" | "admin");
     setEmail("");
     setPassword("");
+    setShowForgot(false);
+  };
+
+  const handleOpen = (val: boolean) => {
+    setOpen(val);
+    if (!val) setShowForgot(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,138 +138,93 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
     }
   };
 
+  const loginForm = (label: string, emailId: string, passwordId: string) => (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+      <div className="space-y-2">
+        <Label htmlFor={emailId}>{label}</Label>
+        <Input
+          id={emailId}
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          data-testid={`input-${emailId}`}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${emailId}-password`}>Senha</Label>
+        <Input
+          id={`${emailId}-password`}
+          type="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          data-testid={`input-${emailId}-password`}
+        />
+      </div>
+      {activeTab !== "admin" && (
+        <div className="text-right">
+          <button
+            type="button"
+            onClick={() => setShowForgot(true)}
+            className="text-xs text-primary hover:underline"
+            data-testid="link-forgot-password"
+          >
+            Esqueci minha senha
+          </button>
+        </div>
+      )}
+      <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login">
+        {isLoading ? (
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando...</>
+        ) : (
+          `Entrar como ${activeTab === "client" ? "Cliente" : activeTab === "desmanche" ? "Desmanche" : "Admin"}`
+        )}
+      </Button>
+    </form>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Entrar na plataforma</DialogTitle>
+          <DialogTitle>{showForgot ? "Recuperar senha" : "Entrar na plataforma"}</DialogTitle>
           <DialogDescription>
-            Acesse sua conta para gerenciar pedidos e propostas.
+            {showForgot
+              ? "Enviaremos um link de redefinição para o seu e-mail."
+              : "Acesse sua conta para gerenciar pedidos e propostas."}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="client">Cliente</TabsTrigger>
-            <TabsTrigger value="desmanche">Desmanche</TabsTrigger>
-            <TabsTrigger value="admin">Admin</TabsTrigger>
-          </TabsList>
+        {showForgot ? (
+          <ForgotPasswordForm onBack={() => setShowForgot(false)} />
+        ) : (
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="client">Cliente</TabsTrigger>
+              <TabsTrigger value="desmanche">Desmanche</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="client">
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <TabsContent value="client">
               <TestCredentials email="recriarme@gmail.com" password="debora123" />
-              <div className="space-y-2">
-                <Label htmlFor="client-email">Email</Label>
-                <Input
-                  id="client-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="client-password">Senha</Label>
-                <Input
-                  id="client-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  "Entrar como Cliente"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
+              {loginForm("Email", "client-email", "client-email")}
+            </TabsContent>
 
-          <TabsContent value="desmanche">
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <TabsContent value="desmanche">
               <TestCredentials email="contato@irmaossilva.com" password="desmanche123" />
-              <div className="space-y-2">
-                <Label htmlFor="desmanche-email">Email do Desmanche</Label>
-                <Input
-                  id="desmanche-email"
-                  type="email"
-                  placeholder="contato@seudesmanche.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desmanche-password">Senha</Label>
-                <Input
-                  id="desmanche-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  "Entrar como Desmanche"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
+              {loginForm("Email do Desmanche", "desmanche-email", "desmanche-email")}
+            </TabsContent>
 
-          <TabsContent value="admin">
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <TabsContent value="admin">
               <TestCredentials email="admin@centraldesmanches.com" password="admin123" />
-              <div className="space-y-2">
-                <Label htmlFor="admin-email">Email do Administrador</Label>
-                <Input
-                  id="admin-email"
-                  type="email"
-                  placeholder="admin@centraldesmanches.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">Senha</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  "Entrar como Admin"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+              {loginForm("Email do Administrador", "admin-email", "admin-email")}
+            </TabsContent>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );
