@@ -120,15 +120,15 @@ export default function Home() {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
-              A Ponte Certa Entre <br />
+              Sua Peça, em Todos os{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">
-                Sua Necessidade
-              </span> <br />
-              e a Peça Original.
+                Desmanches Legais
+              </span>{" "}
+              ao Mesmo Tempo.
             </h1>
             
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed">
-              Carros, motos, barcos ou aviões. Conectamos pessoas que buscam peças de qualidade a desmanches rigorosamente documentados. Rápido, seguro e direto.
+              Carros, motos ou barcos. Faça um único pedido e receba propostas de toda a rede de desmanches credenciados. Rápido, seguro e direto.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
@@ -235,6 +235,48 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Video Section */}
+      <section className="py-24 bg-slate-950 border-t border-slate-900">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold font-mono mb-4 text-slate-50">Veja como funciona na prática</h2>
+            <p className="text-slate-400 text-lg">Entenda em poucos minutos como a Central dos Desmanches pode te ajudar.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Video 1 - Para Desmanches */}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-xl font-bold font-mono text-slate-50 text-center">Para Desmanches</h3>
+              <div className="relative w-full aspect-video bg-slate-900 rounded-2xl border border-slate-800 flex flex-col items-center justify-center group overflow-hidden shadow-xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                <div className="relative z-10 flex flex-col items-center gap-4 text-slate-400">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium">Vídeo em breve</p>
+                </div>
+              </div>
+            </div>
+            {/* Video 2 - Para Quem Procura Peças */}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-xl font-bold font-mono text-slate-50 text-center">Para Quem Procura Peças</h3>
+              <div className="relative w-full aspect-video bg-slate-900 rounded-2xl border border-slate-800 flex flex-col items-center justify-center group overflow-hidden shadow-xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+                <div className="relative z-10 flex flex-col items-center gap-4 text-slate-400">
+                  <div className="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium">Vídeo em breve</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Final */}
       <section className="py-24 bg-card relative overflow-hidden border-t">
         <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 opacity-5 pointer-events-none">
@@ -277,9 +319,9 @@ export default function Home() {
             <div className="flex items-center gap-8 flex-col md:flex-row text-center md:text-left">
               <img src={logoImg} alt="Central dos Desmanches" className="h-32 md:h-40 w-auto drop-shadow-lg" />
               <div className="max-w-md">
-                <h4 className="text-2xl font-bold text-slate-50 mb-3 font-mono">3 Anos de Experiência</h4>
+                <h4 className="text-2xl font-bold text-slate-50 mb-3 font-mono">4 Anos de Experiência</h4>
                 <p className="text-base leading-relaxed">
-                  Com 3 anos de atuação no mercado automotivo, a Central dos Desmanches conecta desmanches credenciados e compradores em todo o Brasil com segurança e agilidade.
+                  Com 4 anos de CNPJ ativo no mercado automotivo, a Central dos Desmanches conecta desmanches credenciados e compradores em todo o Brasil com segurança e agilidade.
                 </p>
               </div>
             </div>
