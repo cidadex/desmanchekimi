@@ -314,6 +314,21 @@ try {
 } catch (e) { /* column already exists */ }
 sqlite.exec(`UPDATE desmanches SET plan = 'monthly' WHERE plan = 'percentage'`);
 try { sqlite.exec(`ALTER TABLE desmanches ADD COLUMN vehicle_types TEXT DEFAULT '[]'`); } catch (e) {}
+
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS site_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS brand_logos (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    brand_id TEXT NOT NULL UNIQUE,
+    brand_name TEXT NOT NULL,
+    logo_url TEXT NOT NULL,
+    vehicle_type TEXT NOT NULL DEFAULT 'car',
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+`);
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_type TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_color TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_engine TEXT`); } catch (e) {}
@@ -1254,6 +1269,42 @@ export async function setNegotiationReceived(id: string, reviewDeadlineDays: num
 }
 
 // ==================== SEED DATA ====================
+// ─── SITE SETTINGS ────────────────────────────────────────────────────────────
+
+export function getSiteSettings(): Record<string, string> {
+  const rows = sqlite.prepare("SELECT key, value FROM site_settings").all() as { key: string; value: string }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.key] = row.value;
+  return result;
+}
+
+export function setSiteSetting(key: string, value: string) {
+  sqlite.prepare("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+export function setSiteSettings(data: Record<string, string>) {
+  const stmt = sqlite.prepare("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+  for (const [key, value] of Object.entries(data)) stmt.run(key, value);
+}
+
+// ─── BRAND LOGOS ──────────────────────────────────────────────────────────────
+
+export function getBrandLogos(): { id: string; brandId: string; brandName: string; logoUrl: string; vehicleType: string }[] {
+  return (sqlite.prepare("SELECT id, brand_id AS brandId, brand_name AS brandName, logo_url AS logoUrl, vehicle_type AS vehicleType FROM brand_logos ORDER BY brand_name ASC").all() as any[]);
+}
+
+export function upsertBrandLogo(brandId: string, brandName: string, logoUrl: string, vehicleType: string = "car") {
+  sqlite.prepare(`
+    INSERT INTO brand_logos (id, brand_id, brand_name, logo_url, vehicle_type) VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?)
+    ON CONFLICT(brand_id) DO UPDATE SET logo_url = excluded.logo_url, brand_name = excluded.brand_name, vehicle_type = excluded.vehicle_type
+  `).run(brandId, brandName, logoUrl, vehicleType);
+  return sqlite.prepare("SELECT id, brand_id AS brandId, brand_name AS brandName, logo_url AS logoUrl, vehicle_type AS vehicleType FROM brand_logos WHERE brand_id = ?").get(brandId);
+}
+
+export function deleteBrandLogo(id: string) {
+  sqlite.prepare("DELETE FROM brand_logos WHERE id = ?").run(id);
+}
+
 export async function seedDatabase() {
   // Verifica se já existe admin
   const admin = await getUserByEmail('admin@centraldesmanches.com');

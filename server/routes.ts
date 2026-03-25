@@ -1724,6 +1724,55 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
+  // ─── SITE SETTINGS (public read, admin write) ───────────────────────────────
+
+  app.get("/api/site-settings", async (_req, res) => {
+    try {
+      res.json(storage.getSiteSettings());
+    } catch {
+      res.status(500).json({ message: "Erro ao buscar configurações do site" });
+    }
+  });
+
+  app.patch("/api/site-settings", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      storage.setSiteSettings(req.body as Record<string, string>);
+      res.json(storage.getSiteSettings());
+    } catch {
+      res.status(500).json({ message: "Erro ao salvar configurações do site" });
+    }
+  });
+
+  // ─── BRAND LOGOS (public read, admin write) ─────────────────────────────────
+
+  app.get("/api/brand-logos", async (_req, res) => {
+    try {
+      res.json(storage.getBrandLogos());
+    } catch {
+      res.status(500).json({ message: "Erro ao buscar logos" });
+    }
+  });
+
+  app.post("/api/brand-logos", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { brandId, brandName, logoUrl, vehicleType } = req.body;
+      if (!brandId || !brandName || !logoUrl) return res.status(400).json({ message: "brandId, brandName e logoUrl são obrigatórios" });
+      const logo = storage.upsertBrandLogo(String(brandId), String(brandName), String(logoUrl), vehicleType || "car");
+      res.json(logo);
+    } catch {
+      res.status(500).json({ message: "Erro ao salvar logo" });
+    }
+  });
+
+  app.delete("/api/brand-logos/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      storage.deleteBrandLogo(req.params.id);
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Erro ao excluir logo" });
+    }
+  });
+
   // ============================================
   // ADMIN FINANCE
   // ============================================

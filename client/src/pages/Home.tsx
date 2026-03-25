@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,28 @@ import engineImg from "@/assets/images/engine-3d.png";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 export default function Home() {
+  const { data: siteSettings } = useQuery<Record<string, string>>({
+    queryKey: ["/api/site-settings"],
+    queryFn: async () => { const r = await fetch("/api/site-settings"); return r.json(); },
+    staleTime: 60000,
+  });
+
+  const ts = {
+    negotiating: siteSettings?.ticker_negotiating ?? "1.245",
+    online: siteSettings?.ticker_desmanches_online ?? "42",
+    traded: siteSettings?.ticker_traded_today ?? "145.000",
+    newOrders: siteSettings?.ticker_new_orders ?? "23",
+    custom: siteSettings?.ticker_custom ?? "",
+  };
+
+  const tickerSegments = [
+    `${ts.negotiating} pessoas negociando agora`,
+    `${ts.online} desmanches online`,
+    `R$ ${ts.traded} em peças negociadas hoje`,
+    `${ts.newOrders} novos pedidos de peças`,
+    ...(ts.custom ? [ts.custom] : []),
+  ];
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Stock Ticker Banner */}
@@ -28,15 +51,13 @@ export default function Home() {
         </div>
         <div className="flex-1 overflow-hidden relative">
           <div className="animate-ticker whitespace-nowrap font-mono text-sm flex gap-8 w-fit">
-            <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-400"/> 1,245 pessoas negociando agora</span>
-            <span className="text-muted-foreground">|</span>
-            <span className="flex items-center gap-2 text-yellow-300">42 desmanches online</span>
-            <span className="text-muted-foreground">|</span>
-            <span>R$ 145.000 em peças negociadas hoje</span>
-            <span className="text-muted-foreground">|</span>
-            <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-400"/> 1,245 pessoas negociando agora</span>
-            <span className="text-muted-foreground">|</span>
-            <span className="flex items-center gap-2 text-yellow-300">42 desmanches online</span>
+            {[...tickerSegments, ...tickerSegments].map((seg, i) => (
+              <span key={i} className={`flex items-center gap-2 ${i % 2 === 0 ? "text-green-300" : "text-yellow-200"}`}>
+                {i % (tickerSegments.length) === 0 && <TrendingUp className="h-4 w-4 text-green-400" />}
+                {seg}
+                {i < tickerSegments.length * 2 - 1 && <span className="text-slate-500 ml-4">|</span>}
+              </span>
+            ))}
           </div>
         </div>
       </div>
