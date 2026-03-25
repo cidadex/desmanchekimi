@@ -651,10 +651,12 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       
       const orderData = schema.insertOrderSchema.parse(req.body);
+      const items = req.body.items as any[] | undefined;
       const order = await storage.createOrder({
         ...orderData,
         clientId,
         postedByType: "client",
+        items: items && items.length > 0 ? items : undefined,
       });
       res.status(201).json(order);
     } catch (error) {
@@ -663,6 +665,47 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       console.error("Create order error:", error);
       res.status(500).json({ message: "Erro ao criar pedido" });
+    }
+  });
+
+  // ============================================
+  // ORDER ITEMS ROUTES
+  // ============================================
+
+  app.get("/api/order-items/:id", authMiddleware, async (req, res) => {
+    try {
+      const item = await storage.getOrderItemById(req.params.id);
+      if (!item) return res.status(404).json({ message: "Item não encontrado" });
+      res.json(item);
+    } catch (error) {
+      console.error("Get order item error:", error);
+      res.status(500).json({ message: "Erro ao buscar item" });
+    }
+  });
+
+  app.patch("/api/order-items/:id/status", authMiddleware, async (req, res) => {
+    try {
+      const { status } = req.body;
+      const item = await storage.updateOrderItemStatus(req.params.id, status);
+      res.json(item);
+    } catch (error) {
+      console.error("Update order item status error:", error);
+      res.status(500).json({ message: "Erro ao atualizar status do item" });
+    }
+  });
+
+  app.patch("/api/order-items/:id/reactivate", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const item = await storage.getOrderItemById(req.params.id);
+      if (!item) return res.status(404).json({ message: "Item não encontrado" });
+      const order = await storage.getOrderById(item.orderId);
+      if (!order || order.clientId !== clientId) return res.status(403).json({ message: "Sem permissão" });
+      const updated = await storage.reactivateOrderItem(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Reactivate order item error:", error);
+      res.status(500).json({ message: "Erro ao reativar item" });
     }
   });
 
@@ -783,9 +826,16 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.post("/api/proposals", authMiddleware, requireType(["desmanche"]), async (req, res) => {
     try {
-      const proposalData = schema.insertProposalSchema.parse(req.body);
       const desmancheId = (req as any).user.id;
-      
+      let proposalData = schema.insertProposalSchema.parse(req.body);
+
+      // Se veio orderItemId mas não orderId, derivar orderId do item
+      if (proposalData.orderItemId && !proposalData.orderId) {
+        const item = await storage.getOrderItemById(proposalData.orderItemId);
+        if (!item) return res.status(404).json({ message: "Item não encontrado" });
+        proposalData = { ...proposalData, orderId: item.orderId };
+      }
+
       // Verifica se o desmanche está fazendo a proposta
       if (proposalData.desmancheId !== desmancheId) {
         return res.status(403).json({ message: "Acesso negado" });
@@ -825,8 +875,13 @@ export async function registerRoutes(server: Server, app: Express) {
       }
 
       const proposal = await storage.createProposal(proposalData);
+
+      // Atualiza status do item para has_proposals
+      if (proposalData.orderItemId) {
+        await storage.updateOrderItemStatus(proposalData.orderItemId, 'has_proposals');
+      }
       
-      // Auto-create chat room when proposal is sent (only for client orders; deferred to acceptance for desmanche ads)
+      // Auto-create chat room when proposal is sent (only for client orders)
       try {
         const order = await storage.getOrderById(proposalData.orderId);
         if (order && order.clientId) {
@@ -1260,7 +1315,8 @@ export async function registerRoutes(server: Server, app: Express) {
       if (!isOwner) return res.status(403).json({ message: "Acesso negado" });
       const files = (req as any).files as Express.Multer.File[];
       if (!files || files.length === 0) return res.status(400).json({ message: "Nenhum arquivo enviado" });
-      const images = await Promise.all(files.map(f => storage.createOrderImage(order.id, `/uploads/${f.filename}`)));
+      const orderItemId = req.query.itemId as string | undefined;
+      const images = await Promise.all(files.map(f => storage.createOrderImage(order.id, `/uploads/${f.filename}`, orderItemId)));
       res.json({ images });
     } catch (error) {
       console.error("Order image upload error:", error);
@@ -1889,11 +1945,12 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
-  // Auto-expire overdue reviews
+  // Auto-expire overdue reviews e order items
   async function runAutoExpire() {
     try {
       await storage.autoExpireOverdueReviews();
       await storage.expireOldOrders();
+      await storage.expireOldOrderItems();
     } catch (e) {
       console.error("Auto-expire error:", e);
     }

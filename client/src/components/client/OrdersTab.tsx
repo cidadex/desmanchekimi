@@ -37,6 +37,23 @@ const CONDITION_LABELS: Record<string, string> = {
 };
 
 interface OrderImage { id: string; url: string; }
+interface OrderItem {
+  id: string;
+  orderId: string;
+  vehicleType?: string;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehicleYear: number;
+  vehiclePlate?: string;
+  partCategory?: string;
+  partName?: string;
+  partPosition?: string;
+  partConditionAccepted?: string;
+  description?: string;
+  status: string;
+  images?: OrderImage[];
+  proposals?: any[];
+}
 interface Order {
   id: string;
   title: string;
@@ -61,6 +78,7 @@ interface Order {
   createdAt: string;
   images?: OrderImage[];
   proposals?: any[];
+  items?: OrderItem[];
 }
 
 function expiryLabel(expiresAt: string | number | null | undefined): string | null {
@@ -211,6 +229,12 @@ export function OrdersTab() {
                         <MessageSquare className="h-3 w-3" />
                         {order.proposals?.length || 0} proposta(s)
                       </span>
+                      {order.items && order.items.length > 1 && (
+                        <span className="text-sm flex items-center gap-1 text-muted-foreground">
+                          <Package className="h-3 w-3" />
+                          {order.items.length} peças
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -256,85 +280,135 @@ export function OrdersTab() {
                 {selectedOrder.urgency === "urgent" && <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Urgente</Badge>}
               </div>
 
-              {/* Vehicle */}
-              <div className="rounded-xl border p-3 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Veículo</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {selectedOrder.vehicleType && <DetailRow label="Tipo" value={VEHICLE_TYPE_LABELS[selectedOrder.vehicleType]} />}
-                  <DetailRow label="Marca" value={selectedOrder.vehicleBrand} />
-                  <DetailRow label="Modelo" value={selectedOrder.vehicleModel} />
-                  <DetailRow label="Ano" value={String(selectedOrder.vehicleYear)} />
-                  {selectedOrder.vehicleColor && <DetailRow label="Cor" value={selectedOrder.vehicleColor} />}
-                  {selectedOrder.vehicleEngine && <DetailRow label="Motor" value={selectedOrder.vehicleEngine} />}
-                  {selectedOrder.vehiclePlate && <DetailRow label="Placa" value={selectedOrder.vehiclePlate} />}
-                </div>
-              </div>
-
-              {/* Part */}
-              <div className="rounded-xl border p-3 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Peça</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {selectedOrder.partCategory && <DetailRow label="Categoria" value={selectedOrder.partCategory} />}
-                  {selectedOrder.partName && <DetailRow label="Peça" value={selectedOrder.partName} />}
-                  {selectedOrder.partPosition && <DetailRow label="Posição" value={selectedOrder.partPosition} />}
-                  {selectedOrder.partConditionAccepted && (
-                    <DetailRow label="Condição aceita" value={CONDITION_LABELS[selectedOrder.partConditionAccepted] || selectedOrder.partConditionAccepted} />
-                  )}
-                </div>
-              </div>
-
-              {/* Description */}
-              {selectedOrder.description && selectedOrder.description !== selectedOrder.title && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Observações</p>
-                  <p className="text-sm">{selectedOrder.description}</p>
-                </div>
-              )}
-
-              {/* Photos */}
-              {selectedOrder.images && selectedOrder.images.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fotos ({selectedOrder.images.length})</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {selectedOrder.images.map((img) => (
-                      <a key={img.id} href={img.url} target="_blank" rel="noreferrer">
-                        <img src={img.url} alt="" className="rounded-lg w-full aspect-square object-cover border hover:opacity-90 transition-opacity" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Separator />
-
-              {/* Proposals */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Propostas Recebidas ({selectedOrder.proposals?.length || 0})
-                </p>
-                {selectedOrder.proposals && selectedOrder.proposals.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedOrder.proposals.map((p: any) => (
-                      <Card key={p.id}>
-                        <CardContent className="pt-4 pb-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-medium">{p.desmanche?.tradingName || "Desmanche"}</p>
-                              <p className="text-sm text-muted-foreground">{p.message}</p>
-                              <p className="font-bold text-green-600 mt-1">R$ {p.price?.toFixed(2)}</p>
+              {/* Multi-item display if order has multiple items */}
+              {selectedOrder.items && selectedOrder.items.length > 1 ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Peças neste pedido ({selectedOrder.items.length})
+                  </p>
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={item.id} className="rounded-xl border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">
+                          {idx + 1}. {item.vehicleType && `${VEHICLE_TYPE_LABELS[item.vehicleType] || item.vehicleType} — `}{item.vehicleBrand} {item.vehicleModel} {item.vehicleYear}
+                        </p>
+                        <Badge variant={statusLabels[item.status]?.variant || "outline"} className="text-xs">
+                          {statusLabels[item.status]?.label || item.status}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {item.partCategory && <DetailRow label="Categoria" value={item.partCategory} />}
+                        {item.partName && <DetailRow label="Peça" value={item.partName} />}
+                        {item.partPosition && <DetailRow label="Posição" value={item.partPosition} />}
+                      </div>
+                      {item.images && item.images.length > 0 && (
+                        <div className="flex gap-1 flex-wrap">
+                          {item.images.map((img) => (
+                            <a key={img.id} href={img.url} target="_blank" rel="noreferrer">
+                              <img src={img.url} alt="" className="rounded w-12 h-12 object-cover border hover:opacity-90 transition-opacity" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {item.proposals && item.proposals.length > 0 && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{item.proposals.length} proposta(s) recebida(s)</p>
+                          {item.proposals.map((p: any) => (
+                            <div key={p.id} className="flex items-center justify-between text-sm bg-muted/40 rounded px-2 py-1">
+                              <span className="font-medium">{p.desmanche?.tradingName || "Desmanche"} — R$ {p.price?.toFixed(2)}</span>
+                              <Badge variant={p.status === "sent" ? "outline" : p.status === "accepted" ? "default" : "destructive"} className="text-xs">
+                                {p.status === "sent" ? "Enviada" : p.status === "accepted" ? "Aceita" : "Rejeitada"}
+                              </Badge>
                             </div>
-                            <Badge variant={p.status === "sent" ? "outline" : p.status === "accepted" ? "default" : "destructive"}>
-                              {p.status === "sent" ? "Enviada" : p.status === "accepted" ? "Aceita" : p.status === "rejected" ? "Rejeitada" : p.status}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {/* Vehicle */}
+                  <div className="rounded-xl border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Veículo</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {selectedOrder.vehicleType && <DetailRow label="Tipo" value={VEHICLE_TYPE_LABELS[selectedOrder.vehicleType]} />}
+                      <DetailRow label="Marca" value={selectedOrder.vehicleBrand} />
+                      <DetailRow label="Modelo" value={selectedOrder.vehicleModel} />
+                      <DetailRow label="Ano" value={String(selectedOrder.vehicleYear)} />
+                      {selectedOrder.vehicleColor && <DetailRow label="Cor" value={selectedOrder.vehicleColor} />}
+                      {selectedOrder.vehicleEngine && <DetailRow label="Motor" value={selectedOrder.vehicleEngine} />}
+                      {selectedOrder.vehiclePlate && <DetailRow label="Placa" value={selectedOrder.vehiclePlate} />}
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhuma proposta recebida ainda.</p>
-                )}
-              </div>
+
+                  {/* Part */}
+                  <div className="rounded-xl border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Peça</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {selectedOrder.partCategory && <DetailRow label="Categoria" value={selectedOrder.partCategory} />}
+                      {selectedOrder.partName && <DetailRow label="Peça" value={selectedOrder.partName} />}
+                      {selectedOrder.partPosition && <DetailRow label="Posição" value={selectedOrder.partPosition} />}
+                      {selectedOrder.partConditionAccepted && (
+                        <DetailRow label="Condição aceita" value={CONDITION_LABELS[selectedOrder.partConditionAccepted] || selectedOrder.partConditionAccepted} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {selectedOrder.description && selectedOrder.description !== selectedOrder.title && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Observações</p>
+                      <p className="text-sm">{selectedOrder.description}</p>
+                    </div>
+                  )}
+
+                  {/* Photos */}
+                  {selectedOrder.images && selectedOrder.images.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fotos ({selectedOrder.images.length})</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {selectedOrder.images.map((img) => (
+                          <a key={img.id} href={img.url} target="_blank" rel="noreferrer">
+                            <img src={img.url} alt="" className="rounded-lg w-full aspect-square object-cover border hover:opacity-90 transition-opacity" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Proposals */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      Propostas Recebidas ({selectedOrder.proposals?.length || 0})
+                    </p>
+                    {selectedOrder.proposals && selectedOrder.proposals.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedOrder.proposals.map((p: any) => (
+                          <Card key={p.id}>
+                            <CardContent className="pt-4 pb-4">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium">{p.desmanche?.tradingName || "Desmanche"}</p>
+                                  <p className="text-sm text-muted-foreground">{p.message}</p>
+                                  <p className="font-bold text-green-600 mt-1">R$ {p.price?.toFixed(2)}</p>
+                                </div>
+                                <Badge variant={p.status === "sent" ? "outline" : p.status === "accepted" ? "default" : "destructive"}>
+                                  {p.status === "sent" ? "Enviada" : p.status === "accepted" ? "Aceita" : p.status === "rejected" ? "Rejeitada" : p.status}
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nenhuma proposta recebida ainda.</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

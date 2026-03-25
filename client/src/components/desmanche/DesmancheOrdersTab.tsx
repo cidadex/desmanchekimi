@@ -98,25 +98,50 @@ export default function DesmancheOrdersTab() {
     enabled: !!user?.id,
   });
 
-  const proposedOrderIds = new Set(myProposals.map((p: any) => p.orderId));
+  const proposedOrderIds = new Set(myProposals.filter((p: any) => !p.orderItemId).map((p: any) => p.orderId));
+  const proposedItemIds = new Set(myProposals.filter((p: any) => p.orderItemId).map((p: any) => p.orderItemId));
+
+  // Flatten orders to individual items (new multi-item architecture + legacy compat)
+  const flatItems = useMemo(() => {
+    return (orders as any[]).flatMap((order: any) => {
+      if (order.items && order.items.length > 0) {
+        return order.items
+          .filter((item: any) => item.status === "open")
+          .map((item: any) => ({
+            ...item,
+            orderId: order.id,
+            isOrderItem: true,
+            urgency: order.urgency,
+            location: order.location,
+            city: order.city,
+            state: order.state,
+            client: order.client,
+            postedByType: order.postedByType,
+            // Use item-level proposals if present, otherwise order-level
+            proposals: item.proposals?.length ? item.proposals : order.proposals,
+          }));
+      }
+      return [{ ...order, orderId: order.id, isOrderItem: false }];
+    });
+  }, [orders]);
 
   const uniqueBrands = useMemo(() => {
     const set = new Set<string>();
-    (orders as any[]).forEach((o: any) => { if (o.vehicleBrand) set.add(o.vehicleBrand); });
+    flatItems.forEach((o: any) => { if (o.vehicleBrand) set.add(o.vehicleBrand); });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [orders]);
+  }, [flatItems]);
 
   const uniqueCategories = useMemo(() => {
     const set = new Set<string>();
-    (orders as any[]).forEach((o: any) => { if (o.partCategory) set.add(o.partCategory); });
+    flatItems.forEach((o: any) => { if (o.partCategory) set.add(o.partCategory); });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [orders]);
+  }, [flatItems]);
 
   const uniqueColors = useMemo(() => {
     const set = new Set<string>();
-    (orders as any[]).forEach((o: any) => { if (o.vehicleColor) set.add(o.vehicleColor); });
+    flatItems.forEach((o: any) => { if (o.vehicleColor) set.add(o.vehicleColor); });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [orders]);
+  }, [flatItems]);
 
   const activeFilterCount = [
     filters.brand, filters.vehicleType, filters.partCategory, filters.color,
@@ -147,14 +172,15 @@ export default function DesmancheOrdersTab() {
   const handleSendProposal = async () => {
     if (!selectedOrder || !user?.id) return;
     await sendProposalMutation.mutateAsync({
-      orderId: selectedOrder.id,
+      orderId: selectedOrder.orderId,
+      orderItemId: selectedOrder.isOrderItem ? selectedOrder.id : undefined,
       desmancheId: user.id,
       price: parseFloat(proposalForm.price),
       message: proposalForm.message,
     });
   };
 
-  const filtered = (orders as any[]).filter((o: any) => {
+  const filtered = flatItems.filter((o: any) => {
     if (o.desmancheId === user?.id) return false;
     if (desmancheVehicleTypes.length > 0 && o.vehicleType && !desmancheVehicleTypes.includes(o.vehicleType)) return false;
     if (search) {
@@ -183,7 +209,9 @@ export default function DesmancheOrdersTab() {
     setProposalForm({ price: "", message: "" });
   };
 
-  const alreadySentForSelected = selectedOrder ? proposedOrderIds.has(selectedOrder.id) : false;
+  const alreadySentForSelected = selectedOrder
+    ? (selectedOrder.isOrderItem ? proposedItemIds.has(selectedOrder.id) : proposedOrderIds.has(selectedOrder.orderId))
+    : false;
 
   if (isLoading) {
     return (
@@ -234,7 +262,7 @@ export default function DesmancheOrdersTab() {
               </Button>
             )}
             <span className="text-sm text-slate-500 shrink-0 ml-1">
-              {filtered.length} pedido{filtered.length !== 1 ? "s" : ""}
+              {filtered.length} peça{filtered.length !== 1 ? "s" : ""} solicitada{filtered.length !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
@@ -435,7 +463,7 @@ export default function DesmancheOrdersTab() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((order: any) => {
-            const alreadySent = proposedOrderIds.has(order.id);
+            const alreadySent = order.isOrderItem ? proposedItemIds.has(order.id) : proposedOrderIds.has(order.orderId);
             const vehicle = [
               VEHICLE_TYPE_LABELS[order.vehicleType] || order.vehicleType,
               order.vehicleBrand,

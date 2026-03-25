@@ -121,7 +121,7 @@ export const documents = sqliteTable("documents", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
-// Tabela de Pedidos
+// Tabela de Pedidos (container/envelope)
 export const orders = sqliteTable("orders", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
   title: text("title").notNull(),
@@ -151,18 +151,45 @@ export const orders = sqliteTable("orders", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
-// Tabela de Imagens dos Pedidos
+// ─── NOVO: Itens do Pedido ─────────────────────────────────────────────────────
+// Cada pedido pode ter múltiplos itens (peças de diferentes tipos de veículo).
+// Propostas, negociações e imagens se vinculam ao item, não ao pedido.
+export const orderItems = sqliteTable("order_items", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  orderId: text("order_id").references(() => orders.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  vehicleType: text("vehicle_type"),
+  vehicleBrand: text("vehicle_brand"),
+  vehicleModel: text("vehicle_model"),
+  vehicleYear: integer("vehicle_year"),
+  vehiclePlate: text("vehicle_plate"),
+  vehicleColor: text("vehicle_color"),
+  vehicleEngine: text("vehicle_engine"),
+  partCategory: text("part_category"),
+  partName: text("part_name"),
+  partPosition: text("part_position"),
+  partConditionAccepted: text("part_condition_accepted").default("any"),
+  status: text("status", { enum: ["open", "has_proposals", "negotiating", "completed", "archived", "expired"] }).notNull().default("open"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+// Tabela de Imagens dos Pedidos (vinculadas ao item, quando disponível)
 export const orderImages = sqliteTable("order_images", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
   orderId: text("order_id").references(() => orders.id).notNull(),
+  orderItemId: text("order_item_id").references(() => orderItems.id),
   url: text("url").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
-// Tabela de Propostas
+// Tabela de Propostas (vinculadas ao item específico)
 export const proposals = sqliteTable("proposals", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
   orderId: text("order_id").references(() => orders.id).notNull(),
+  orderItemId: text("order_item_id").references(() => orderItems.id),
   desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
   price: real("price").notNull(),
   message: text("message").notNull(),
@@ -171,10 +198,11 @@ export const proposals = sqliteTable("proposals", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
-// Tabela de Negociações
+// Tabela de Negociações (vinculadas ao item específico)
 export const negotiations = sqliteTable("negotiations", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
   orderId: text("order_id").references(() => orders.id).notNull(),
+  orderItemId: text("order_item_id").references(() => orderItems.id),
   proposalId: text("proposal_id").references(() => proposals.id).notNull(),
   clientId: text("client_id").references(() => users.id).notNull(),
   desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
@@ -245,100 +273,60 @@ export const chatMessages = sqliteTable("chat_messages", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
-// Schemas de Inserção
+// ─── Schemas de Inserção ──────────────────────────────────────────────────────
+
 export const insertUserSchema = createInsertSchema(users).pick({
-  name: true,
-  email: true,
-  phone: true,
-  password: true,
-  type: true,
+  name: true, email: true, phone: true, password: true, type: true,
 });
 
 export const insertDesmancheSchema = createInsertSchema(desmanches).pick({
-  companyName: true,
-  tradingName: true,
-  cnpj: true,
-  email: true,
-  phone: true,
-  password: true,
-  plan: true,
-  responsibleName: true,
-  responsibleCpf: true,
+  companyName: true, tradingName: true, cnpj: true, email: true, phone: true,
+  password: true, plan: true, responsibleName: true, responsibleCpf: true,
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({
-  title: true,
-  description: true,
-  vehicleType: true,
-  vehicleBrand: true,
-  vehicleModel: true,
-  vehicleYear: true,
-  vehiclePlate: true,
-  vehicleColor: true,
-  vehicleEngine: true,
-  partCategory: true,
-  partName: true,
-  partPosition: true,
-  partConditionAccepted: true,
-  city: true,
-  state: true,
-  location: true,
-  urgency: true,
-  isPartnerRequest: true,
-  postedByType: true,
+  title: true, description: true, vehicleType: true, vehicleBrand: true,
+  vehicleModel: true, vehicleYear: true, vehiclePlate: true, vehicleColor: true,
+  vehicleEngine: true, partCategory: true, partName: true, partPosition: true,
+  partConditionAccepted: true, city: true, state: true, location: true,
+  urgency: true, isPartnerRequest: true, postedByType: true,
+});
+
+export const insertOrderItemSchema = createInsertSchema(orderItems).pick({
+  orderId: true, title: true, description: true, vehicleType: true,
+  vehicleBrand: true, vehicleModel: true, vehicleYear: true, vehiclePlate: true,
+  vehicleColor: true, vehicleEngine: true, partCategory: true, partName: true,
+  partPosition: true, partConditionAccepted: true,
 });
 
 export const insertProposalSchema = createInsertSchema(proposals).pick({
-  orderId: true,
-  desmancheId: true,
-  price: true,
-  message: true,
+  orderId: true, orderItemId: true, desmancheId: true, price: true, message: true,
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).pick({
-  desmancheId: true,
-  type: true,
-  name: true,
-  url: true,
-  validUntil: true,
+  desmancheId: true, type: true, name: true, url: true, validUntil: true,
 });
 
 export const insertAuctionSchema = createInsertSchema(auctions).pick({
-  title: true,
-  source: true,
-  lotCount: true,
-  estimatedValue: true,
-  endTime: true,
-  status: true,
-  url: true,
+  title: true, source: true, lotCount: true, estimatedValue: true,
+  endTime: true, status: true, url: true,
 });
 
 export const insertInvoiceSchema = createInsertSchema(invoices).pick({
-  desmancheId: true,
-  month: true,
-  description: true,
-  amount: true,
-  dueDate: true,
+  desmancheId: true, month: true, description: true, amount: true, dueDate: true,
 });
 
 export const insertReviewSchema = createInsertSchema(reviews).pick({
-  negotiationId: true,
-  clientId: true,
-  desmancheId: true,
-  rating: true,
-  comment: true,
+  negotiationId: true, clientId: true, desmancheId: true, rating: true, comment: true,
 });
 
 export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).pick({
-  name: true,
-  price: true,
-  proposalLimit: true,
-  exclusivitySlots: true,
-  description: true,
-  active: true,
+  name: true, price: true, proposalLimit: true, exclusivitySlots: true,
+  description: true, active: true,
 });
 
-// Relações
+// ─── Relações ─────────────────────────────────────────────────────────────────
+
 export const usersRelations = relations(users, ({ many }) => ({
   addresses: many(addresses),
   orders: many(orders),
@@ -373,19 +361,34 @@ export const billingTransactionsRelations = relations(billingTransactions, ({ on
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   client: one(users, { fields: [orders.clientId], references: [users.id] }),
   desmanche: one(desmanches, { fields: [orders.desmancheId], references: [desmanches.id] }),
+  items: many(orderItems),
   images: many(orderImages),
   proposals: many(proposals),
   negotiations: many(negotiations),
 }));
 
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+  proposals: many(proposals),
+  negotiations: many(negotiations),
+  images: many(orderImages),
+}));
+
+export const orderImagesRelations = relations(orderImages, ({ one }) => ({
+  order: one(orders, { fields: [orderImages.orderId], references: [orders.id] }),
+  orderItem: one(orderItems, { fields: [orderImages.orderItemId], references: [orderItems.id] }),
+}));
+
 export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   order: one(orders, { fields: [proposals.orderId], references: [orders.id] }),
+  orderItem: one(orderItems, { fields: [proposals.orderItemId], references: [orderItems.id] }),
   desmanche: one(desmanches, { fields: [proposals.desmancheId], references: [desmanches.id] }),
   negotiations: many(negotiations),
 }));
 
 export const negotiationsRelations = relations(negotiations, ({ one }) => ({
   order: one(orders, { fields: [negotiations.orderId], references: [orders.id] }),
+  orderItem: one(orderItems, { fields: [negotiations.orderItemId], references: [orderItems.id] }),
   proposal: one(proposals, { fields: [negotiations.proposalId], references: [proposals.id] }),
   client: one(users, { fields: [negotiations.clientId], references: [users.id] }),
   desmanche: one(desmanches, { fields: [negotiations.desmancheId], references: [desmanches.id] }),
@@ -413,10 +416,6 @@ export const desmancheAddressesRelations = relations(desmancheAddresses, ({ one 
   desmanche: one(desmanches, { fields: [desmancheAddresses.desmancheId], references: [desmanches.id] }),
 }));
 
-export const orderImagesRelations = relations(orderImages, ({ one }) => ({
-  order: one(orders, { fields: [orderImages.orderId], references: [orders.id] }),
-}));
-
 export const chatRoomsRelations = relations(chatRooms, ({ one, many }) => ({
   proposal: one(proposals, { fields: [chatRooms.proposalId], references: [proposals.id] }),
   order: one(orders, { fields: [chatRooms.orderId], references: [orders.id] }),
@@ -429,7 +428,8 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   room: one(chatRooms, { fields: [chatMessages.roomId], references: [chatRooms.id] }),
 }));
 
-// Tipos
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
@@ -438,6 +438,9 @@ export type InsertDesmanche = z.infer<typeof insertDesmancheSchema>;
 
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
+
+export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;

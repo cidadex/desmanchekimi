@@ -40,9 +40,18 @@ npm start         # Run production build
 - `vite.config.ts` — Vite configuration (root: `client/`, host: `0.0.0.0`, allowedHosts: true)
 - `shared/schema.ts` — Drizzle + Zod schemas shared between client and server
 
+## Multi-Item Order Architecture
+
+Orders are "carts" — each order contains one or more `order_items`, where each item can be for a different vehicle type. Key principles:
+- Each `order_item` routes independently to matching desmanches based on its `vehicleType`
+- Proposals, negotiations, and images attach to the `order_item` (via `orderItemId` FK), not just the order
+- Items have their own `status` lifecycle: open → has_proposals → negotiating → closed/completed/cancelled/expired
+- In `DesmancheOrdersTab`, orders are flattened to individual items and filtered by desmanche's `vehicleTypes`
+- `CreateOrderWizard` lets clients add multiple items (different vehicles/parts) in one request
+
 ## Database Tables
 
-users, addresses, desmanches, desmanche_addresses, documents, orders, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings, site_settings, brand_logos
+users, addresses, desmanches, desmanche_addresses, documents, orders, order_items, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings, site_settings, brand_logos
 
 ### users Table Extra Columns (added via ALTER TABLE)
 - `email_verified` INTEGER DEFAULT 0 — must be 1 to create orders

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Camera, X, Loader2, Zap, Clock } from "lucide-react";
+import { Camera, X, Loader2, Zap, Clock, Plus, ChevronDown, Trash2, Check } from "lucide-react";
 
 // ─── VEHICLE TYPES ───────────────────────────────────────────────────────────
 
@@ -305,8 +305,29 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
   const [form, setForm] = useState<FormState>(EMPTY);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [savedItems, setSavedItems] = useState<(FormState & { title: string })[]>([]);
 
   const set = (patch: Partial<FormState>) => setForm((s) => ({ ...s, ...patch }));
+
+  const saveCurrentItemToList = () => {
+    if (!form.vehicleType || !form.vehicleBrand || !form.partName) {
+      toast({ title: "Campos obrigatórios", description: "Selecione o tipo de veículo, marca e a peça antes de adicionar.", variant: "destructive" });
+      return;
+    }
+    if (isCustomPart(form.partName) && !form.customPartName.trim()) {
+      toast({ title: "Campos obrigatórios", description: "Descreva o nome da peça.", variant: "destructive" });
+      return;
+    }
+    const title = buildTitle(form);
+    setSavedItems(prev => [...prev, { ...form, title }]);
+    const keepUrgency = form.urgency;
+    setForm({ ...EMPTY, urgency: keepUrgency });
+    setPreviewUrls([]);
+  };
+
+  const removeSavedItem = (idx: number) => {
+    setSavedItems(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const vt = VEHICLE_TYPES.find((v) => v.id === form.vehicleType);
   const hasFipe = !!vt?.fipe;
@@ -349,6 +370,32 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
     set({ partPosition: "" });
   }, [form.partName]);
 
+  // Helpers para serializar um item de formulário para o formato da API
+  const serializeItem = (item: FormState & { title?: string }) => {
+    const partDef = Object.values(PARTS).flat().find((p) => p.id === item.partName);
+    const itemCategories = CATEGORIES[item.vehicleType] ?? GENERIC_CATEGORIES;
+    const catDef = itemCategories.find((c) => c.id === item.partCategory);
+    const itemPositionOptions = partDef?.pos ? POSITIONS[partDef.pos] : null;
+    const posDef = itemPositionOptions?.find((p) => p.id === item.partPosition);
+    const resolvedPartName = isCustomPart(item.partName) && item.customPartName.trim()
+      ? item.customPartName.trim()
+      : (partDef?.label || item.partName);
+    const title = item.title || buildTitle(item as FormState);
+    return {
+      title,
+      description: item.description || title,
+      vehicleType: item.vehicleType,
+      vehicleBrand: item.vehicleBrand,
+      vehicleModel: item.vehicleModel || "Não informado",
+      vehicleYear: parseInt(item.vehicleYear) || new Date().getFullYear(),
+      vehiclePlate: item.vehiclePlate || undefined,
+      partCategory: catDef?.label || item.partCategory,
+      partName: resolvedPartName,
+      partPosition: posDef?.label || item.partPosition || undefined,
+      partConditionAccepted: "any",
+    };
+  };
+
   // Submit
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -356,32 +403,23 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
       if (!form.vehicleType || !form.vehicleBrand || !form.partName) throw new Error("required");
       if (isCustomPart(form.partName) && !form.customPartName.trim()) throw new Error("required");
 
-      const partDef = Object.values(PARTS).flat().find((p) => p.id === form.partName);
-      const posDef = positionOptions?.find((p) => p.id === form.partPosition);
-      const catDef = categories.find((c) => c.id === form.partCategory);
-      const resolvedPartName = isCustomPart(form.partName) && form.customPartName.trim()
-        ? form.customPartName.trim()
-        : (partDef?.label || form.partName);
-      const title = buildTitle(form);
+      const location = isDesmancheAd
+        ? ((user as any)?.city ? `${(user as any).city}, ${(user as any).state || ""}`.trim().replace(/,\s*$/, "") : "Brasil")
+        : (user ? `${(user as any).city || ""},${(user as any).state || ""}`.replace(/^,|,$/g, "").trim() || "Brasil" : "Brasil");
 
+      // Build items list: savedItems + current form
+      const allItemForms = [...savedItems, { ...form, title: buildTitle(form) }];
+      const items = allItemForms.map((item) => serializeItem(item));
+
+      // Use first item for the order-level fields
+      const firstItem = items[0];
       const body: Record<string, any> = {
-        title,
-        description: form.description || title,
-        vehicleType: form.vehicleType,
-        vehicleBrand: form.vehicleBrand,
-        vehicleModel: form.vehicleModel || "Não informado",
-        vehicleYear: parseInt(form.vehicleYear) || new Date().getFullYear(),
-        vehiclePlate: form.vehiclePlate || undefined,
-        partCategory: catDef?.label || form.partCategory,
-        partName: resolvedPartName,
-        partPosition: posDef?.label || form.partPosition || undefined,
-        partConditionAccepted: "any",
-        location: isDesmancheAd
-          ? ((user as any)?.city ? `${(user as any).city}, ${(user as any).state || ""}`.trim().replace(/,\s*$/, "") : "Brasil")
-          : (user ? `${(user as any).city || ""},${(user as any).state || ""}`.replace(/^,|,$/g, "").trim() || "Brasil" : "Brasil"),
+        ...firstItem,
+        location,
         urgency: form.urgency,
         isPartnerRequest: false,
         postedByType: isDesmancheAd ? "desmanche" : "client",
+        items: items.length > 1 ? items : undefined,
       };
 
       const res = await apiRequest("POST", "/api/orders", body);
@@ -391,16 +429,24 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
       }
       const order = await res.json();
 
-      if (form.photos.length > 0) {
+      // Upload photos per item
+      const hasPhotos = allItemForms.some(item => item.photos.length > 0);
+      if (hasPhotos) {
         setUploading(true);
         try {
-          const fd = new FormData();
-          form.photos.forEach((f) => fd.append("photos", f));
-          await fetch(`/api/orders/${order.id}/images`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: fd,
-          });
+          for (let i = 0; i < allItemForms.length; i++) {
+            const itemForm = allItemForms[i];
+            if (itemForm.photos.length === 0) continue;
+            const orderItem = order.items?.[i];
+            const itemParam = orderItem?.id ? `?itemId=${orderItem.id}` : "";
+            const fd = new FormData();
+            itemForm.photos.forEach((f) => fd.append("photos", f));
+            await fetch(`/api/orders/${order.id}/images${itemParam}`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+              body: fd,
+            });
+          }
         } catch {}
         finally { setUploading(false); }
       }
@@ -433,6 +479,7 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
   const handleClose = () => {
     setForm(EMPTY);
     setPreviewUrls([]);
+    setSavedItems([]);
     onClose();
   };
 
@@ -464,6 +511,38 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
         </DialogHeader>
 
         <div className="space-y-6 py-2">
+
+          {/* ── Itens já adicionados ──────────────────────────── */}
+          {savedItems.length > 0 && (
+            <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Peças no pedido ({savedItems.length})
+              </p>
+              {savedItems.map((item, idx) => {
+                const vIcon = VEHICLE_TYPES.find(v => v.id === item.vehicleType)?.icon ?? "🔧";
+                return (
+                  <div key={idx} className="flex items-center gap-2 bg-background rounded-md px-3 py-2 border text-sm">
+                    <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    <span className="flex-1 min-w-0 truncate">
+                      <span className="mr-1">{vIcon}</span>
+                      {item.title}
+                    </span>
+                    {item.photos.length > 0 && (
+                      <span className="text-xs text-muted-foreground shrink-0">{item.photos.length} foto{item.photos.length !== 1 ? "s" : ""}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeSavedItem(idx)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-muted-foreground">Preencha os dados da próxima peça abaixo.</p>
+            </div>
+          )}
 
           {/* ── Tipo de Veículo ───────────────────────────────── */}
           <div className="space-y-2">
@@ -736,6 +815,20 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
             </>
           )}
 
+          {/* ── Adicionar outra peça ──────────────────────────────── */}
+          {!isDesmancheAd && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10 text-sm font-medium border-dashed"
+              onClick={saveCurrentItemToList}
+              disabled={isLoading || !form.vehicleType || !form.vehicleBrand || !form.partName}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar outra peça ao mesmo pedido
+            </Button>
+          )}
+
           {/* ── Submit ────────────────────────────────────────────── */}
           <Button
             className="w-full h-12 text-base font-semibold"
@@ -744,7 +837,9 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
           >
             {isLoading
               ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Enviando...</>
-              : "Publicar Pedido de Peça"
+              : savedItems.length > 0
+                ? `Criar Pedido (${savedItems.length + 1} peça${savedItems.length + 1 !== 1 ? "s" : ""})`
+                : "Publicar Pedido de Peça"
             }
           </Button>
 

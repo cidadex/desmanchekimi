@@ -108,6 +108,28 @@ sqlite.exec(`
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
 
+  CREATE TABLE IF NOT EXISTS order_items (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    order_id TEXT NOT NULL REFERENCES orders(id),
+    title TEXT NOT NULL,
+    description TEXT,
+    vehicle_type TEXT,
+    vehicle_brand TEXT,
+    vehicle_model TEXT,
+    vehicle_year INTEGER,
+    vehicle_plate TEXT,
+    vehicle_color TEXT,
+    vehicle_engine TEXT,
+    part_category TEXT,
+    part_name TEXT,
+    part_position TEXT,
+    part_condition_accepted TEXT DEFAULT 'any',
+    status TEXT NOT NULL DEFAULT 'open',
+    expires_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
   CREATE TABLE IF NOT EXISTS proposals (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     order_id TEXT NOT NULL REFERENCES orders(id),
@@ -319,6 +341,49 @@ try { sqlite.exec(`ALTER TABLE users ADD COLUMN email_verification_token TEXT`);
 try { sqlite.exec(`ALTER TABLE users ADD COLUMN email_verification_expires INTEGER`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE users ADD COLUMN password_reset_token TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE users ADD COLUMN password_reset_expires INTEGER`); } catch (e) {}
+
+// Migração multi-item: adicionar order_item_id em tabelas relacionadas
+try { sqlite.exec(`ALTER TABLE proposals ADD COLUMN order_item_id TEXT REFERENCES order_items(id)`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN order_item_id TEXT REFERENCES order_items(id)`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE order_images ADD COLUMN order_item_id TEXT REFERENCES order_items(id)`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN received_at INTEGER`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGER`); } catch (e) {}
+
+// Migração: criar order_items para pedidos existentes que não têm items
+{
+  const THREE_DAYS_S = 3 * 24 * 60 * 60;
+  const existingOrders = sqlite.prepare("SELECT * FROM orders").all() as any[];
+  for (const order of existingOrders) {
+    const existing = sqlite.prepare("SELECT id FROM order_items WHERE order_id = ?").get(order.id);
+    if (!existing) {
+      const itemId = randomUUID();
+      const expiresAt = order.expires_at || Math.floor(Date.now() / 1000) + THREE_DAYS_S;
+      sqlite.prepare(`
+        INSERT OR IGNORE INTO order_items (id, order_id, title, description, vehicle_type, vehicle_brand, vehicle_model, vehicle_year, vehicle_plate, vehicle_color, vehicle_engine, part_category, part_name, part_position, part_condition_accepted, status, expires_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        itemId, order.id, order.title, order.description,
+        order.vehicle_type, order.vehicle_brand, order.vehicle_model, order.vehicle_year,
+        order.vehicle_plate, order.vehicle_color, order.vehicle_engine,
+        order.part_category, order.part_name, order.part_position, order.part_condition_accepted || 'any',
+        (order.status === 'open' || order.status === 'has_proposals') ? order.status === 'has_proposals' ? 'has_proposals' : 'open'
+          : order.status === 'negotiating' ? 'negotiating'
+          : order.status === 'completed' ? 'completed'
+          : order.status === 'cancelled' || order.status === 'expired' ? 'archived'
+          : 'open',
+        expiresAt,
+        order.created_at || Math.floor(Date.now() / 1000),
+        order.updated_at || Math.floor(Date.now() / 1000)
+      );
+      // Vincular proposals existentes ao item criado
+      sqlite.prepare("UPDATE proposals SET order_item_id = ? WHERE order_id = ? AND order_item_id IS NULL").run(itemId, order.id);
+      // Vincular negotiations existentes ao item criado
+      sqlite.prepare("UPDATE negotiations SET order_item_id = ? WHERE order_id = ? AND order_item_id IS NULL").run(itemId, order.id);
+      // Vincular order_images existentes ao item criado
+      sqlite.prepare("UPDATE order_images SET order_item_id = ? WHERE order_id = ? AND order_item_id IS NULL").run(itemId, order.id);
+    }
+  }
+}
 
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS site_settings (
@@ -581,10 +646,10 @@ export async function updateDocumentStatus(id: string, status: string) {
 }
 
 // ==================== ORDER IMAGES ====================
-export async function createOrderImage(orderId: string, url: string) {
+export async function createOrderImage(orderId: string, url: string, orderItemId?: string) {
   const id = randomUUID();
-  await db.insert(schema.orderImages).values({ id, orderId, url });
-  return { id, orderId, url };
+  await db.insert(schema.orderImages).values({ id, orderId, url, orderItemId: orderItemId ?? null });
+  return { id, orderId, orderItemId, url };
 }
 
 export async function getOrderImages(orderId: string) {
@@ -593,13 +658,133 @@ export async function getOrderImages(orderId: string) {
   });
 }
 
-// ==================== ORDERS ====================
+// ==================== ORDER ITEMS ====================
 const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
 
-export async function createOrder(data: schema.InsertOrder & { clientId: string | null; desmancheId?: string }) {
+type OrderItemInput = {
+  title: string;
+  description?: string | null;
+  vehicleType?: string | null;
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehicleYear?: number | null;
+  vehiclePlate?: string | null;
+  vehicleColor?: string | null;
+  vehicleEngine?: string | null;
+  partCategory?: string | null;
+  partName?: string | null;
+  partPosition?: string | null;
+  partConditionAccepted?: string | null;
+};
+
+export async function createOrderItem(orderId: string, data: OrderItemInput) {
   const id = randomUUID();
   const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
-  await db.insert(schema.orders).values({ id, ...data, expiresAt });
+  await db.insert(schema.orderItems).values({
+    id,
+    orderId,
+    title: data.title,
+    description: data.description ?? null,
+    vehicleType: data.vehicleType ?? null,
+    vehicleBrand: data.vehicleBrand ?? null,
+    vehicleModel: data.vehicleModel ?? null,
+    vehicleYear: data.vehicleYear ?? null,
+    vehiclePlate: data.vehiclePlate ?? null,
+    vehicleColor: data.vehicleColor ?? null,
+    vehicleEngine: data.vehicleEngine ?? null,
+    partCategory: data.partCategory ?? null,
+    partName: data.partName ?? null,
+    partPosition: data.partPosition ?? null,
+    partConditionAccepted: data.partConditionAccepted ?? 'any',
+    expiresAt,
+  });
+  return getOrderItemById(id);
+}
+
+export async function getOrderItemById(id: string) {
+  return db.query.orderItems.findFirst({
+    where: eq(schema.orderItems.id, id),
+    with: {
+      proposals: { with: { desmanche: true } },
+      images: true,
+    },
+  });
+}
+
+export async function getOrderItemsByOrder(orderId: string) {
+  return db.query.orderItems.findMany({
+    where: eq(schema.orderItems.orderId, orderId),
+    orderBy: asc(schema.orderItems.createdAt),
+    with: {
+      proposals: { with: { desmanche: true } },
+      images: true,
+    },
+  });
+}
+
+export async function updateOrderItemStatus(id: string, status: string) {
+  await db.update(schema.orderItems)
+    .set({ status: status as any, updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(eq(schema.orderItems.id, id));
+  return getOrderItemById(id);
+}
+
+export async function reactivateOrderItem(id: string) {
+  const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
+  await db.update(schema.orderItems)
+    .set({ status: 'open', expiresAt, updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(eq(schema.orderItems.id, id));
+  return getOrderItemById(id);
+}
+
+export async function expireOldOrderItems() {
+  const now = new Date();
+  await db.update(schema.orderItems)
+    .set({ status: 'expired', updatedAt: sql`(strftime('%s', 'now'))` })
+    .where(
+      and(
+        sql`${schema.orderItems.expiresAt} IS NOT NULL`,
+        lte(schema.orderItems.expiresAt, now),
+        sql`${schema.orderItems.status} IN ('open', 'has_proposals')`
+      )
+    );
+}
+
+// ==================== ORDERS ====================
+
+export async function createOrder(
+  data: schema.InsertOrder & {
+    clientId: string | null;
+    desmancheId?: string;
+    items?: OrderItemInput[];
+  }
+) {
+  const id = randomUUID();
+  const expiresAt = new Date(Date.now() + THREE_DAYS_MS);
+  const { items, ...orderData } = data;
+  await db.insert(schema.orders).values({ id, ...orderData, expiresAt });
+
+  // Criar items (usa os campos do próprio data como único item se não vier array)
+  const itemsToCreate: OrderItemInput[] = items && items.length > 0 ? items : [{
+    title: data.title,
+    description: data.description,
+    vehicleType: data.vehicleType,
+    vehicleBrand: data.vehicleBrand,
+    vehicleModel: data.vehicleModel,
+    vehicleYear: data.vehicleYear,
+    vehiclePlate: data.vehiclePlate,
+    vehicleColor: data.vehicleColor,
+    vehicleEngine: data.vehicleEngine,
+    partCategory: data.partCategory,
+    partName: data.partName,
+    partPosition: data.partPosition,
+    partConditionAccepted: data.partConditionAccepted,
+  }];
+
+  for (const item of itemsToCreate) {
+    await createOrderItem(id, item);
+  }
+
   return getOrderById(id);
 }
 
@@ -630,11 +815,13 @@ export async function getOrdersByDesmanche(desmancheId: string) {
     orderBy: desc(schema.orders.createdAt),
     with: {
       images: true,
-      proposals: {
+      items: {
         with: {
-          desmanche: true,
+          proposals: { with: { desmanche: true } },
+          images: true,
         },
       },
+      proposals: { with: { desmanche: true } },
     },
   });
 }
@@ -644,11 +831,13 @@ export async function getOrderById(id: string) {
     where: eq(schema.orders.id, id),
     with: {
       images: true,
-      proposals: {
+      items: {
         with: {
-          desmanche: true,
+          proposals: { with: { desmanche: true } },
+          images: true,
         },
       },
+      proposals: { with: { desmanche: true } },
     },
   });
 }
@@ -662,11 +851,13 @@ export async function getOrdersByClient(clientId: string) {
     orderBy: desc(schema.orders.createdAt),
     with: {
       images: true,
-      proposals: {
+      items: {
         with: {
-          desmanche: true,
+          proposals: { with: { desmanche: true } },
+          images: true,
         },
       },
+      proposals: { with: { desmanche: true } },
     },
   });
 }
@@ -693,11 +884,13 @@ export async function getAllOrders(filters?: { status?: string; urgency?: string
       client: true,
       desmanche: true,
       images: true,
-      proposals: {
+      items: {
         with: {
-          desmanche: true,
+          proposals: { with: { desmanche: true } },
+          images: true,
         },
       },
+      proposals: { with: { desmanche: true } },
     },
   });
 }
