@@ -119,8 +119,8 @@ export default function Home() {
               <span className="text-sm font-medium">100% Desmanches Credenciados pelo Detran</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
-              Sua Peça, em Todos os{" "}
+            <h1 className="text-3xl md:text-5xl font-bold font-mono leading-snug mb-6">
+              Solicite sua peça para todos os{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">
                 Desmanches Legais
               </span>{" "}
