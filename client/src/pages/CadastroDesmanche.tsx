@@ -11,7 +11,7 @@ import {
   CheckCircle2, TrendingUp, ShieldCheck, Users, Star, Package,
   MapPin, Building2, UserCheck, FileText, ImageIcon, Lock,
   Loader2, ArrowLeft, Upload, ChevronRight, Search, AlertCircle,
-  Info, CreditCard,
+  Info, CreditCard, Calendar,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -88,6 +88,8 @@ export default function CadastroDesmanche() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [alvaraFile, setAlvaraFile] = useState<File | null>(null);
+  const [alvaraExpiry, setAlvaraExpiry] = useState("");
+  const [detranExpiry, setDetranExpiry] = useState("");
   const [docResponsavelFile, setDocResponsavelFile] = useState<File | null>(null);
   const [docEmpresaFile, setDocEmpresaFile] = useState<File | null>(null);
   const [detranFile, setDetranFile] = useState<File | null>(null);
@@ -173,11 +175,13 @@ export default function CadastroDesmanche() {
     return (await res.json()).url;
   };
 
-  const registerDocument = async (desmancheId: string, type: string, name: string, url: string, token: string) => {
+  const registerDocument = async (desmancheId: string, type: string, name: string, url: string, token: string, validUntil?: number) => {
+    const body: Record<string, unknown> = { desmancheId, type, name, url };
+    if (validUntil) body.validUntil = validUntil;
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ desmancheId, type, name, url }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error("Falha ao registrar documento");
   };
@@ -233,15 +237,16 @@ export default function CadastroDesmanche() {
         });
       }
 
+      const toTs = (dateStr: string) => dateStr ? Math.floor(new Date(dateStr).getTime() / 1000) : undefined;
       const docs = [
-        { file: alvaraFile!,        type: "alvara",              name: "Alvará de Funcionamento" },
-        { file: docResponsavelFile!, type: "documento_responsavel", name: "Documento do Responsável" },
-        { file: docEmpresaFile!,     type: "documento_empresa",   name: "Documento da Empresa / Contrato Social" },
-        { file: detranFile!,         type: "licenca_detran",      name: "Licença do Detran" },
+        { file: alvaraFile!,        type: "alvara",                 name: "Alvará de Funcionamento",               validUntil: toTs(alvaraExpiry) },
+        { file: docResponsavelFile!, type: "documento_responsavel",  name: "Documento do Responsável",              validUntil: undefined },
+        { file: docEmpresaFile!,     type: "documento_empresa",      name: "Documento da Empresa / Contrato Social", validUntil: undefined },
+        { file: detranFile!,         type: "credenciamento_detran",  name: "Credenciamento Detran",                 validUntil: toTs(detranExpiry) },
       ];
       for (const doc of docs) {
         const url = await uploadFile(doc.file, token);
-        await registerDocument(desmancheId, doc.type, doc.name, url, token);
+        await registerDocument(desmancheId, doc.type, doc.name, url, token, doc.validUntil);
       }
 
       // Configura cobrança se selecionada
@@ -273,7 +278,7 @@ export default function CadastroDesmanche() {
   const canAdvance = () => {
     if (step === 0) return !!(form.companyName && form.tradingName && form.cnpj && form.phone);
     if (step === 1) return true;
-    if (step === 2) return !!(alvaraFile && docResponsavelFile && docEmpresaFile && detranFile);
+    if (step === 2) return !!(alvaraFile && alvaraExpiry && docResponsavelFile && docEmpresaFile && detranFile && detranExpiry);
     if (step === 3) return !!(form.email && form.password && form.confirmPassword && form.password === form.confirmPassword);
     if (step === 4) return true; // Plano é opcional
     return false;
@@ -534,8 +539,41 @@ export default function CadastroDesmanche() {
                     <FileText className="h-5 w-5 text-primary" /> Documentos
                   </h3>
                   <p className="text-sm text-muted-foreground">Todos os documentos abaixo são obrigatórios para análise do credenciamento.</p>
-                  <FileUploadField label="Alvará de Funcionamento" file={alvaraFile} onChange={setAlvaraFile} required />
-                  <FileUploadField label="Licença do Detran" file={detranFile} onChange={setDetranFile} required />
+
+                  {/* Alvará */}
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+                    <FileUploadField label="Alvará de Funcionamento" file={alvaraFile} onChange={setAlvaraFile} required />
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                        Data de Vencimento do Alvará <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        value={alvaraExpiry}
+                        onChange={(e) => setAlvaraExpiry(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detran */}
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+                    <FileUploadField label="Credenciamento Detran" file={detranFile} onChange={setDetranFile} required />
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                        Data de Vencimento do Credenciamento Detran <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        value={detranExpiry}
+                        onChange={(e) => setDetranExpiry(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                  </div>
+
                   <FileUploadField label="Documento do Responsável (RG ou CNH)" file={docResponsavelFile} onChange={setDocResponsavelFile} required />
                   <FileUploadField label="Documento da Empresa (Contrato Social ou CNPJ)" file={docEmpresaFile} onChange={setDocEmpresaFile} required />
                 </>

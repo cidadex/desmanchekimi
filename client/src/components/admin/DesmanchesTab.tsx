@@ -6,7 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+
+const ALERT_DAYS = 30;
+const EXPIRY_DOC_TYPES = ["alvara", "credenciamento_detran"];
+
+function getDaysUntilExpiry(validUntil: number | null | undefined): number | null {
+  if (!validUntil) return null;
+  const now = Date.now();
+  return Math.floor((validUntil * 1000 - now) / (1000 * 60 * 60 * 24));
+}
+
+function hasExpiringDocs(documents: any[]): { expiring: boolean; expired: boolean; label: string } {
+  const relevant = (documents || []).filter((d: any) => EXPIRY_DOC_TYPES.includes(d.type) && d.validUntil);
+  const days = relevant.map((d: any) => ({ doc: d, daysLeft: getDaysUntilExpiry(d.validUntil) }));
+  const expired = days.filter((x) => x.daysLeft !== null && x.daysLeft < 0);
+  const expiring = days.filter((x) => x.daysLeft !== null && x.daysLeft >= 0 && x.daysLeft <= ALERT_DAYS);
+
+  if (expired.length > 0) {
+    const names = expired.map((x) => x.doc.type === "alvara" ? "Alvará" : "Detran").join(", ");
+    return { expiring: true, expired: true, label: `Vencido: ${names}` };
+  }
+  if (expiring.length > 0) {
+    const minDays = Math.min(...expiring.map((x) => x.daysLeft as number));
+    const names = expiring.map((x) => x.doc.type === "alvara" ? "Alvará" : "Detran").join(", ");
+    return { expiring: true, expired: false, label: `A vencer em ${minDays}d: ${names}` };
+  }
+  return { expiring: false, expired: false, label: "" };
+}
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -49,6 +76,8 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
     return matchesSearch && matchesStatus;
   });
 
+  const expiringCount = desmanches.filter((d: any) => hasExpiringDocs(d.documents || []).expiring).length;
+
   const statuses = ["all", "active", "pending", "rejected", "inactive"];
   const statusLabels: Record<string, string> = {
     all: "Todos",
@@ -65,6 +94,12 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
           <h1 className="text-3xl font-bold font-mono tracking-tight">Desmanches Credenciados</h1>
           <p className="text-muted-foreground">Gerencie as empresas ativas na plataforma.</p>
         </div>
+        {expiringCount > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+            {expiringCount} desmanche{expiringCount !== 1 ? "s" : ""} com documentação próxima do vencimento
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -117,6 +152,7 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                   <TableHead>Plano</TableHead>
                   <TableHead>Avaliação</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Documentação</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -125,10 +161,11 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                   const location = d.address
                     ? `${d.address.city || ""}, ${d.address.state || ""}`.replace(/^, |, $/g, "")
                     : "—";
+                  const docAlert = hasExpiringDocs(d.documents || []);
                   return (
                     <TableRow
                       key={d.id}
-                      className="cursor-pointer hover:bg-muted/60 transition-colors"
+                      className={`cursor-pointer hover:bg-muted/60 transition-colors ${docAlert.expiring ? "bg-red-50/40" : ""}`}
                       onClick={() => onSelectDesmanche?.(d.id)}
                     >
                       <TableCell className="pl-6 font-mono text-xs text-muted-foreground">D-{String(d.id).slice(0,8)}</TableCell>
@@ -143,6 +180,18 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                         </div>
                       </TableCell>
                       <TableCell>{statusBadge(d.status)}</TableCell>
+                      <TableCell>
+                        {docAlert.expiring ? (
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className={`h-4 w-4 shrink-0 ${docAlert.expired ? "text-red-600" : "text-orange-500"}`} />
+                            <span className={`text-xs font-semibold ${docAlert.expired ? "text-red-600" : "text-orange-600"}`}>
+                              {docAlert.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right pr-6">
                         <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
                       </TableCell>
