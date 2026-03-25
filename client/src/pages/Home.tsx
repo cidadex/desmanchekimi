@@ -12,7 +12,6 @@ import {
   Search,
   CheckCircle2,
   Wrench,
-  Gavel,
   Menu
 } from "lucide-react";
 import engineImg from "@/assets/images/engine-3d.png";
@@ -35,8 +34,6 @@ export default function Home() {
             <span className="text-muted-foreground">|</span>
             <span>R$ 145.000 em peças negociadas hoje</span>
             <span className="text-muted-foreground">|</span>
-            <span className="flex items-center gap-2"><Gavel className="h-4 w-4"/> Leilão SP encerrando em 2h</span>
-            <span className="text-muted-foreground">|</span>
             <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-400"/> 1,245 pessoas negociando agora</span>
             <span className="text-muted-foreground">|</span>
             <span className="flex items-center gap-2 text-yellow-300">42 desmanches online</span>
@@ -53,7 +50,6 @@ export default function Home() {
           
           <div className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
             <Link href="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
-            <a href="#leiloes" className="hover:text-foreground transition-colors">Central de Leilões</a>
             <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
           </div>
           
@@ -82,7 +78,6 @@ export default function Home() {
               <SheetContent side="right" className="w-[300px] flex flex-col pt-12">
                 <div className="flex flex-col gap-6 text-lg font-medium text-muted-foreground">
                   <Link href="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
-                  <a href="#leiloes" className="hover:text-foreground transition-colors">Central de Leilões</a>
                   <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
                 </div>
                 <div className="flex flex-col gap-3 mt-8 border-t pt-8">

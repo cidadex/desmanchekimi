@@ -402,8 +402,9 @@ export async function registerRoutes(server: Server, app: Express) {
   app.patch("/api/desmanches/me", authMiddleware, requireType(["desmanche"]), async (req, res) => {
     try {
       const desmancheId = (req as any).user.id;
-      const { tradingName, phone, responsibleName, responsibleCpf, logo } = req.body;
-      const desmanche = await storage.updateDesmancheProfile(desmancheId, { tradingName, phone, responsibleName, responsibleCpf, logo });
+      const { tradingName, phone, responsibleName, responsibleCpf, logo, vehicleTypes } = req.body;
+      const vtJson = vehicleTypes !== undefined ? JSON.stringify(vehicleTypes) : undefined;
+      const desmanche = await storage.updateDesmancheProfile(desmancheId, { tradingName, phone, responsibleName, responsibleCpf, logo, vehicleTypes: vtJson });
       res.json(desmanche);
     } catch (error) {
       console.error("Update desmanche profile error:", error);

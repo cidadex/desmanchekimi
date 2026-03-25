@@ -64,6 +64,20 @@ export default function DesmancheOrdersTab() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
 
+  const { data: desmanche } = useQuery({
+    queryKey: ["/api/desmanches/me"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/desmanches/me");
+      return res.json();
+    },
+    enabled: !!getToken(),
+    staleTime: 60 * 1000,
+  });
+
+  const desmancheVehicleTypes: string[] = (() => {
+    try { return JSON.parse(desmanche?.vehicleTypes || "[]"); } catch { return []; }
+  })();
+
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["/api/orders"],
     queryFn: async () => {
@@ -142,6 +156,7 @@ export default function DesmancheOrdersTab() {
 
   const filtered = (orders as any[]).filter((o: any) => {
     if (o.desmancheId === user?.id) return false;
+    if (desmancheVehicleTypes.length > 0 && o.vehicleType && !desmancheVehicleTypes.includes(o.vehicleType)) return false;
     if (search) {
       const q = search.toLowerCase();
       const hit =

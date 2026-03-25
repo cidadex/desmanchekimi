@@ -56,6 +56,7 @@ export const desmanches = sqliteTable("desmanches", {
   plan: text("plan", { enum: ["monthly"] }).notNull().default("monthly"),
   status: text("status", { enum: ["pending", "active", "inactive", "rejected"] }).notNull().default("pending"),
   rejectionReason: text("rejection_reason"),
+  vehicleTypes: text("vehicle_types").default("[]"),
   rating: real("rating").notNull().default(0),
   salesCount: integer("sales_count").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),

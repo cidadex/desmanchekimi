@@ -13,7 +13,6 @@ import {
   Users,
   MessageCircle,
   MessageSquare,
-  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,7 +25,6 @@ import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 import DesmancheOverviewTab from "@/components/desmanche/DesmancheOverviewTab";
 import DesmancheOrdersTab from "@/components/desmanche/DesmancheOrdersTab";
-import DesmancheAdsTab from "@/components/desmanche/DesmancheAdsTab";
 import DesmancheDocsTab from "@/components/desmanche/DesmancheDocsTab";
 import DesmancheFinanceTab from "@/components/desmanche/DesmancheFinanceTab";
 import DesmancheProfileTab from "@/components/desmanche/DesmancheProfileTab";
@@ -119,7 +117,6 @@ export default function DesmancheDashboard() {
           active={activeTab === 'orders'}
           onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}}
         />
-        <SidebarItem icon={<Megaphone />} label="Meus Anúncios" active={activeTab === 'ads'} onClick={() => {handleSetTab('ads'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {handleSetTab('negotiations'); setIsMobileMenuOpen(false);}} />
         <SidebarItem
           icon={<MessageSquare />}
@@ -184,7 +181,6 @@ export default function DesmancheDashboard() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={handleSetTab} />}
           {activeTab === 'orders' && <DesmancheOrdersTab />}
-          {activeTab === 'ads' && <DesmancheAdsTab />}
           {activeTab === 'negotiations' && <DesmancheNegotiationsTab onNavigate={handleSetTab} />}
           {activeTab === 'chat' && <ChatTab />}
           {activeTab === 'docs' && <DesmancheDocsTab />}

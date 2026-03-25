@@ -5,9 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Camera, MapPin, ExternalLink } from "lucide-react";
+import { Loader2, Camera, MapPin, ExternalLink, CheckCircle2, Settings2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+const VEHICLE_SEGMENTS = [
+  { id: "car",          label: "Carro",             icon: "🚗" },
+  { id: "motorcycle",   label: "Moto",              icon: "🏍️" },
+  { id: "truck",        label: "Caminhão",           icon: "🚛" },
+  { id: "bus",          label: "Ônibus",             icon: "🚌" },
+  { id: "van",          label: "Van / Utilitário",   icon: "🚐" },
+  { id: "boat",         label: "Barco / Lancha",     icon: "⛵" },
+  { id: "agricultural", label: "Trator / Agrícola",  icon: "🚜" },
+  { id: "other",        label: "Outro",              icon: "🔧" },
+];
 
 function buildMapUrl(address: { street: string; number: string; city: string; state: string; zipCode: string }) {
   const parts = [
@@ -49,6 +60,8 @@ export default function DesmancheProfileTab() {
   });
 
   const [showMap, setShowMap] = useState(false);
+  const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
+  const [segmentsSaving, setSegmentsSaving] = useState(false);
 
   const { data: desmanche, isLoading } = useQuery({
     queryKey: ["/api/desmanches/me"],
@@ -77,6 +90,10 @@ export default function DesmancheProfileTab() {
         responsibleCpf: desmanche.responsibleCpf || "",
       });
       if (desmanche.logo) setLogoPreview(desmanche.logo);
+      try {
+        const vt = JSON.parse(desmanche.vehicleTypes || "[]");
+        if (Array.isArray(vt)) setSelectedSegments(vt);
+      } catch {}
     }
   }, [desmanche]);
 
@@ -122,6 +139,21 @@ export default function DesmancheProfileTab() {
       toast({ title: "Erro", description: error.message || "Falha ao atualizar endereço", variant: "destructive" });
     },
   });
+
+  const handleSegmentsSave = async () => {
+    setSegmentsSaving(true);
+    try {
+      await updateProfileMutation.mutateAsync({ vehicleTypes: selectedSegments });
+    } finally {
+      setSegmentsSaving(false);
+    }
+  };
+
+  const toggleSegment = (id: string) => {
+    setSelectedSegments((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -407,6 +439,57 @@ export default function DesmancheProfileTab() {
               <p className="text-sm">Preencha o endereço acima e salve para ver o mapa.</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Segments Card */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b bg-slate-50">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-primary" /> Segmentos de Atendimento
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <p className="text-sm text-slate-500">
+            Selecione os tipos de veículos que seu desmanche atende. Você só receberá pedidos das categorias selecionadas.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {VEHICLE_SEGMENTS.map((seg) => {
+              const active = selectedSegments.includes(seg.id);
+              return (
+                <button
+                  key={seg.id}
+                  type="button"
+                  onClick={() => toggleSegment(seg.id)}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-slate-200 text-slate-500 hover:border-primary/40 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="text-base">{seg.icon}</span>
+                  <span className="truncate">{seg.label}</span>
+                  {active && <CheckCircle2 className="h-4 w-4 ml-auto shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+          {selectedSegments.length === 0 && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Nenhum segmento selecionado — você está recebendo todos os pedidos.
+            </p>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={handleSegmentsSave}
+              className="bg-primary px-8"
+              disabled={segmentsSaving || updateProfileMutation.isPending}
+            >
+              {segmentsSaving || updateProfileMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
+              ) : "Salvar Segmentos"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

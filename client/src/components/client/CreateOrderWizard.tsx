@@ -22,7 +22,6 @@ const VEHICLE_TYPES = [
   { id: "bus",          label: "Ônibus",          icon: "🚌", fipe: null },
   { id: "van",          label: "Van / Utilitário",icon: "🚐", fipe: null },
   { id: "boat",         label: "Barco / Lancha",  icon: "⛵", fipe: null },
-  { id: "bicycle",      label: "Bicicleta",       icon: "🚲", fipe: null },
   { id: "agricultural", label: "Trator / Agrícola",icon:"🚜", fipe: null },
   { id: "other",        label: "Outro",           icon: "🔧", fipe: null },
 ];
@@ -31,7 +30,6 @@ const STATIC_BRANDS: Record<string, string[]> = {
   bus:          ["Mercedes-Benz","Volvo","Scania","Marcopolo","Busscar","Caio"],
   van:          ["Fiat","Mercedes-Benz","Ford","Volkswagen","Renault","Citroën","Hyundai"],
   boat:         ["Focker","Corsa","Real","Cimitarra","Triton","Schaefer","Ventura"],
-  bicycle:      ["Caloi","Monark","Specialized","Trek","Oggi","Soul","Houston"],
   agricultural: ["John Deere","New Holland","Case","Massey Ferguson","Valtra","Agrale"],
   other:        [],
 };

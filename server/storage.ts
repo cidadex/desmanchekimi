@@ -313,6 +313,7 @@ try {
   sqlite.exec(`ALTER TABLE desmanches ADD COLUMN rejection_reason TEXT`);
 } catch (e) { /* column already exists */ }
 sqlite.exec(`UPDATE desmanches SET plan = 'monthly' WHERE plan = 'percentage'`);
+try { sqlite.exec(`ALTER TABLE desmanches ADD COLUMN vehicle_types TEXT DEFAULT '[]'`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_type TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_color TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE orders ADD COLUMN vehicle_engine TEXT`); } catch (e) {}
@@ -498,7 +499,7 @@ export async function updateDesmancheStatus(id: string, status: string, rejectio
   return getDesmancheById(id);
 }
 
-export async function updateDesmancheProfile(id: string, data: { tradingName?: string; phone?: string; responsibleName?: string; responsibleCpf?: string; logo?: string }) {
+export async function updateDesmancheProfile(id: string, data: { tradingName?: string; phone?: string; responsibleName?: string; responsibleCpf?: string; logo?: string; vehicleTypes?: string }) {
   await db.update(schema.desmanches)
     .set(data)
     .where(eq(schema.desmanches.id, id));

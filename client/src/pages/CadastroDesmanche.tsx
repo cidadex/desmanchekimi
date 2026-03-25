@@ -34,6 +34,17 @@ const STEPS = [
   { icon: CreditCard, label: "Plano" },
 ];
 
+const VEHICLE_SEGMENTS = [
+  { id: "car",          label: "Carro",             icon: "🚗" },
+  { id: "motorcycle",   label: "Moto",              icon: "🏍️" },
+  { id: "truck",        label: "Caminhão",           icon: "🚛" },
+  { id: "bus",          label: "Ônibus",             icon: "🚌" },
+  { id: "van",          label: "Van / Utilitário",   icon: "🚐" },
+  { id: "boat",         label: "Barco / Lancha",     icon: "⛵" },
+  { id: "agricultural", label: "Trator / Agrícola",  icon: "🚜" },
+  { id: "other",        label: "Outro",              icon: "🔧" },
+];
+
 const SITUACAO_MAP: Record<number, { label: string; color: string }> = {
   1: { label: "Nula",     color: "bg-gray-100 text-gray-600" },
   2: { label: "Ativa",    color: "bg-green-100 text-green-700" },
@@ -93,6 +104,7 @@ export default function CadastroDesmanche() {
   const [docResponsavelFile, setDocResponsavelFile] = useState<File | null>(null);
   const [docEmpresaFile, setDocEmpresaFile] = useState<File | null>(null);
   const [detranFile, setDetranFile] = useState<File | null>(null);
+  const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
 
@@ -237,6 +249,14 @@ export default function CadastroDesmanche() {
         });
       }
 
+      if (selectedVehicleTypes.length > 0) {
+        await fetch("/api/desmanches/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ vehicleTypes: selectedVehicleTypes }),
+        });
+      }
+
       const toTs = (dateStr: string) => dateStr ? Math.floor(new Date(dateStr).getTime() / 1000) : undefined;
       const docs = [
         { file: alvaraFile!,        type: "alvara",                 name: "Alvará de Funcionamento",               validUntil: toTs(alvaraExpiry) },
@@ -275,8 +295,14 @@ export default function CadastroDesmanche() {
     }
   };
 
+  const toggleVehicleType = (id: string) => {
+    setSelectedVehicleTypes((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  };
+
   const canAdvance = () => {
-    if (step === 0) return !!(form.companyName && form.tradingName && form.cnpj && form.phone);
+    if (step === 0) return !!(form.companyName && form.tradingName && form.cnpj && form.phone && selectedVehicleTypes.length > 0);
     if (step === 1) return true;
     if (step === 2) return !!(alvaraFile && alvaraExpiry && docResponsavelFile && docEmpresaFile && detranFile && detranExpiry);
     if (step === 3) return !!(form.email && form.password && form.confirmPassword && form.password === form.confirmPassword);
@@ -505,6 +531,42 @@ export default function CadastroDesmanche() {
                       <Label>CPF do Responsável</Label>
                       <Input placeholder="000.000.000-00" value={form.responsibleCpf} onChange={(e) => set("responsibleCpf", e.target.value)} />
                     </div>
+                  </div>
+
+                  {/* Segmentos de Atendimento */}
+                  <div className="border-t pt-4 mt-2 space-y-4">
+                    <div>
+                      <h4 className="font-semibold flex items-center gap-2 text-base">
+                        <Package className="h-4 w-4 text-primary" /> Segmentos que Você Atende <span className="text-destructive">*</span>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">Selecione os tipos de veículos para os quais você tem peças. Você só receberá pedidos dessas categorias.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {VEHICLE_SEGMENTS.map((seg) => {
+                        const selected = selectedVehicleTypes.includes(seg.id);
+                        return (
+                          <button
+                            key={seg.id}
+                            type="button"
+                            onClick={() => toggleVehicleType(seg.id)}
+                            className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                              selected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-muted-foreground/20 text-muted-foreground hover:border-primary/40 hover:bg-muted/30"
+                            }`}
+                          >
+                            <span className="text-lg">{seg.icon}</span>
+                            {seg.label}
+                            {selected && <CheckCircle2 className="h-4 w-4 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedVehicleTypes.length === 0 && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Selecione pelo menos um segmento para continuar.
+                      </p>
+                    )}
                   </div>
                 </>
               )}
