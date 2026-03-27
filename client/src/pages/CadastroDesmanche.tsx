@@ -107,6 +107,7 @@ export default function CadastroDesmanche() {
   const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const set = (field: string, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -306,7 +307,7 @@ export default function CadastroDesmanche() {
     if (step === 1) return true;
     if (step === 2) return !!(alvaraFile && alvaraExpiry && docResponsavelFile && docEmpresaFile && detranFile && detranExpiry);
     if (step === 3) return !!(form.email && form.password && form.confirmPassword && form.password === form.confirmPassword);
-    if (step === 4) return true; // Plano é opcional
+    if (step === 4) return acceptedTerms; // precisa aceitar os termos
     return false;
   };
 
@@ -765,6 +766,34 @@ export default function CadastroDesmanche() {
                 </>
               )}
 
+              {/* Aceite de termos — só mostra no passo final */}
+              {step === 4 && (
+                <div className="flex items-start gap-3 rounded-lg border bg-slate-50 p-3 mt-2">
+                  <input
+                    id="accept-terms-desmanche"
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer"
+                    data-testid="checkbox-accept-terms-desmanche"
+                  />
+                  <label htmlFor="accept-terms-desmanche" className="text-sm text-slate-600 cursor-pointer leading-snug">
+                    Li e aceito a{" "}
+                    <a
+                      href="/politica-de-privacidade"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary font-medium hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Política de Privacidade e Termos de Uso
+                    </a>{" "}
+                    da Central dos Desmanches.{" "}
+                    <span className="text-destructive">*</span>
+                  </label>
+                </div>
+              )}
+
               {/* Navigation */}
               <div className="flex justify-between pt-4 border-t">
                 <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
@@ -781,7 +810,7 @@ export default function CadastroDesmanche() {
                   </Button>
                 )}
                 {step === 4 && (
-                  <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+                  <Button onClick={handleSubmit} disabled={isSubmitting || !canAdvance()} className="gap-2">
                     {isSubmitting
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
                       : <><CheckCircle2 className="h-4 w-4" /> Enviar Cadastro</>

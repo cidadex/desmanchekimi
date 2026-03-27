@@ -118,11 +118,12 @@ export function RegisterModal({ children, defaultOpen = false }: RegisterModalPr
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const strength = useMemo(() => getStrength(form.password), [form.password]);
   const passwordsMatch = form.confirmPassword === "" || form.password === form.confirmPassword;
   const isStrong = strength >= 3; // at least "Razoável" to submit
-  const canSubmit = !isLoading && isStrong && form.password === form.confirmPassword && form.confirmPassword.length > 0;
+  const canSubmit = !isLoading && isStrong && form.password === form.confirmPassword && form.confirmPassword.length > 0 && acceptedTerms;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,6 +269,31 @@ export function RegisterModal({ children, defaultOpen = false }: RegisterModalPr
                 <Check className="h-3 w-3" /> Senhas conferem
               </p>
             )}
+          </div>
+
+          {/* Aceite de termos */}
+          <div className="flex items-start gap-3 rounded-lg border bg-slate-50 p-3">
+            <input
+              id="accept-terms"
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer"
+              data-testid="checkbox-accept-terms"
+            />
+            <label htmlFor="accept-terms" className="text-sm text-slate-600 cursor-pointer leading-snug">
+              Li e aceito a{" "}
+              <a
+                href="/politica-de-privacidade"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary font-medium hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Política de Privacidade e Termos de Uso
+              </a>{" "}
+              da Central dos Desmanches.
+            </label>
           </div>
 
           {/* Generic error */}
