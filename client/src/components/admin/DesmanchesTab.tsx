@@ -12,7 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Search, ChevronRight, Loader2, AlertTriangle, Building2, Eye, EyeOff } from "lucide-react";
+import { Search, ChevronRight, Loader2, AlertTriangle, Building2, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const ALERT_DAYS = 30;
@@ -72,7 +72,7 @@ function statusBadge(status: string) {
 const EMPTY_FORM = {
   companyName: "", tradingName: "", cnpj: "", email: "", phone: "",
   password: "", responsibleName: "", responsibleCpf: "",
-  zipCode: "", street: "", number: "", complement: "", city: "", state: "",
+  zipCode: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "",
 };
 
 export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche?: (id: string) => void }) {
@@ -82,7 +82,70 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
   const [showPw, setShowPw] = useState(false);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
   const { toast } = useToast();
+
+  const formatPhone = (raw: string) => {
+    const clean = raw.replace(/\D/g, "");
+    if (clean.length === 11) return `(${clean.slice(0,2)}) ${clean.slice(2,7)}-${clean.slice(7)}`;
+    if (clean.length === 10) return `(${clean.slice(0,2)}) ${clean.slice(2,6)}-${clean.slice(6)}`;
+    return clean;
+  };
+
+  const fetchCnpj = async (cnpj: string) => {
+    const clean = cnpj.replace(/\D/g, "");
+    if (clean.length !== 14) return;
+    setCnpjLoading(true);
+    setCnpjStatus("idle");
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
+      if (!res.ok) throw new Error("not found");
+      const data = await res.json();
+
+      const phone = data.ddd_telefone_1 ? formatPhone(data.ddd_telefone_1) : "";
+      const cepFormatted = data.cep ? data.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2") : "";
+      const responsible = data.qsa?.[0];
+
+      setForm((prev) => ({
+        ...prev,
+        companyName:     data.razao_social                    || prev.companyName,
+        tradingName:     data.nome_fantasia || data.razao_social || prev.tradingName,
+        phone:           phone                                || prev.phone,
+        zipCode:         cepFormatted                         || prev.zipCode,
+        street:          data.logradouro                      || prev.street,
+        number:          data.numero                          || prev.number,
+        complement:      data.complemento                     || prev.complement,
+        neighborhood:    data.bairro                          || prev.neighborhood,
+        city:            data.municipio                       || prev.city,
+        state:           data.uf                              || prev.state,
+        responsibleName: responsible?.nome_socio              || prev.responsibleName,
+      }));
+      setCnpjStatus("found");
+    } catch {
+      setCnpjStatus("error");
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
+
+  const fetchCep = async (cep: string) => {
+    const clean = cep.replace(/\D/g, "");
+    if (clean.length !== 8) return;
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setForm((prev) => ({
+          ...prev,
+          street:       data.logradouro || "",
+          neighborhood: data.bairro     || "",
+          city:         data.localidade || "",
+          state:        data.uf         || "",
+        }));
+      }
+    } catch {}
+  };
 
   const { data: desmanches = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/desmanches"],
@@ -108,6 +171,7 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
       setOpen(false);
       setForm(EMPTY_FORM);
       setSelectedVehicleTypes([]);
+      setCnpjStatus("idle");
       toast({ title: "Desmanche cadastrado!", description: "O desmanche foi criado e já está ativo na plataforma." });
     },
     onError: (err: Error) => {
@@ -264,7 +328,7 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
       </Card>
 
       {/* Modal Novo Desmanche */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(EMPTY_FORM); setSelectedVehicleTypes([]); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(EMPTY_FORM); setSelectedVehicleTypes([]); setCnpjStatus("idle"); } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cadastrar Novo Desmanche</DialogTitle>
@@ -274,7 +338,47 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
           </DialogHeader>
 
           <div className="space-y-5 pt-2">
-            {/* Dados da empresa */}
+
+            {/* ── PASSO 1: CNPJ com auto-fill ── */}
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                1. CNPJ — Dados puxados automaticamente da Receita Federal
+              </p>
+              <div className="space-y-1.5">
+                <Label>CNPJ <span className="text-destructive">*</span></Label>
+                <div className="relative">
+                  <Input
+                    placeholder="00.000.000/0001-00"
+                    value={form.cnpj}
+                    onChange={(e) => {
+                      set("cnpj", e.target.value);
+                      setCnpjStatus("idle");
+                      fetchCnpj(e.target.value);
+                    }}
+                    className="pr-10"
+                    data-testid="input-d-cnpj"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {cnpjLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    {!cnpjLoading && cnpjStatus === "found" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {!cnpjLoading && cnpjStatus === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                    {!cnpjLoading && cnpjStatus === "idle" && <Search className="h-4 w-4 text-muted-foreground/40" />}
+                  </span>
+                </div>
+                {cnpjStatus === "found" && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <CheckCircle2 className="h-3 w-3" /> Dados preenchidos automaticamente — confira e ajuste se necessário
+                  </p>
+                )}
+                {cnpjStatus === "error" && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-3 w-3" /> CNPJ não encontrado na Receita Federal — preencha manualmente
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ── Dados da empresa (auto-preenchidos) ── */}
             <div>
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados da Empresa</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -287,11 +391,6 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                   <Label>Nome Fantasia <span className="text-destructive">*</span></Label>
                   <Input placeholder="Desmanche São Luís" value={form.tradingName}
                     onChange={(e) => set("tradingName", e.target.value)} data-testid="input-d-trading" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>CNPJ <span className="text-destructive">*</span></Label>
-                  <Input placeholder="00.000.000/0001-00" value={form.cnpj}
-                    onChange={(e) => set("cnpj", e.target.value)} data-testid="input-d-cnpj" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Telefone <span className="text-destructive">*</span></Label>
@@ -311,9 +410,9 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
               </div>
             </div>
 
-            {/* Tipos de veículo */}
+            {/* ── Tipos de veículo ── */}
             <div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tipos de Veículo</p>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tipos de Veículo Aceitos</p>
               <div className="flex flex-wrap gap-2">
                 {VEHICLE_TYPES.map((vt) => (
                   <button
@@ -332,9 +431,9 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
               </div>
             </div>
 
-            {/* Acesso */}
+            {/* ── Acesso ── */}
             <div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Acesso</p>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Acesso à Plataforma</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>E-mail <span className="text-destructive">*</span></Label>
@@ -356,14 +455,22 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
               </div>
             </div>
 
-            {/* Endereço (opcional) */}
+            {/* ── Endereço (auto-preenchido pelo CNPJ; editável) ── */}
             <div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Endereço <span className="text-xs font-normal normal-case">(opcional)</span></p>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Endereço <span className="text-xs font-normal normal-case text-muted-foreground">(preenchido automaticamente pelo CNPJ)</span>
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>CEP</Label>
-                  <Input placeholder="00000-000" value={form.zipCode}
-                    onChange={(e) => set("zipCode", e.target.value)} />
+                  <Input
+                    placeholder="00000-000"
+                    value={form.zipCode}
+                    onChange={(e) => {
+                      set("zipCode", e.target.value);
+                      fetchCep(e.target.value);
+                    }}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Logradouro</Label>
@@ -381,6 +488,11 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                     onChange={(e) => set("complement", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Bairro</Label>
+                  <Input placeholder="Centro" value={form.neighborhood}
+                    onChange={(e) => set("neighborhood", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
                   <Label>Cidade</Label>
                   <Input placeholder="Porto Alegre" value={form.city}
                     onChange={(e) => set("city", e.target.value)} />
@@ -394,7 +506,7 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => { setOpen(false); setForm(EMPTY_FORM); setSelectedVehicleTypes([]); }}>
+              <Button variant="outline" onClick={() => { setOpen(false); setForm(EMPTY_FORM); setSelectedVehicleTypes([]); setCnpjStatus("idle"); }}>
                 Cancelar
               </Button>
               <Button
