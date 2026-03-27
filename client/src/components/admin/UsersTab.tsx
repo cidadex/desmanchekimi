@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Mail, Phone, Calendar, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Search, Mail, Phone, Calendar, ChevronRight, UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 function formatMemberSince(dateStr: string) {
   const date = new Date(dateStr);
@@ -35,8 +41,14 @@ function typeBadge(type: string) {
   }
 }
 
+const EMPTY_FORM = { name: "", email: "", phone: "", password: "" };
+
 export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string) => void }) {
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [showPw, setShowPw] = useState(false);
+  const { toast } = useToast();
 
   const { data: users = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/users"],
@@ -45,6 +57,31 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
       return res.json();
     },
   });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof EMPTY_FORM) => {
+      const res = await apiRequest("POST", "/api/admin/create-client", data);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao criar cliente");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setOpen(false);
+      setForm(EMPTY_FORM);
+      toast({ title: "Cliente cadastrado!", description: "O acesso foi criado e já está validado." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const set = (field: keyof typeof EMPTY_FORM, value: string) => setForm((p) => ({ ...p, [field]: value }));
+
+  const canSubmit = form.name && form.email && form.phone && form.password.length >= 6;
 
   const filtered = users.filter((user: any) => {
     if (!search) return true;
@@ -63,6 +100,9 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
           <h1 className="text-3xl font-bold font-mono tracking-tight">Pessoas Cadastradas</h1>
           <p className="text-muted-foreground">Compradores e mecânicos que buscam peças na plataforma.</p>
         </div>
+        <Button onClick={() => setOpen(true)} className="gap-2" data-testid="button-novo-cliente">
+          <UserPlus className="h-4 w-4" /> Novo Cliente
+        </Button>
       </div>
 
       <div className="flex gap-4 items-center">
@@ -132,6 +172,61 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
           ))}
         </div>
       )}
+
+      {/* Modal Novo Cliente */}
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setForm(EMPTY_FORM); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
+            <DialogDescription>
+              O cliente será criado já validado e poderá fazer login imediatamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cli-name">Nome completo <span className="text-destructive">*</span></Label>
+              <Input id="cli-name" placeholder="João da Silva" value={form.name}
+                onChange={(e) => set("name", e.target.value)} data-testid="input-cli-name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cli-email">E-mail <span className="text-destructive">*</span></Label>
+              <Input id="cli-email" type="email" placeholder="joao@email.com" value={form.email}
+                onChange={(e) => set("email", e.target.value)} data-testid="input-cli-email" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cli-phone">Telefone <span className="text-destructive">*</span></Label>
+              <Input id="cli-phone" placeholder="(51) 9 9999-9999" value={form.phone}
+                onChange={(e) => set("phone", e.target.value)} data-testid="input-cli-phone" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cli-pw">Senha <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Input id="cli-pw" type={showPw ? "text" : "password"} placeholder="Mínimo 6 caracteres"
+                  value={form.password} onChange={(e) => set("password", e.target.value)}
+                  data-testid="input-cli-password" className="pr-10" />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowPw((p) => !p)}>
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setOpen(false); setForm(EMPTY_FORM); }}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => createMutation.mutate(form)}
+                disabled={!canSubmit || createMutation.isPending}
+                data-testid="button-cli-submit"
+              >
+                {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Criando...</> : "Criar cliente"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

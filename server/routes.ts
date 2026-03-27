@@ -1703,6 +1703,89 @@ export async function registerRoutes(server: Server, app: Express) {
   });
 
   // ============================================
+  // ADMIN: CRIAR CLIENTE / DESMANCHE
+  // ============================================
+
+  app.post("/api/admin/create-client", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { name, email, phone, password } = req.body;
+      if (!name || !email || !phone || !password) {
+        return res.status(400).json({ message: "Nome, e-mail, telefone e senha são obrigatórios" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
+      }
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(400).json({ message: "E-mail já cadastrado" });
+
+      const user = await storage.createUser({ name, email, phone, password, type: "client" });
+      if (!user) return res.status(500).json({ message: "Erro ao criar cliente" });
+
+      // Marca e-mail como verificado imediatamente
+      storage.markEmailVerified(user.id);
+
+      res.status(201).json({
+        message: "Cliente cadastrado com sucesso",
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, type: user.type },
+      });
+    } catch (error) {
+      console.error("Admin create client error:", error);
+      res.status(500).json({ message: "Erro ao criar cliente" });
+    }
+  });
+
+  app.post("/api/admin/create-desmanche", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const {
+        companyName, tradingName, cnpj, email, phone, password,
+        responsibleName, responsibleCpf, vehicleTypes,
+        // endereço (opcional)
+        zipCode, street, number, complement, city, state,
+      } = req.body;
+
+      if (!companyName || !tradingName || !cnpj || !email || !phone || !password) {
+        return res.status(400).json({ message: "Campos obrigatórios: Razão Social, Nome Fantasia, CNPJ, E-mail, Telefone e Senha" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
+      }
+
+      const existingEmail = await storage.getDesmancheByEmail(email);
+      if (existingEmail) return res.status(400).json({ message: "E-mail já cadastrado" });
+
+      const existingCnpj = await storage.getDesmancheByCnpj(cnpj);
+      if (existingCnpj) return res.status(400).json({ message: "CNPJ já cadastrado" });
+
+      // Cria já como ativo
+      const desmanche = await storage.createDesmanche({
+        companyName, tradingName,
+        cnpj: cnpj.replace(/\D/g, ""),
+        email, phone, password,
+        responsibleName: responsibleName || undefined,
+        responsibleCpf: responsibleCpf || undefined,
+        vehicleTypes: JSON.stringify(vehicleTypes || []),
+        plan: "monthly",
+        status: "active",
+      } as any);
+
+      if (!desmanche) return res.status(500).json({ message: "Erro ao criar desmanche" });
+
+      // Cria endereço se fornecido
+      if (city && state && street && zipCode) {
+        await storage.createOrUpdateDesmancheAddress(desmanche.id, { zipCode, street, number, complement, city, state });
+      }
+
+      res.status(201).json({
+        message: "Desmanche cadastrado e ativado com sucesso",
+        desmanche: { id: desmanche.id, tradingName: desmanche.tradingName, email: desmanche.email, status: desmanche.status },
+      });
+    } catch (error) {
+      console.error("Admin create desmanche error:", error);
+      res.status(500).json({ message: "Erro ao criar desmanche" });
+    }
+  });
+
+  // ============================================
   // BILLING / ASAAS ROUTES
   // ============================================
 

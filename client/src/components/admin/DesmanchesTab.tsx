@@ -1,15 +1,29 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Search, ChevronRight, Loader2, AlertTriangle, Building2, Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const ALERT_DAYS = 30;
 const EXPIRY_DOC_TYPES = ["alvara", "credenciamento_detran"];
+
+const VEHICLE_TYPES = [
+  { id: "carros", label: "Carros" },
+  { id: "motos", label: "Motos" },
+  { id: "caminhoes", label: "Caminhões" },
+  { id: "tratores", label: "Tratores" },
+];
 
 function getDaysUntilExpiry(validUntil: number | null | undefined): number | null {
   if (!validUntil) return null;
@@ -55,9 +69,20 @@ function statusBadge(status: string) {
   );
 }
 
+const EMPTY_FORM = {
+  companyName: "", tradingName: "", cnpj: "", email: "", phone: "",
+  password: "", responsibleName: "", responsibleCpf: "",
+  zipCode: "", street: "", number: "", complement: "", city: "", state: "",
+};
+
 export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche?: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([]);
+  const [showPw, setShowPw] = useState(false);
+  const { toast } = useToast();
 
   const { data: desmanches = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/desmanches"],
@@ -66,6 +91,35 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
       return res.json();
     },
   });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload = { ...form, vehicleTypes: selectedVehicleTypes };
+      const res = await apiRequest("POST", "/api/admin/create-desmanche", payload);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao criar desmanche");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/desmanches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setOpen(false);
+      setForm(EMPTY_FORM);
+      setSelectedVehicleTypes([]);
+      toast({ title: "Desmanche cadastrado!", description: "O desmanche foi criado e já está ativo na plataforma." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const set = (field: keyof typeof EMPTY_FORM, value: string) => setForm((p) => ({ ...p, [field]: value }));
+  const toggleVt = (id: string) =>
+    setSelectedVehicleTypes((prev) => prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]);
+
+  const canSubmit = form.companyName && form.tradingName && form.cnpj && form.email && form.phone && form.password.length >= 6;
 
   const filtered = desmanches.filter((d: any) => {
     const matchesSearch =
@@ -94,12 +148,17 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
           <h1 className="text-3xl font-bold font-mono tracking-tight">Desmanches Credenciados</h1>
           <p className="text-muted-foreground">Gerencie as empresas ativas na plataforma.</p>
         </div>
-        {expiringCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
-            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-            {expiringCount} desmanche{expiringCount !== 1 ? "s" : ""} com documentação próxima do vencimento
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {expiringCount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+              {expiringCount} desmanche{expiringCount !== 1 ? "s" : ""} com documentação próxima do vencimento
+            </div>
+          )}
+          <Button onClick={() => setOpen(true)} className="gap-2 shrink-0" data-testid="button-novo-desmanche">
+            <Building2 className="h-4 w-4" /> Novo Desmanche
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -168,7 +227,7 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
                       className={`cursor-pointer hover:bg-muted/60 transition-colors ${docAlert.expiring ? "bg-red-50/40" : ""}`}
                       onClick={() => onSelectDesmanche?.(d.id)}
                     >
-                      <TableCell className="pl-6 font-mono text-xs text-muted-foreground">D-{String(d.id).slice(0,8)}</TableCell>
+                      <TableCell className="pl-6 font-mono text-xs text-muted-foreground">D-{String(d.id).slice(0, 8)}</TableCell>
                       <TableCell className="font-medium">{d.tradingName || d.companyName || "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{d.cnpj || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{location}</TableCell>
@@ -203,6 +262,154 @@ export default function DesmanchesTab({ onSelectDesmanche }: { onSelectDesmanche
           )}
         </CardContent>
       </Card>
+
+      {/* Modal Novo Desmanche */}
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(EMPTY_FORM); setSelectedVehicleTypes([]); } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Desmanche</DialogTitle>
+            <DialogDescription>
+              O desmanche será criado já ativo e poderá fazer login imediatamente. Documentos podem ser adicionados depois.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 pt-2">
+            {/* Dados da empresa */}
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados da Empresa</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Razão Social <span className="text-destructive">*</span></Label>
+                  <Input placeholder="Desmanches São Luís Ltda." value={form.companyName}
+                    onChange={(e) => set("companyName", e.target.value)} data-testid="input-d-company" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nome Fantasia <span className="text-destructive">*</span></Label>
+                  <Input placeholder="Desmanche São Luís" value={form.tradingName}
+                    onChange={(e) => set("tradingName", e.target.value)} data-testid="input-d-trading" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>CNPJ <span className="text-destructive">*</span></Label>
+                  <Input placeholder="00.000.000/0001-00" value={form.cnpj}
+                    onChange={(e) => set("cnpj", e.target.value)} data-testid="input-d-cnpj" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefone <span className="text-destructive">*</span></Label>
+                  <Input placeholder="(51) 9 9999-9999" value={form.phone}
+                    onChange={(e) => set("phone", e.target.value)} data-testid="input-d-phone" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nome do Responsável</Label>
+                  <Input placeholder="José da Silva" value={form.responsibleName}
+                    onChange={(e) => set("responsibleName", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>CPF do Responsável</Label>
+                  <Input placeholder="000.000.000-00" value={form.responsibleCpf}
+                    onChange={(e) => set("responsibleCpf", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Tipos de veículo */}
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tipos de Veículo</p>
+              <div className="flex flex-wrap gap-2">
+                {VEHICLE_TYPES.map((vt) => (
+                  <button
+                    key={vt.id}
+                    type="button"
+                    onClick={() => toggleVt(vt.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
+                      selectedVehicleTypes.includes(vt.id)
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-muted-foreground/30 text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {vt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Acesso */}
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Acesso</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>E-mail <span className="text-destructive">*</span></Label>
+                  <Input type="email" placeholder="contato@desmanche.com.br" value={form.email}
+                    onChange={(e) => set("email", e.target.value)} data-testid="input-d-email" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Senha <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <Input type={showPw ? "text" : "password"} placeholder="Mínimo 6 caracteres"
+                      value={form.password} onChange={(e) => set("password", e.target.value)}
+                      data-testid="input-d-password" className="pr-10" />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onClick={() => setShowPw((p) => !p)}>
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Endereço (opcional) */}
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Endereço <span className="text-xs font-normal normal-case">(opcional)</span></p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>CEP</Label>
+                  <Input placeholder="00000-000" value={form.zipCode}
+                    onChange={(e) => set("zipCode", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Logradouro</Label>
+                  <Input placeholder="Rua das Flores" value={form.street}
+                    onChange={(e) => set("street", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número</Label>
+                  <Input placeholder="123" value={form.number}
+                    onChange={(e) => set("number", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Complemento</Label>
+                  <Input placeholder="Sala 2" value={form.complement}
+                    onChange={(e) => set("complement", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input placeholder="Porto Alegre" value={form.city}
+                    onChange={(e) => set("city", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Input placeholder="RS" maxLength={2} value={form.state}
+                    onChange={(e) => set("state", e.target.value.toUpperCase())} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => { setOpen(false); setForm(EMPTY_FORM); setSelectedVehicleTypes([]); }}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => createMutation.mutate()}
+                disabled={!canSubmit || createMutation.isPending}
+                data-testid="button-d-submit"
+              >
+                {createMutation.isPending
+                  ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Criando...</>
+                  : "Criar desmanche"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
