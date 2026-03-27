@@ -267,6 +267,11 @@ sqlite.exec(`
   );
 `);
 
+// ── Migrate: add permissions column to users ──
+try {
+  sqlite.exec("ALTER TABLE users ADD COLUMN permissions TEXT");
+} catch {}
+
 // ── Migrate orders.client_id to be nullable (SQLite requires table rebuild) ──
 try {
   const colInfo = sqlite.prepare("PRAGMA table_info(orders)").all() as any[];
@@ -1698,4 +1703,32 @@ export function updateComplaintStatus(id: string, status: string, adminNotes?: s
 
 export function getComplaintById(id: string): any {
   return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
+}
+
+// ==================== ADMIN USER MANAGEMENT ====================
+
+export function getAdminUsers(): any[] {
+  return sqlite.prepare("SELECT id, name, email, phone, status, permissions, created_at FROM users WHERE type = 'admin' ORDER BY created_at ASC").all() as any[];
+}
+
+export function setAdminPermissions(id: string, permissions: string[] | null): void {
+  const val = permissions === null ? null : JSON.stringify(permissions);
+  sqlite.prepare("UPDATE users SET permissions = ? WHERE id = ? AND type = 'admin'").run(val, id);
+}
+
+export function getAdminPermissions(id: string): string[] | null {
+  const row = sqlite.prepare("SELECT permissions FROM users WHERE id = ?").get(id) as any;
+  if (!row) return null;
+  if (row.permissions === null || row.permissions === undefined) return null;
+  try { return JSON.parse(row.permissions); } catch { return null; }
+}
+
+export function deleteAdminUser(id: string): void {
+  sqlite.prepare("DELETE FROM users WHERE id = ? AND type = 'admin'").run(id);
+}
+
+export function updateAdminUser(id: string, data: { name?: string }): void {
+  if (data.name) {
+    sqlite.prepare("UPDATE users SET name = ? WHERE id = ? AND type = 'admin'").run(data.name, id);
+  }
 }

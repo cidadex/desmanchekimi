@@ -33,6 +33,8 @@ export interface User {
   plan?: string;
   companyName?: string;
   cnpj?: string;
+  /** null = super-admin (unrestricted), string[] = allowed tab keys, undefined = not admin */
+  permissions?: string[] | null;
 }
 
 interface AuthContextType {

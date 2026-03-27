@@ -95,6 +95,8 @@ export async function registerRoutes(server: Server, app: Express) {
         return res.status(401).json({ message: "Credenciais inválidas" });
       }
       
+      const permissions = user.type === "admin" ? storage.getAdminPermissions(user.id) : undefined;
+
       const token = jwt.sign(
         { id: user.id, email: user.email, type: user.type },
         JWT_SECRET,
@@ -110,6 +112,7 @@ export async function registerRoutes(server: Server, app: Express) {
           phone: user.phone,
           type: user.type,
           avatar: user.avatar,
+          permissions: user.type === "admin" ? permissions : undefined,
         },
       });
     } catch (error) {
@@ -376,6 +379,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const address = await storage.getAddressByUserId(userId);
         const profileComplete = !!(user.whatsapp && address?.zipCode && address?.street && address?.city);
         const emailVerified = storage.isEmailVerified(userId);
+        const adminPerms = user.type === "admin" ? storage.getAdminPermissions(user.id) : undefined;
         res.json({
           id: user.id,
           name: user.name,
@@ -387,6 +391,7 @@ export async function registerRoutes(server: Server, app: Express) {
           profileComplete,
           emailVerified,
           address: address || null,
+          permissions: user.type === "admin" ? adminPerms : undefined,
         });
       }
     } catch (error) {
@@ -1699,6 +1704,101 @@ export async function registerRoutes(server: Server, app: Express) {
       res.json({ isBlocked, overdueCount });
     } catch (error) {
       res.status(500).json({ message: "Erro" });
+    }
+  });
+
+  // ============================================
+  // ADMIN USER MANAGEMENT (PERMISSIONS)
+  // ============================================
+
+  app.get("/api/admin/admin-users", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const callerPerms = storage.getAdminPermissions((req as any).user.id);
+      if (callerPerms !== null) {
+        return res.status(403).json({ message: "Apenas super-admins podem gerenciar permissões" });
+      }
+      const admins = storage.getAdminUsers();
+      const mapped = admins.map((a: any) => ({
+        ...a,
+        permissions: a.permissions ? JSON.parse(a.permissions) : null,
+      }));
+      res.json(mapped);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao listar admins" });
+    }
+  });
+
+  app.post("/api/admin/admin-users", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const callerPerms = storage.getAdminPermissions((req as any).user.id);
+      if (callerPerms !== null) {
+        return res.status(403).json({ message: "Apenas super-admins podem criar admins" });
+      }
+      const { name, email, phone, password, permissions } = req.body;
+      if (!name?.trim() || !email?.trim() || !password?.trim()) {
+        return res.status(400).json({ message: "Nome, email e senha são obrigatórios" });
+      }
+      const existing = await storage.getUserByEmail(email.trim());
+      if (existing) return res.status(409).json({ message: "Email já cadastrado" });
+
+      const created = await storage.createUser({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone?.trim() || "",
+        password: password,
+        type: "admin",
+      });
+
+      if (permissions && Array.isArray(permissions)) {
+        storage.setAdminPermissions(created.id, permissions);
+      }
+
+      res.status(201).json({ id: created.id, name: created.name, email: created.email });
+    } catch (error) {
+      console.error("Create admin error:", error);
+      res.status(500).json({ message: "Erro ao criar admin" });
+    }
+  });
+
+  app.patch("/api/admin/admin-users/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const callerPerms = storage.getAdminPermissions((req as any).user.id);
+      if (callerPerms !== null) {
+        return res.status(403).json({ message: "Apenas super-admins podem editar permissões" });
+      }
+      const { id } = req.params;
+      const { permissions, name } = req.body;
+
+      if (name) {
+        storage.updateAdminUser(id, { name });
+      }
+      if (permissions !== undefined) {
+        storage.setAdminPermissions(id, permissions);
+      }
+
+      const admins = storage.getAdminUsers();
+      const updated = admins.find((a: any) => a.id === id);
+      if (!updated) return res.status(404).json({ message: "Admin não encontrado" });
+      res.json({ ...updated, permissions: updated.permissions ? JSON.parse(updated.permissions) : null });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar admin" });
+    }
+  });
+
+  app.delete("/api/admin/admin-users/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const callerPerms = storage.getAdminPermissions((req as any).user.id);
+      if (callerPerms !== null) {
+        return res.status(403).json({ message: "Apenas super-admins podem remover admins" });
+      }
+      const { id } = req.params;
+      if (id === (req as any).user.id) {
+        return res.status(400).json({ message: "Você não pode remover sua própria conta" });
+      }
+      storage.deleteAdminUser(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao remover admin" });
     }
   });
 

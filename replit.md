@@ -30,7 +30,7 @@ npm start         # Run production build
 - `client/src/pages/ComoFunciona.tsx` — How-it-works marketing page for clients and desmanches with FAQ
 - `client/src/pages/ClientDashboard.tsx` — Client panel (profile, orders, proposals, negotiations, chat)
 - `client/src/components/chat/ChatTab.tsx` — Shared chat UI component (rooms list + messages) used by both client and desmanche panels
-- `client/src/pages/AdminDashboard.tsx` — Admin panel (overview, desmanches, users, orders, approvals)
+- `client/src/pages/AdminDashboard.tsx` — Admin panel (overview, desmanches, users, orders, approvals, complaints, permissions)
 - `client/src/pages/DesmancheDashboard.tsx` — Desmanche panel (overview, orders, negotiations, docs, finance, profile)
 - `client/src/components/client/CreateOrderWizard.tsx` — Multi-step order creation wizard (6 steps: vehicle type → vehicle details → part category → specific part + position → details/photos → review)
 - `client/src/components/client/` — Client panel tab components

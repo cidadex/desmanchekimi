@@ -44,6 +44,7 @@ import PlansTab from "@/components/admin/PlansTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import SiteContentTab from "@/components/admin/SiteContentTab";
 import ComplaintsTab from "@/components/admin/ComplaintsTab";
+import PermissionsTab, { ALL_ADMIN_TABS } from "@/components/admin/PermissionsTab";
 
 const ADMIN_TAB_KEY = "admin_tab";
 
@@ -62,6 +63,13 @@ export default function AdminDashboard() {
     localStorage.setItem(ADMIN_TAB_KEY, tab);
   };
   const { user } = useAuth();
+  // null = super-admin (all access), array = restricted, undefined = not yet loaded
+  const userPermissions: string[] | null | undefined = user?.permissions;
+  const isSuperAdmin = user?.type === "admin" && userPermissions === null;
+  const canAccess = (tabKey: string) => {
+    if (userPermissions === null || userPermissions === undefined) return true;
+    return userPermissions.includes(tabKey);
+  };
 
   const { data: stats } = useQuery<{
     totalUsers: number;
@@ -91,17 +99,25 @@ export default function AdminDashboard() {
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {handleSetTab('auctions'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {handleSetTab('plans'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />
+        {canAccess('overview') && <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('desmanches') && <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('users') && <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('auctions') && <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {handleSetTab('auctions'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('plans') && <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {handleSetTab('plans'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('settings') && <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
+        {isSuperAdmin && (
+          <>
+            <div className="pt-2 pb-1 px-3">
+              <div className="h-px bg-border" />
+            </div>
+            <SidebarItem icon={<ShieldCheck />} label="Permissões" active={activeTab === 'permissions'} onClick={() => {handleSetTab('permissions'); setIsMobileMenuOpen(false);}} />
+          </>
+        )}
       </div>
       
       <div className="p-4 border-t border-border">
@@ -209,6 +225,7 @@ export default function AdminDashboard() {
           {activeTab === 'site-content' && <SiteContentTab />}
           {activeTab === 'complaints' && <ComplaintsTab />}
           {activeTab === 'settings' && <SettingsTab />}
+          {activeTab === 'permissions' && isSuperAdmin && <PermissionsTab />}
         </div>
       </main>
     </div>
