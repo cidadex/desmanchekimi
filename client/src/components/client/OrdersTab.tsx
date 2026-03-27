@@ -9,9 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { CreateOrderWizard } from "./CreateOrderWizard";
 import {
-  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock,
+  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock, Flag,
 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
@@ -100,6 +103,9 @@ export function OrdersTab() {
   const [showWizard, setShowWizard] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filter, setFilter] = useState("all");
+  const [reportOrder, setReportOrder] = useState<Order | null>(null);
+  const [reportSubject, setReportSubject] = useState("");
+  const [reportMessage, setReportMessage] = useState("");
   const token = getToken();
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
@@ -122,6 +128,33 @@ export function OrdersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
       toast({ title: "Pedido cancelado" });
+    },
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/complaints", {
+        type: "denuncia",
+        subject: reportSubject.trim(),
+        message: reportMessage.trim(),
+        targetType: "listing",
+        targetId: reportOrder?.id,
+        targetDescription: reportOrder?.title,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao enviar");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setReportOrder(null);
+      setReportSubject("");
+      setReportMessage("");
+      toast({ title: "Denúncia enviada!", description: "Nossa equipe irá analisar." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     },
   });
 
@@ -245,6 +278,16 @@ export function OrdersTab() {
                     <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
                       <Eye className="h-4 w-4 mr-1" /> Ver
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      title="Denunciar este pedido"
+                      onClick={() => { setReportOrder(order); setReportSubject(""); setReportMessage(""); }}
+                      data-testid={`button-report-${order.id}`}
+                    >
+                      <Flag className="h-4 w-4" />
                     </Button>
                     {order.status === "open" && (
                       <Button
@@ -420,6 +463,57 @@ export function OrdersTab() {
         onClose={() => setShowWizard(false)}
         onSuccess={() => setShowWizard(false)}
       />
+
+      {/* Denunciar Dialog */}
+      <Dialog open={!!reportOrder} onOpenChange={(v) => !v && setReportOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Flag className="h-5 w-5" /> Fazer Denúncia
+            </DialogTitle>
+          </DialogHeader>
+          {reportOrder && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                Pedido: <span className="font-medium text-foreground">{reportOrder.title}</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Assunto <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="Ex: Proposta com preço abusivo"
+                  value={reportSubject}
+                  onChange={(e) => setReportSubject(e.target.value)}
+                  data-testid="input-report-subject"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Detalhes <span className="text-destructive">*</span></Label>
+                <Textarea
+                  placeholder="Descreva o ocorrido com detalhes..."
+                  value={reportMessage}
+                  onChange={(e) => setReportMessage(e.target.value)}
+                  rows={4}
+                  data-testid="textarea-report-message"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setReportOrder(null)}>Cancelar</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => reportMutation.mutate()}
+                  disabled={!reportSubject.trim() || !reportMessage.trim() || reportMutation.isPending}
+                  data-testid="button-report-submit"
+                >
+                  {reportMutation.isPending
+                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Enviando...</>
+                    : <><Flag className="h-4 w-4 mr-2" />Enviar Denúncia</>
+                  }
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

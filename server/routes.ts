@@ -1703,6 +1703,80 @@ export async function registerRoutes(server: Server, app: Express) {
   });
 
   // ============================================
+  // COMPLAINTS / FEEDBACK
+  // ============================================
+
+  app.post("/api/complaints", authMiddleware, async (req, res) => {
+    try {
+      const { type, subject, message, targetType, targetId, targetDescription } = req.body;
+      if (!type || !["denuncia", "sugestao", "reclamacao"].includes(type)) {
+        return res.status(400).json({ message: "Tipo inválido. Use: denuncia, sugestao ou reclamacao" });
+      }
+      if (!subject?.trim()) return res.status(400).json({ message: "Assunto obrigatório" });
+      if (!message?.trim()) return res.status(400).json({ message: "Mensagem obrigatória" });
+
+      const authorId = (req as any).user.id;
+      const authorType = (req as any).user.type; // "client" or "desmanche"
+
+      let authorName = "";
+      if (authorType === "client" || authorType === "admin") {
+        const u = await storage.getUserById(authorId);
+        authorName = u?.name || "";
+      } else if (authorType === "desmanche") {
+        const d = await storage.getDesmancheById(authorId);
+        authorName = d?.tradingName || d?.companyName || "";
+      }
+
+      const complaint = storage.createComplaint({
+        type, subject: subject.trim(), message: message.trim(),
+        authorId, authorType: authorType === "admin" ? "client" : authorType,
+        authorName, targetType, targetId, targetDescription,
+      });
+
+      res.status(201).json(complaint);
+    } catch (error) {
+      console.error("Create complaint error:", error);
+      res.status(500).json({ message: "Erro ao registrar" });
+    }
+  });
+
+  app.get("/api/complaints/my", authMiddleware, async (req, res) => {
+    try {
+      const authorId = (req as any).user.id;
+      const complaints = storage.getComplaintsByAuthor(authorId);
+      res.json(complaints);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar" });
+    }
+  });
+
+  app.get("/api/admin/complaints", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { type, status } = req.query as any;
+      const complaints = storage.getAllComplaints({ type, status });
+      res.json(complaints);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar reclamações" });
+    }
+  });
+
+  app.patch("/api/admin/complaints/:id", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, adminNotes } = req.body;
+      const valid = ["pending", "reviewing", "resolved", "dismissed"];
+      if (status && !valid.includes(status)) {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+      const updated = storage.updateComplaintStatus(id, status, adminNotes);
+      if (!updated) return res.status(404).json({ message: "Não encontrado" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar" });
+    }
+  });
+
+  // ============================================
   // ADMIN: CRIAR CLIENTE / DESMANCHE
   // ============================================
 

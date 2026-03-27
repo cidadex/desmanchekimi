@@ -19,6 +19,7 @@ import {
   Settings,
   CreditCard,
   Globe,
+  MessageCircleWarning,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ import ApprovalsTab from "@/components/admin/ApprovalsTab";
 import PlansTab from "@/components/admin/PlansTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import SiteContentTab from "@/components/admin/SiteContentTab";
+import ComplaintsTab from "@/components/admin/ComplaintsTab";
 
 const ADMIN_TAB_KEY = "admin_tab";
 
@@ -98,6 +100,7 @@ export default function AdminDashboard() {
         <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {handleSetTab('plans'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />
       </div>
       
@@ -204,6 +207,7 @@ export default function AdminDashboard() {
           {activeTab === 'plans' && <PlansTab />}
           {activeTab === 'approvals' && <ApprovalsTab />}
           {activeTab === 'site-content' && <SiteContentTab />}
+          {activeTab === 'complaints' && <ComplaintsTab />}
           {activeTab === 'settings' && <SettingsTab />}
         </div>
       </main>

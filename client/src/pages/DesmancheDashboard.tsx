@@ -13,6 +13,7 @@ import {
   Users,
   MessageCircle,
   MessageSquare,
+  MessageCircleWarning,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +30,7 @@ import DesmancheDocsTab from "@/components/desmanche/DesmancheDocsTab";
 import DesmancheFinanceTab from "@/components/desmanche/DesmancheFinanceTab";
 import DesmancheProfileTab from "@/components/desmanche/DesmancheProfileTab";
 import DesmancheNegotiationsTab from "@/components/desmanche/DesmancheNegotiationsTab";
+import DesmancheFeedbackTab from "@/components/desmanche/DesmancheFeedbackTab";
 import { ChatTab } from "@/components/chat/ChatTab";
 
 const DESMANCHE_TAB_KEY = "desmanche_tab";
@@ -129,6 +131,7 @@ export default function DesmancheDashboard() {
         <SidebarItem icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {handleSetTab('docs'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem icon={<MessageCircleWarning />} label="Sugestões & Reclamações" active={activeTab === 'feedback'} onClick={() => {handleSetTab('feedback'); setIsMobileMenuOpen(false);}} />
       </div>
     </>
   );
@@ -186,6 +189,7 @@ export default function DesmancheDashboard() {
           {activeTab === 'docs' && <DesmancheDocsTab />}
           {activeTab === 'finance' && <DesmancheFinanceTab />}
           {activeTab === 'profile' && <DesmancheProfileTab />}
+          {activeTab === 'feedback' && <DesmancheFeedbackTab />}
         </div>
       </main>
     </div>

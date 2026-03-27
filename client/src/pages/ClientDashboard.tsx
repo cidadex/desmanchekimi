@@ -10,6 +10,7 @@ import { OrdersTab } from "@/components/client/OrdersTab";
 import { ProposalsTab } from "@/components/client/ProposalsTab";
 import { NegotiationsTab } from "@/components/client/NegotiationsTab";
 import { ChatTab } from "@/components/chat/ChatTab";
+import { FeedbackTab } from "@/components/client/FeedbackTab";
 import { getToken } from "@/lib/auth";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 import {
@@ -25,6 +26,7 @@ import {
   MessageCircle,
   MailWarning,
   RefreshCw,
+  MessageCircleWarning,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +38,7 @@ const TAB_KEYS = [
   { key: "proposals", label: "Propostas", icon: MessageSquare },
   { key: "negotiations", label: "Negociações", icon: Handshake },
   { key: "chat", label: "Mensagens", icon: MessageCircle },
+  { key: "feedback", label: "Sugestões & Reclamações", icon: MessageCircleWarning },
 ];
 
 const CLIENT_TAB_KEY = "client_tab";
@@ -276,6 +279,7 @@ export default function ClientDashboard() {
           {activeTab === "proposals" && <ProposalsTab />}
           {activeTab === "negotiations" && <NegotiationsTab onNavigate={handleNavigate} />}
           {activeTab === "chat" && <ChatTab />}
+          {activeTab === "feedback" && <FeedbackTab />}
         </div>
       </main>
     </div>

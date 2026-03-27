@@ -249,6 +249,22 @@ sqlite.exec(`
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
+
+  CREATE TABLE IF NOT EXISTS complaints (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    type TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    author_type TEXT NOT NULL,
+    author_name TEXT,
+    target_type TEXT,
+    target_id TEXT,
+    target_description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    admin_notes TEXT,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
 `);
 
 // ── Migrate orders.client_id to be nullable (SQLite requires table rebuild) ──
@@ -1635,4 +1651,51 @@ export async function seedDatabase() {
     
     console.log('Leilões de exemplo criados');
   }
+}
+
+// ==================== COMPLAINTS ====================
+
+export interface ComplaintInput {
+  type: "denuncia" | "sugestao" | "reclamacao";
+  subject: string;
+  message: string;
+  authorId: string;
+  authorType: "client" | "desmanche";
+  authorName?: string;
+  targetType?: "listing" | "general";
+  targetId?: string;
+  targetDescription?: string;
+}
+
+export function createComplaint(data: ComplaintInput): any {
+  const id = randomUUID();
+  sqlite.prepare(`
+    INSERT INTO complaints (id, type, subject, message, author_id, author_type, author_name, target_type, target_id, target_description)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, data.type, data.subject, data.message, data.authorId, data.authorType,
+    data.authorName || null, data.targetType || null, data.targetId || null, data.targetDescription || null);
+  return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
+}
+
+export function getComplaintsByAuthor(authorId: string): any[] {
+  return sqlite.prepare("SELECT * FROM complaints WHERE author_id = ? ORDER BY created_at DESC").all(authorId) as any[];
+}
+
+export function getAllComplaints(filters?: { type?: string; status?: string }): any[] {
+  let query = "SELECT * FROM complaints WHERE 1=1";
+  const params: any[] = [];
+  if (filters?.type) { query += " AND type = ?"; params.push(filters.type); }
+  if (filters?.status) { query += " AND status = ?"; params.push(filters.status); }
+  query += " ORDER BY created_at DESC";
+  return sqlite.prepare(query).all(...params) as any[];
+}
+
+export function updateComplaintStatus(id: string, status: string, adminNotes?: string): any {
+  sqlite.prepare("UPDATE complaints SET status = ?, admin_notes = COALESCE(?, admin_notes) WHERE id = ?")
+    .run(status, adminNotes || null, id);
+  return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
+}
+
+export function getComplaintById(id: string): any {
+  return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
 }
