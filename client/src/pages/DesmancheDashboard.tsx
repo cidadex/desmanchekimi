@@ -83,7 +83,25 @@ export default function DesmancheDashboard() {
   const desmancheName = desmanche?.tradingName || user?.companyName || user?.name || "Desmanche";
   const desmancheInitials = desmancheName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
   const planLabel = desmanche?.plan === "monthly" ? "Assinatura Mensal" : "Assinatura Mensal";
-  const openOrdersCount = Array.isArray(openOrders) ? openOrders.length : 0;
+
+  // Parse vehicle types this desmanche handles
+  const desmancheVehicleTypes: string[] = (() => {
+    try { return JSON.parse(desmanche?.vehicleTypes || "[]"); } catch { return []; }
+  })();
+
+  // Badge count uses the same filter logic as DesmancheOrdersTab:
+  // exclude own ads + filter by vehicle type (only when types are set)
+  const openOrdersCount = Array.isArray(openOrders)
+    ? openOrders.filter((order: any) => {
+        if (order.desmancheId === user?.id) return false;
+        if (
+          desmancheVehicleTypes.length > 0 &&
+          order.vehicleType &&
+          !desmancheVehicleTypes.includes(order.vehicleType)
+        ) return false;
+        return true;
+      }).length
+    : 0;
   const totalUnread = Array.isArray(chatRooms)
     ? chatRooms.reduce((s: number, r: any) => s + (r.unreadCount || 0), 0)
     : 0;
