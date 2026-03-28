@@ -1192,19 +1192,29 @@ export async function registerRoutes(server: Server, app: Express) {
   
   app.post("/api/documents", authMiddleware, requireType(["desmanche"]), async (req, res) => {
     try {
-      const documentData = schema.insertDocumentSchema.parse(req.body);
+      const { type, name, url, validUntil } = req.body;
       const desmancheId = (req as any).user.id;
-      
-      if (documentData.desmancheId !== desmancheId) {
-        return res.status(403).json({ message: "Acesso negado" });
+
+      const validTypes = ["alvara", "credenciamento_detran", "contrato_social", "documento_responsavel", "documento_empresa"];
+      if (!type || !name || !url || !validTypes.includes(type)) {
+        return res.status(400).json({ message: "Dados inválidos: type, name e url são obrigatórios" });
       }
-      
-      const document = await storage.createDocument(documentData);
+
+      // validUntil vem do frontend como Unix timestamp em segundos (número)
+      // O Drizzle espera Date, então convertemos aqui antes de salvar
+      const validUntilDate: Date | undefined = validUntil
+        ? new Date(Number(validUntil) * 1000)
+        : undefined;
+
+      const document = await storage.createDocument({
+        desmancheId,
+        type: type as any,
+        name,
+        url,
+        validUntil: validUntilDate,
+      });
       res.status(201).json(document);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
-      }
       console.error("Create document error:", error);
       res.status(500).json({ message: "Erro ao criar documento" });
     }
