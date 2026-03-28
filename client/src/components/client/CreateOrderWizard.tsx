@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Camera, X, Loader2, Zap, Clock, Plus, ChevronDown, Trash2, Check } from "lucide-react";
+import { Camera, X, Loader2, Plus, ChevronDown, Trash2, Check } from "lucide-react";
 
 // ─── VEHICLE TYPES ───────────────────────────────────────────────────────────
 
@@ -740,39 +740,6 @@ export function CreateOrderWizard({ open, onClose, onSuccess, isDesmancheAd = fa
                   )}
                 </div>
               )}
-
-              {/* ── Urgência + Descrição ──────────────────────────── */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Urgência</Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => set({ urgency: "normal" })}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg border-2 py-2 text-xs font-medium transition-all",
-                        form.urgency === "normal"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <Clock className="h-3.5 w-3.5" /> Normal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => set({ urgency: "urgent" })}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg border-2 py-2 text-xs font-medium transition-all",
-                        form.urgency === "urgent"
-                          ? "border-orange-500 bg-orange-50 text-orange-600"
-                          : "border-border hover:border-orange-300"
-                      )}
-                    >
-                      <Zap className="h-3.5 w-3.5" /> Urgente
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Observações <span className="text-muted-foreground text-xs">(opcional)</span></Label>
