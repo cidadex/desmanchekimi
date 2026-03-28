@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PrivacyPolicyModal from "@/components/PrivacyPolicyModal";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +109,7 @@ export default function CadastroDesmanche() {
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjStatus, setCnpjStatus] = useState<"idle" | "found" | "error">("idle");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const set = (field: string, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -779,15 +781,13 @@ export default function CadastroDesmanche() {
                   />
                   <label htmlFor="accept-terms-desmanche" className="text-sm text-slate-600 cursor-pointer leading-snug">
                     Li e aceito a{" "}
-                    <a
-                      href="/politica-de-privacidade"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
                       className="text-primary font-medium hover:underline"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowPrivacy(true); }}
                     >
                       Política de Privacidade e Termos de Uso
-                    </a>{" "}
+                    </button>{" "}
                     da Central dos Desmanches.{" "}
                     <span className="text-destructive">*</span>
                   </label>
@@ -829,6 +829,7 @@ export default function CadastroDesmanche() {
           </p>
         </div>
       </div>
+      <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
     </div>
   );
 }

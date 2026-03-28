@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import PrivacyPolicyModal from "@/components/PrivacyPolicyModal";
 import { useLocation } from "wouter";
 import {
   Dialog,
@@ -119,6 +120,7 @@ export function RegisterModal({ children, defaultOpen = false }: RegisterModalPr
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const strength = useMemo(() => getStrength(form.password), [form.password]);
   const passwordsMatch = form.confirmPassword === "" || form.password === form.confirmPassword;
@@ -283,15 +285,13 @@ export function RegisterModal({ children, defaultOpen = false }: RegisterModalPr
             />
             <label htmlFor="accept-terms" className="text-sm text-slate-600 cursor-pointer leading-snug">
               Li e aceito a{" "}
-              <a
-                href="/politica-de-privacidade"
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 className="text-primary font-medium hover:underline"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowPrivacy(true); }}
               >
                 Política de Privacidade e Termos de Uso
-              </a>{" "}
+              </button>{" "}
               da Central dos Desmanches.
             </label>
           </div>
@@ -313,6 +313,7 @@ export function RegisterModal({ children, defaultOpen = false }: RegisterModalPr
           </Button>
         </form>
       </DialogContent>
+      <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
     </Dialog>
   );
 }
