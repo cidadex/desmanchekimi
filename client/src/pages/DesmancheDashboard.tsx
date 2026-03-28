@@ -89,17 +89,31 @@ export default function DesmancheDashboard() {
     try { return JSON.parse(desmanche?.vehicleTypes || "[]"); } catch { return []; }
   })();
 
-  // Badge count uses the same filter logic as DesmancheOrdersTab:
-  // exclude own ads + filter by vehicle type (only when types are set)
+  // Badge count mirrors exactly what DesmancheOrdersTab shows:
+  // 1. flatten orders → open items (item.status === "open")
+  // 2. exclude own ads
+  // 3. filter by vehicle type when the desmanche has types set
   const openOrdersCount = Array.isArray(openOrders)
-    ? openOrders.filter((order: any) => {
-        if (order.desmancheId === user?.id) return false;
+    ? (openOrders as any[]).flatMap((order: any) => {
+        if (order.desmancheId === user?.id) return [];
+        if (order.items && order.items.length > 0) {
+          return order.items.filter((item: any) => {
+            if (item.status !== "open") return false;
+            if (
+              desmancheVehicleTypes.length > 0 &&
+              item.vehicleType &&
+              !desmancheVehicleTypes.includes(item.vehicleType)
+            ) return false;
+            return true;
+          });
+        }
+        // legacy single-item order
         if (
           desmancheVehicleTypes.length > 0 &&
           order.vehicleType &&
           !desmancheVehicleTypes.includes(order.vehicleType)
-        ) return false;
-        return true;
+        ) return [];
+        return [order];
       }).length
     : 0;
   const totalUnread = Array.isArray(chatRooms)
