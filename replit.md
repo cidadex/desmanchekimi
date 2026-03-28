@@ -54,7 +54,7 @@ Orders are "carts" — each order contains one or more `order_items`, where each
 users, addresses, desmanches, desmanche_addresses, documents, orders, order_items, order_images, proposals, negotiations, auctions, invoices, reviews, subscription_plans, desmanche_billing, billing_transactions, system_settings, site_settings, brand_logos
 
 ### users Table Extra Columns (added via ALTER TABLE)
-- `email_verified` INTEGER DEFAULT 0 — must be 1 to create orders
+- `email_verified` INTEGER DEFAULT 0 — must be 1 to create orders (TEMP: backend check commented out in routes.ts line ~639 for testing; re-enable after launch)
 - `email_verification_token` TEXT — 24h verification token sent on register
 - `email_verification_expires` INTEGER — unix timestamp
 - `password_reset_token` TEXT — 1h reset token sent on forgot-password

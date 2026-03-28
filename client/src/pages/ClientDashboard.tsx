@@ -250,8 +250,8 @@ export default function ClientDashboard() {
           </div>
         </header>
 
-        {/* Email verification banner */}
-        {user.emailVerified === false && !verifyBannerDismissed && (
+        {/* Email verification banner — TEMP: disabled for testing (re-enable after launch) */}
+        {/* {user.emailVerified === false && !verifyBannerDismissed && (
           <div className="mx-4 md:mx-6 mt-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm" data-testid="banner-email-verify">
             <MailWarning className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -271,7 +271,7 @@ export default function ClientDashboard() {
               <X className="h-4 w-4" />
             </button>
           </div>
-        )}
+        )} */}
         <div className="p-4 md:p-6 max-w-5xl">
           {activeTab === "overview" && <OverviewTab onNavigate={handleNavigate} />}
           {activeTab === "profile" && <ProfileTab />}

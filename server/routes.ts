@@ -636,9 +636,10 @@ export async function registerRoutes(server: Server, app: Express) {
 
       // Client flow
       const clientId = reqUser.id;
-      if (!storage.isEmailVerified(clientId)) {
-        return res.status(403).json({ message: "Confirme seu e-mail antes de criar pedidos.", emailNotVerified: true });
-      }
+      // TEMP: email verification disabled for testing — re-enable after launch
+      // if (!storage.isEmailVerified(clientId)) {
+      //   return res.status(403).json({ message: "Confirme seu e-mail antes de criar pedidos.", emailNotVerified: true });
+      // }
       const user = await storage.getUserById(clientId);
       if (!user?.profileComplete) {
         return res.status(400).json({ message: "Complete seu perfil (WhatsApp e endereço) antes de criar pedidos" });

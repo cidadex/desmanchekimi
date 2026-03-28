@@ -14,6 +14,7 @@ import {
   MessageCircle,
   MessageSquare,
   MessageCircleWarning,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -132,6 +133,17 @@ export default function DesmancheDashboard() {
         <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
         <SidebarItem icon={<MessageCircleWarning />} label="Sugestões & Reclamações" active={activeTab === 'feedback'} onClick={() => {handleSetTab('feedback'); setIsMobileMenuOpen(false);}} />
+      </div>
+
+      <div className="p-3 border-t border-slate-800">
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          data-testid="button-desmanche-logout"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair do Painel
+        </button>
       </div>
     </>
   );

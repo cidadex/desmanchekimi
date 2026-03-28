@@ -20,6 +20,7 @@ import {
   CreditCard,
   Globe,
   MessageCircleWarning,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
     setSelectedOrderId(null);
     localStorage.setItem(ADMIN_TAB_KEY, tab);
   };
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // null = super-admin (all access), array = restricted, undefined = not yet loaded
   const userPermissions: string[] | null | undefined = user?.permissions;
   const isSuperAdmin = user?.type === "admin" && userPermissions === null;
@@ -120,17 +121,25 @@ export default function AdminDashboard() {
         )}
       </div>
       
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user?.avatar} />
             <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">{userName}</span>
-            <span className="text-xs text-muted-foreground">{userEmail}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold truncate">{userName}</span>
+            <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
           </div>
         </div>
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+          data-testid="button-admin-logout"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair do Painel
+        </button>
       </div>
     </>
   );
