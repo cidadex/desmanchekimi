@@ -99,7 +99,7 @@ export default function AdminDashboard() {
         <img src={logoImg} alt="Central dos Desmanches" className="h-40 w-auto drop-shadow-sm" />
       </div>
       
-      <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+      <div className="py-4 px-3 space-y-1">
         {canAccess('overview') && <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />}
         {canAccess('desmanches') && <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
         {canAccess('users') && <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
@@ -119,27 +119,26 @@ export default function AdminDashboard() {
             <SidebarItem icon={<ShieldCheck />} label="Permissões" active={activeTab === 'permissions'} onClick={() => {handleSetTab('permissions'); setIsMobileMenuOpen(false);}} />
           </>
         )}
-      </div>
-      
-      <div className="p-4 border-t border-border space-y-3">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={user?.avatar} />
-            <AvatarFallback>{userInitials}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold truncate">{userName}</span>
-            <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
+        <div className="pt-2 space-y-2">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <Avatar>
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback>{userInitials}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold truncate">{userName}</span>
+              <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
+            </div>
           </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            data-testid="button-admin-logout"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair do Painel
+          </button>
         </div>
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-          data-testid="button-admin-logout"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair do Painel
-        </button>
       </div>
     </>
   );
@@ -148,7 +147,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-muted/40 flex flex-col md:flex-row font-sans">
       
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-card border-r border-border flex flex-col hidden md:flex sticky top-0 h-screen">
+      <aside className="w-full md:w-64 bg-card border-r border-border flex flex-col hidden md:flex sticky top-0 h-screen overflow-y-auto">
         <SidebarContent />
       </aside>
 

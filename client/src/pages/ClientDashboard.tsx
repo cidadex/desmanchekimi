@@ -132,11 +132,11 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen bg-muted/30 flex">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-background border-r transform transition-transform duration-200 md:relative md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-background border-r transform transition-transform duration-200 overflow-y-auto md:relative md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col">
           <div className="py-6 px-4 border-b flex flex-col items-center relative">
             <Button
               variant="ghost"
@@ -163,7 +163,7 @@ export default function ClientDashboard() {
             </div>
           </div>
 
-          <nav className="flex-1 p-2">
+          <nav className="p-2">
             {TAB_KEYS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
@@ -202,7 +202,7 @@ export default function ClientDashboard() {
             })}
           </nav>
 
-          <div className="p-2 border-t">
+          <div className="p-2 pt-1">
             <button
               onClick={() => navigate("/")}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted mb-1"
