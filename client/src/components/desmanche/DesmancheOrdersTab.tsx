@@ -470,9 +470,7 @@ export default function DesmancheOrdersTab() {
               order.vehicleModel,
               order.vehicleYear,
             ].filter(Boolean).join(" • ");
-            const location = order.city
-              ? `${order.city}${order.state ? `, ${order.state}` : ""}`
-              : order.location || "Não informado";
+            const location = [order.city, order.state].filter(Boolean).join(", ");
 
             return (
               <Card
@@ -529,9 +527,11 @@ export default function DesmancheOrdersTab() {
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" /> {location}
-                      </span>
+                      {location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" /> {location}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" /> {timeAgo(order.createdAt)}
                       </span>
@@ -680,14 +680,14 @@ export default function DesmancheOrdersTab() {
                           : "Cliente verificado"}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Localização:</span>{" "}
-                      <span className="font-medium">
-                        {selectedOrder.city
-                          ? `${selectedOrder.city}${selectedOrder.state ? `, ${selectedOrder.state}` : ""}`
-                          : selectedOrder.location || "Não informado"}
-                      </span>
-                    </div>
+                    {(selectedOrder.city || selectedOrder.state) && (
+                      <div>
+                        <span className="text-slate-500">Localização:</span>{" "}
+                        <span className="font-medium">
+                          {[selectedOrder.city, selectedOrder.state].filter(Boolean).join(", ")}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <span className="text-slate-500">Pedido em:</span>{" "}
                       <span className="font-medium">{timeAgo(selectedOrder.createdAt)}</span>
