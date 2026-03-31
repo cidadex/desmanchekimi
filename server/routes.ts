@@ -2020,7 +2020,7 @@ export async function registerRoutes(server: Server, app: Express) {
           phone: desmanche.phone,
           cpfCnpj: desmanche.cnpj,
         });
-        if (customer) asaasCustomerId = customer.id;
+        if (customer && !("error" in customer)) asaasCustomerId = customer.id;
       }
 
       const billing = await storage.createOrUpdateDesmancheBilling(desmancheId, {
@@ -2081,7 +2081,10 @@ export async function registerRoutes(server: Server, app: Express) {
           phone: desmanche.phone,
           cpfCnpj: desmanche.cnpj,
         });
-        if (!customer) return res.status(502).json({ message: "Erro ao criar cliente no Asaas" });
+        if (!customer) return res.status(502).json({ message: "Erro de conexão com o Asaas. Tente novamente." });
+        if ("error" in customer) {
+          return res.status(422).json({ message: `Asaas: ${customer.error}. Verifique o CNPJ no Perfil da Empresa.` });
+        }
         billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { asaasCustomerId: customer.id });
       }
 

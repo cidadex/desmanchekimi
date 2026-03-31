@@ -32,7 +32,7 @@ export async function createAsaasCustomer(data: {
   email: string;
   phone: string;
   cpfCnpj: string;
-}): Promise<{ id: string } | null> {
+}): Promise<{ id: string } | { error: string } | null> {
   if (!isAsaasConfigured()) return null;
   try {
     const res = await fetch(`${getBaseUrl()}/customers`, {
@@ -46,9 +46,10 @@ export async function createAsaasCustomer(data: {
       }),
     });
     if (!res.ok) {
-      const err = await res.text();
-      console.error("Asaas create customer error:", err);
-      return null;
+      const errBody = await res.json().catch(() => ({}));
+      const firstError = errBody?.errors?.[0]?.description || "Erro ao criar cliente";
+      console.error("Asaas create customer error:", JSON.stringify(errBody));
+      return { error: firstError };
     }
     return res.json();
   } catch (e) {
