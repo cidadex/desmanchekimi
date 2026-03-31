@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, Receipt, Loader2, FileText, TrendingUp, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { CreditCard, Receipt, Loader2, FileText, CheckCircle2, AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const TX_STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -21,6 +22,9 @@ const TX_STATUS_LABELS: Record<string, string> = {
 };
 
 export default function DesmancheFinanceTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: billingData, isLoading } = useQuery<{
     billing: any;
     transactions: any[];
@@ -32,6 +36,28 @@ export default function DesmancheFinanceTab() {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/billing/my");
       return res.json();
+    },
+  });
+
+  const generateCharge = useMutation({
+    mutationFn: async (txId: string) => {
+      const res = await apiRequest("POST", `/api/billing/transactions/${txId}/charge`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao gerar cobrança");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing/my"] });
+      if (data.paymentLink) {
+        window.open(data.paymentLink, "_blank");
+      } else {
+        toast({ title: "Cobrança gerada", description: "Fatura criada no Asaas. O link de pagamento será exibido em breve." });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
     },
   });
 
@@ -98,22 +124,12 @@ export default function DesmancheFinanceTab() {
                 </span>
               </div>
               <Progress value={capProgress} className="h-3" />
-              <div className="flex items-center gap-2 text-sm">
-                {capReached ? (
-                  <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 rounded p-2 w-full">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span><strong>Teto atingido!</strong> Suas próximas transações deste mês serão isentas.</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 border border-slate-200 rounded p-2 w-full">
-                    <TrendingUp className="h-4 w-4 shrink-0" />
-                    <span>
-                      Faltam <strong>{fmt(capAmount - monthlyPaid)}</strong> para o teto.
-                      ({billing?.monthlyTransactionCount || 0} transação(ões) este mês)
-                    </span>
-                  </div>
-                )}
-              </div>
+              {capReached && (
+                <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 rounded p-2 w-full text-sm">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span><strong>Teto atingido!</strong> Suas próximas transações deste mês serão isentas.</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -192,6 +208,22 @@ export default function DesmancheFinanceTab() {
                           {tx.status === "pending" && tx.paymentLink && (
                             <Button size="sm" variant="outline" className="gap-1" onClick={() => window.open(tx.paymentLink, "_blank")}>
                               <ExternalLink className="h-3 w-3" /> Pagar
+                            </Button>
+                          )}
+                          {tx.status === "pending" && !tx.paymentLink && billingData?.asaasConfigured && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                              disabled={generateCharge.isPending}
+                              onClick={() => generateCharge.mutate(tx.id)}
+                            >
+                              {generateCharge.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-3 w-3" />
+                              )}
+                              Gerar fatura
                             </Button>
                           )}
                         </TableCell>

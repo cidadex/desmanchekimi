@@ -2055,6 +2055,55 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
+  // Gerar/retentar cobrança Asaas para transação pendente sem link
+  app.post("/api/billing/transactions/:txId/charge", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { txId } = req.params;
+
+      const allTx = await storage.getBillingTransactionsByDesmanche(desmancheId);
+      const tx = allTx.find((t: any) => t.id === txId);
+      if (!tx) return res.status(404).json({ message: "Transação não encontrada" });
+      if (tx.status !== "pending") return res.status(400).json({ message: "Transação não está pendente" });
+      if (tx.asaasChargeId) return res.status(400).json({ message: "Cobrança já existe no Asaas" });
+      if (!asaas.isAsaasConfigured()) return res.status(400).json({ message: "Asaas não configurado" });
+
+      let billing = await storage.getDesmancheBilling(desmancheId);
+      if (!billing) return res.status(404).json({ message: "Dados de cobrança não encontrados" });
+
+      // Se não tem cliente Asaas, cria agora
+      if (!billing.asaasCustomerId) {
+        const desmanche = await storage.getDesmancheById(desmancheId);
+        if (!desmanche) return res.status(404).json({ message: "Desmanche não encontrado" });
+        const customer = await asaas.createAsaasCustomer({
+          name: desmanche.companyName,
+          email: desmanche.email,
+          phone: desmanche.phone,
+          cpfCnpj: desmanche.cnpj,
+        });
+        if (!customer) return res.status(502).json({ message: "Erro ao criar cliente no Asaas" });
+        billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { asaasCustomerId: customer.id });
+      }
+
+      const charge = await asaas.createAsaasCharge({
+        customerId: billing!.asaasCustomerId!,
+        value: tx.amount,
+        dueDate: asaas.getDueDateString(3),
+        description: tx.description || `Central dos Desmanches — transação #${txId.slice(0, 8)}`,
+        billingType: "PIX",
+      });
+      if (!charge) return res.status(502).json({ message: "Erro ao criar cobrança no Asaas" });
+
+      const paymentLink = charge.invoiceUrl || charge.bankSlipUrl;
+      await storage.updateBillingTransactionStatus(txId, "pending", charge.id, paymentLink);
+
+      res.json({ asaasChargeId: charge.id, paymentLink });
+    } catch (error) {
+      console.error("Retry charge error:", error);
+      res.status(500).json({ message: "Erro ao gerar cobrança" });
+    }
+  });
+
   // ============================================
   // SUBSCRIPTION PLANS (ADMIN)
   // ============================================
