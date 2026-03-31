@@ -13,7 +13,6 @@ import {
   Bell,
   Search,
   Package,
-  Gavel,
   ChevronRight,
   ShieldCheck,
   Settings,
@@ -37,7 +36,6 @@ import UsersTab from "@/components/admin/UsersTab";
 import ClientDetailPage from "@/components/admin/ClientDetailPage";
 import OrdersTab from "@/components/admin/OrdersTab";
 import OrderDetailPage from "@/components/admin/OrderDetailPage";
-import AuctionsTab from "@/components/admin/AuctionsTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import ApprovalsTab from "@/components/admin/ApprovalsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
@@ -102,7 +100,6 @@ export default function AdminDashboard() {
         {canAccess('desmanches') && <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
         {canAccess('users') && <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
         {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('auctions') && <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {handleSetTab('auctions'); setIsMobileMenuOpen(false);}} />}
         {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
         {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
@@ -223,7 +220,6 @@ export default function AdminDashboard() {
           {activeTab === 'orders' && selectedOrderId && (
             <OrderDetailPage id={selectedOrderId} onBack={() => setSelectedOrderId(null)} />
           )}
-          {activeTab === 'auctions' && <AuctionsTab />}
           {activeTab === 'finance' && <FinanceTab />}
           {activeTab === 'approvals' && <ApprovalsTab />}
           {activeTab === 'site-content' && <SiteContentTab />}
