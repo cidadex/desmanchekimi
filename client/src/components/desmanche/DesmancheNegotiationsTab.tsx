@@ -282,6 +282,11 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
           <div className="space-y-4 pt-2">
             <div className="bg-slate-50 rounded-lg p-3 text-sm">
               <span className="text-slate-500">Pedido:</span>{" "}
+              {shipDialog?.order?.id && (
+                <span className="font-mono text-xs text-muted-foreground bg-white border px-1.5 py-0.5 rounded mr-1">
+                  PED-{shipDialog.order.id.slice(0, 8).toUpperCase()}
+                </span>
+              )}
               <span className="font-semibold">{shipDialog?.order?.title}</span>
             </div>
             {shipDialog?.client && (
@@ -362,7 +367,14 @@ function ProposalCard({ proposal, onNavigate }: { proposal: any; onNavigate?: (t
               <Badge variant="outline" className={`text-xs ${status.color}`}>{status.label}</Badge>
               <span className="font-mono text-xs text-slate-400">{timeAgo(proposal.createdAt)}</span>
             </div>
-            <h3 className="font-semibold text-slate-800 truncate">{order?.title || "Pedido"}</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              {order?.id && (
+                <span className="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                  PED-{order.id.slice(0, 8).toUpperCase()}
+                </span>
+              )}
+              <h3 className="font-semibold text-slate-800 truncate">{order?.title || "Pedido"}</h3>
+            </div>
             {order && (
               <div className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
                 <Car className="h-3.5 w-3.5 shrink-0" />
@@ -459,7 +471,14 @@ function NegotiationCard({
                 <CalendarDays className="h-3 w-3" /> {timeAgo(neg.createdAt)}
               </span>
             </div>
-            <h3 className="font-semibold text-slate-800">{neg.order?.title || "Negociação"}</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              {neg.order?.id && (
+                <span className="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                  PED-{neg.order.id.slice(0, 8).toUpperCase()}
+                </span>
+              )}
+              <h3 className="font-semibold text-slate-800">{neg.order?.title || "Negociação"}</h3>
+            </div>
             {neg.order && (
               <div className="text-sm text-slate-500 flex items-center gap-1">
                 <Car className="h-3.5 w-3.5" />

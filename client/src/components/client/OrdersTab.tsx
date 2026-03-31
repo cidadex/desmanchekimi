@@ -212,6 +212,9 @@ export function OrdersTab() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        PED-{order.id.slice(0, 8).toUpperCase()}
+                      </span>
                       <h3 className="font-semibold text-base">{order.title}</h3>
                       <Badge variant={statusLabels[order.status]?.variant || "outline"}>
                         {statusLabels[order.status]?.label || order.status}

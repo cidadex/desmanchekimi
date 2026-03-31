@@ -484,7 +484,7 @@ export default function DesmancheOrdersTab() {
                   <div className="p-5 sm:w-2/3 flex flex-col justify-center">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="font-mono text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        #{order.id.slice(0, 8).toUpperCase()}
+                        PED-{order.id.slice(0, 8).toUpperCase()}
                       </span>
                       {order.postedByType === "desmanche" && (
                         <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] py-0 px-2">

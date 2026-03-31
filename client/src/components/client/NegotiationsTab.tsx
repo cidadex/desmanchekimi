@@ -359,7 +359,12 @@ function NegotiationCard({
                 <CalendarDays className="h-3 w-3" /> {fmt(neg.createdAt)}
               </span>
             </div>
-            <h3 className="font-semibold text-base leading-tight">{neg.order?.title || "Pedido"}</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                PED-{(neg.orderId || neg.order?.id || "").slice(0, 8).toUpperCase()}
+              </span>
+              <h3 className="font-semibold text-base leading-tight">{neg.order?.title || "Pedido"}</h3>
+            </div>
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
               <Car className="h-3.5 w-3.5 shrink-0" />
               {[neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ")}
@@ -531,7 +536,12 @@ function NegotiationDetailDialog({
               <FileText className="h-3.5 w-3.5" /> Pedido
             </h4>
             <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
-              <p className="font-semibold">{neg.order?.title}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs text-muted-foreground bg-white border px-2 py-0.5 rounded">
+                  PED-{(neg.orderId || neg.order?.id || "").slice(0, 8).toUpperCase()}
+                </span>
+                <p className="font-semibold">{neg.order?.title}</p>
+              </div>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Car className="h-3.5 w-3.5" />
                 {[neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ")}
