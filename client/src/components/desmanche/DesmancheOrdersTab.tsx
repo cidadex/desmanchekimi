@@ -640,7 +640,7 @@ export default function DesmancheOrdersTab() {
                     {selectedOrder.partPosition && (
                       <div><span className="text-slate-500">Posição:</span> <span className="font-medium">{selectedOrder.partPosition}</span></div>
                     )}
-                    {selectedOrder.partConditionAccepted && (
+                    {selectedOrder.partConditionAccepted && selectedOrder.partConditionAccepted !== "any" && (
                       <div><span className="text-slate-500">Condição aceita:</span> <span className="font-medium">{CONDITION_LABELS[selectedOrder.partConditionAccepted] || selectedOrder.partConditionAccepted}</span></div>
                     )}
                   </div>

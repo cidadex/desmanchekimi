@@ -395,7 +395,7 @@ export function OrdersTab() {
                       {selectedOrder.partCategory && <DetailRow label="Categoria" value={selectedOrder.partCategory} />}
                       {selectedOrder.partName && <DetailRow label="Peça" value={selectedOrder.partName} />}
                       {selectedOrder.partPosition && <DetailRow label="Posição" value={selectedOrder.partPosition} />}
-                      {selectedOrder.partConditionAccepted && (
+                      {selectedOrder.partConditionAccepted && selectedOrder.partConditionAccepted !== "any" && (
                         <DetailRow label="Condição aceita" value={CONDITION_LABELS[selectedOrder.partConditionAccepted] || selectedOrder.partConditionAccepted} />
                       )}
                     </div>
