@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { RegisterModal } from "@/components/auth/RegisterModal";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   ArrowRight, 
   ShieldCheck, 
@@ -19,6 +20,15 @@ import engineImg from "@/assets/images/engine-3d.png";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 export default function Home() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Se já está logado, redireciona para o painel correto
+  const panelPath = user?.type === "client" ? "/cliente"
+    : user?.type === "desmanche" ? "/desmanche"
+    : user?.type === "admin" ? "/admin"
+    : null;
+
   const { data: siteSettings } = useQuery<Record<string, string>>({
     queryKey: ["/api/site-settings"],
     queryFn: async () => { const r = await fetch("/api/site-settings"); return r.json(); },
@@ -75,17 +85,25 @@ export default function Home() {
           </div>
           
           <div className="hidden md:flex items-center gap-3">
-            <LoginModal>
-              <Button variant="outline" data-testid="button-login">Entrar</Button>
-            </LoginModal>
-            <RegisterModal>
-              <Button variant="outline" className="font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register">
-                Cadastro Cliente
+            {panelPath ? (
+              <Button className="font-semibold" onClick={() => navigate(panelPath)}>
+                Ir para o Painel
               </Button>
-            </RegisterModal>
-            <Link href="/cadastro-desmanche">
-              <Button className="font-semibold">Cadastro Desmanche</Button>
-            </Link>
+            ) : (
+              <>
+                <LoginModal>
+                  <Button variant="outline" data-testid="button-login">Entrar</Button>
+                </LoginModal>
+                <RegisterModal>
+                  <Button variant="outline" className="font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register">
+                    Cadastro Cliente
+                  </Button>
+                </RegisterModal>
+                <Link href="/cadastro-desmanche">
+                  <Button className="font-semibold">Cadastro Desmanche</Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu */}
@@ -102,17 +120,25 @@ export default function Home() {
                   <Link href="/cadastro-desmanche" className="hover:text-foreground transition-colors">Para Desmanches</Link>
                 </div>
                 <div className="flex flex-col gap-3 mt-8 border-t pt-8">
-                  <LoginModal>
-                    <Button variant="outline" className="w-full" data-testid="button-login-mobile">Entrar</Button>
-                  </LoginModal>
-                  <RegisterModal>
-                    <Button variant="outline" className="w-full font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register-mobile">
-                      Cadastro Cliente
+                  {panelPath ? (
+                    <Button className="w-full font-semibold" onClick={() => navigate(panelPath)}>
+                      Ir para o Painel
                     </Button>
-                  </RegisterModal>
-                  <Link href="/cadastro-desmanche">
-                    <Button className="w-full font-semibold">Cadastro Desmanche</Button>
-                  </Link>
+                  ) : (
+                    <>
+                      <LoginModal>
+                        <Button variant="outline" className="w-full" data-testid="button-login-mobile">Entrar</Button>
+                      </LoginModal>
+                      <RegisterModal>
+                        <Button variant="outline" className="w-full font-semibold border-primary text-primary hover:bg-primary/10" data-testid="button-register-mobile">
+                          Cadastro Cliente
+                        </Button>
+                      </RegisterModal>
+                      <Link href="/cadastro-desmanche">
+                        <Button className="w-full font-semibold">Cadastro Desmanche</Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
