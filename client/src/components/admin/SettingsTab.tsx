@@ -191,7 +191,7 @@ export default function SettingsTab() {
                   <Clock className="h-4 w-4 text-blue-500" /> Gate de Avaliação
                 </CardTitle>
                 <CardDescription>
-                  Regras para obrigar clientes e desmanches a avaliar negociações concluídas.
+                  Regras para que clientes e desmanches avaliem negociações concluídas.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

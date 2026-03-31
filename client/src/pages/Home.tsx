@@ -334,7 +334,7 @@ export default function Home() {
                 Aumente suas vendas. <br />Junte-se à maior rede do Brasil.
               </h2>
               <p className="text-xl text-muted-foreground mb-10 max-w-2xl">
-                Acesso exclusivo por assinatura mensal. O credenciamento é rigoroso, mas o resultado é garantido.
+                Pague apenas por negociação concluída. O credenciamento é rigoroso, mas o resultado é garantido.
               </p>
               <Link href="/cadastro-desmanche">
                 <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full shadow-xl shadow-primary/20 hover:scale-105 transition-transform" data-testid="cta-final-register">
