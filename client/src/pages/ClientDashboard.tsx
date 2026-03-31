@@ -111,6 +111,14 @@ export default function ClientDashboard() {
     }
   }, [user, isLoading, navigate]);
 
+  // Redireciona para perfil se cadastro incompleto (sem WhatsApp ou endereço)
+  useEffect(() => {
+    if (user && user.type === "client" && user.profileComplete === false) {
+      setActiveTab("profile");
+      localStorage.setItem(CLIENT_TAB_KEY, "profile");
+    }
+  }, [user?.id]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

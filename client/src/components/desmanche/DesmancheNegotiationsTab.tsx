@@ -350,7 +350,7 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
 function ProposalCard({ proposal, onNavigate }: { proposal: any; onNavigate?: (tab: string) => void }) {
   const status = PROPOSAL_STATUS[proposal.status] || { label: proposal.status, color: "bg-slate-100 text-slate-700" };
   const order = proposal.order;
-  const clientPhone = proposal.client?.phone || "";
+  const clientPhone = proposal.order?.client?.phone || proposal.client?.phone || "";
   const waMsg = `Olá! Quero falar sobre a proposta da peça: ${order?.title || ""}`;
 
   return (

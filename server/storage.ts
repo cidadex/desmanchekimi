@@ -958,7 +958,10 @@ export async function getProposalsByDesmanche(desmancheId: string) {
     where: eq(schema.proposals.desmancheId, desmancheId),
     orderBy: desc(schema.proposals.createdAt),
     with: {
-      order: true,
+      order: {
+        with: { client: true },
+      },
+      orderItem: true,
     },
   });
 }
