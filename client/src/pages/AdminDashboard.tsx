@@ -17,7 +17,6 @@ import {
   ChevronRight,
   ShieldCheck,
   Settings,
-  CreditCard,
   Globe,
   MessageCircleWarning,
   LogOut,
@@ -41,7 +40,6 @@ import OrderDetailPage from "@/components/admin/OrderDetailPage";
 import AuctionsTab from "@/components/admin/AuctionsTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import ApprovalsTab from "@/components/admin/ApprovalsTab";
-import PlansTab from "@/components/admin/PlansTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import SiteContentTab from "@/components/admin/SiteContentTab";
 import ComplaintsTab from "@/components/admin/ComplaintsTab";
@@ -106,7 +104,6 @@ export default function AdminDashboard() {
         {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
         {canAccess('auctions') && <SidebarItem icon={<Gavel />} label="Central de Leilões" active={activeTab === 'auctions'} onClick={() => {handleSetTab('auctions'); setIsMobileMenuOpen(false);}} />}
         {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('plans') && <SidebarItem icon={<CreditCard />} label="Planos" active={activeTab === 'plans'} onClick={() => {handleSetTab('plans'); setIsMobileMenuOpen(false);}} />}
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
         {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
         {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
@@ -228,7 +225,6 @@ export default function AdminDashboard() {
           )}
           {activeTab === 'auctions' && <AuctionsTab />}
           {activeTab === 'finance' && <FinanceTab />}
-          {activeTab === 'plans' && <PlansTab />}
           {activeTab === 'approvals' && <ApprovalsTab />}
           {activeTab === 'site-content' && <SiteContentTab />}
           {activeTab === 'complaints' && <ComplaintsTab />}

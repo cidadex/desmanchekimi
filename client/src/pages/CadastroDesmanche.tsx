@@ -14,8 +14,6 @@ import {
   Loader2, ArrowLeft, Upload, ChevronRight, Search, AlertCircle,
   Info, CreditCard, Calendar,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 const BENEFITS = [
@@ -60,17 +58,6 @@ export default function CadastroDesmanche() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedBillingModel, setSelectedBillingModel] = useState<"per_transaction" | "subscription">("per_transaction");
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
-
-  const { data: plansData = [] } = useQuery<any[]>({
-    queryKey: ["/api/subscription-plans-public"],
-    queryFn: async () => {
-      const res = await fetch("/api/subscription-plans");
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
 
   const [form, setForm] = useState({
     companyName: "",
@@ -272,23 +259,17 @@ export default function CadastroDesmanche() {
         await registerDocument(desmancheId, doc.type, doc.name, url, token, doc.validUntil);
       }
 
-      // Configura cobrança se selecionada
-      if (selectedBillingModel) {
-        try {
-          const billingToken = localStorage.getItem("peca_rapida_token") as string;
-          await fetch("/api/billing/setup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${billingToken}` },
-            body: JSON.stringify({
-              billingModel: selectedBillingModel,
-              planId: selectedBillingModel === "subscription" ? (selectedPlanId || undefined) : undefined,
-            }),
-          });
-        } catch {
-          // Não-crítico: pode configurar depois pelo painel
-        }
+      // Configura cobrança como por transação (único modelo disponível)
+      try {
+        const billingToken = localStorage.getItem("peka_rapida_token") as string;
+        await fetch("/api/billing/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${billingToken}` },
+          body: JSON.stringify({ billingModel: "per_transaction" }),
+        });
+      } catch {
+        // Não-crítico: pode ser configurado posteriormente
       }
-
       toast({ title: "Cadastro realizado!", description: "Seu cadastro foi enviado para aprovação. Você já pode acessar seu painel." });
       navigate("/desmanche");
     } catch (err: any) {
@@ -648,93 +629,18 @@ export default function CadastroDesmanche() {
               {step === 4 && (
                 <>
                   <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-primary" /> Escolha seu Modelo de Cobrança
+                    <CreditCard className="h-5 w-5 text-primary" /> Cobrança da Plataforma
                   </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Você pode alterar isso a qualquer momento no painel financeiro.
-                  </p>
 
-                  <div className="grid gap-3">
-                    {/* Por Transação */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedBillingModel("per_transaction")}
-                      className={`text-left rounded-xl border-2 p-4 transition-all ${
-                        selectedBillingModel === "per_transaction"
-                          ? "border-primary bg-primary/5"
-                          : "border-muted hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold">Por Transação</span>
-                        {selectedBillingModel === "per_transaction" && (
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Pague apenas quando fechar negócios. Valor por transação concluída, com teto mensal.
-                      </p>
-                      <Badge variant="outline" className="mt-2 text-xs bg-green-50 text-green-700 border-green-200">
-                        Recomendado para começar
-                      </Badge>
-                    </button>
-
-                    {/* Assinatura */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedBillingModel("subscription")}
-                      className={`text-left rounded-xl border-2 p-4 transition-all ${
-                        selectedBillingModel === "subscription"
-                          ? "border-primary bg-primary/5"
-                          : "border-muted hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold">Assinatura Mensal</span>
-                        {selectedBillingModel === "subscription" && (
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Valor fixo por mês. Ideal para desmanches com alto volume de propostas.
-                      </p>
-                    </button>
-                  </div>
-
-                  {/* Seleção de plano específico */}
-                  {selectedBillingModel === "subscription" && plansData.length > 0 && (
-                    <div className="space-y-2 mt-2">
-                      <Label>Selecione o Plano</Label>
-                      <div className="grid gap-2">
-                        {plansData.filter((p) => p.active).map((plan) => (
-                          <button
-                            key={plan.id}
-                            type="button"
-                            onClick={() => setSelectedPlanId(plan.id)}
-                            className={`text-left rounded-lg border-2 p-3 transition-all ${
-                              selectedPlanId === plan.id
-                                ? "border-primary bg-primary/5"
-                                : "border-muted hover:border-primary/40"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold">{plan.name}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-primary">
-                                  R$ {plan.price.toFixed(2).replace(".", ",")}
-                                  <span className="text-xs text-muted-foreground font-normal">/mês</span>
-                                </span>
-                                {selectedPlanId === plan.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                              </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Até {plan.proposalLimit >= 999 ? "ilimitadas" : plan.proposalLimit} propostas • {plan.exclusivitySlots} slots exclusivos
-                            </p>
-                          </button>
-                        ))}
-                      </div>
+                  <div className="rounded-xl border-2 border-primary bg-primary/5 p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
+                      <span className="font-semibold text-base">Por Operação</span>
                     </div>
-                  )}
+                    <p className="text-sm text-muted-foreground">
+                      R$ 25,00 por negociação concluída. Ao atingir R$ 200,00 no mês, as demais operações são isentas de cobrança.
+                    </p>
+                  </div>
                 </>
               )}
 
