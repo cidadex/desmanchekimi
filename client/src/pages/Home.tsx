@@ -260,7 +260,7 @@ export default function Home() {
                   {[
                     "Faça seu credenciamento provando regularidade (Detran).",
                     "Acesse o painel e veja centenas de pedidos em tempo real.",
-                    "Filtre por tipo de veículo (Carro, Moto, Barco) e marca.",
+                    "Filtre por tipo de veículo (Carro, Moto, Caminhão, Trator) e marca.",
                     "Chame o cliente direto no WhatsApp e feche a venda."
                   ].map((step, i) => (
                     <li key={i} className="flex gap-4 items-start bg-background p-3 rounded-lg shadow-sm border">

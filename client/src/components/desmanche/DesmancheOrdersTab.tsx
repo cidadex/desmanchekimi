@@ -22,8 +22,7 @@ import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   car: "Carro", motorcycle: "Moto", truck: "Caminhão", bus: "Ônibus",
-  van: "Van/Utilitário", boat: "Barco/Lancha", airplane: "Avião",
-  helicopter: "Helicóptero", bicycle: "Bicicleta/E-bike",
+  van: "Van/Utilitário",
   agricultural: "Trator/Agrícola", other: "Outro",
 };
 

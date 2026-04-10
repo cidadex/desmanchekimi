@@ -39,7 +39,6 @@ const VEHICLE_SEGMENTS = [
   { id: "truck",        label: "Caminhão",           icon: "🚛" },
   { id: "bus",          label: "Ônibus",             icon: "🚌" },
   { id: "van",          label: "Van / Utilitário",   icon: "🚐" },
-  { id: "boat",         label: "Barco / Lancha",     icon: "⛵" },
   { id: "agricultural", label: "Trator / Agrícola",  icon: "🚜" },
   { id: "other",        label: "Outro",              icon: "🔧" },
 ];

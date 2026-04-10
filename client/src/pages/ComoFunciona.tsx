@@ -187,13 +187,6 @@ export default function ComoFunciona() {
               </Card>
             ))}
           </div>
-          <div className="mt-8 flex gap-3">
-            <Link href="/">
-              <Button size="lg" className="gap-2">
-                <ClipboardList className="h-4 w-4" /> Abrir um pedido agora
-              </Button>
-            </Link>
-          </div>
         </section>
 
         <div className="border-t" />

@@ -14,8 +14,7 @@ import { BrandLogo } from "@/components/ui/BrandLogo";
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   car: "Carro", motorcycle: "Moto", truck: "Caminhão", bus: "Ônibus",
-  van: "Van/Utilitário", boat: "Barco/Lancha", agricultural: "Trator/Agrícola",
-  bicycle: "Bicicleta", other: "Outro",
+  van: "Van/Utilitário", agricultural: "Trator/Agrícola", other: "Outro",
 };
 
 function formatExpiry(expiresAt: string | null | undefined): { label: string; urgent: boolean } {
