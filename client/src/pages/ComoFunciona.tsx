@@ -27,7 +27,7 @@ const CLIENT_STEPS = [
     icon: ClipboardList,
     step: "01",
     title: "Abra seu pedido",
-    desc: "Informe o veículo, a peça que precisa, a condição aceita (nova, usada ou recondicionada) e fotos se tiver. Leva menos de 3 minutos.",
+    desc: "Informe o veículo, a peça que precisa e fotos se tiver. Leva menos de 3 minutos.",
   },
   {
     icon: Bell,
@@ -71,8 +71,8 @@ const DESMANCHE_STEPS = [
   {
     icon: Banknote,
     step: "04",
-    title: "Venda mais, sem comissão",
-    desc: "Feche negócios diretamente com o cliente. Você paga apenas a assinatura mensal — sem comissão sobre suas vendas.",
+    title: "Venda mais",
+    desc: "Feche negócios diretamente com o cliente. Você paga uma taxa única por operação concluída — simples e transparente.",
   },
 ];
 
@@ -86,30 +86,30 @@ const CLIENT_BENEFITS = [
 const DESMANCHE_BENEFITS = [
   { icon: Users, title: "Alcance nacional", desc: "Seus pedidos chegam de todo o Brasil, não apenas da sua cidade." },
   { icon: TrendingUp, title: "Mais vendas", desc: "Clientes ativos buscando peças todos os dias. Estoque parado vira oportunidade." },
-  { icon: Banknote, title: "Sem comissão", desc: "Modelo de assinatura mensal. Cada venda é 100% sua." },
+  { icon: Banknote, title: "Taxa por operação", desc: "Pague somente quando fechar negócio. Sem mensalidade fixa, sem surpresas." },
   { icon: Building2, title: "Credencial de confiança", desc: "Ser credenciado aumenta a percepção de qualidade e atrai mais compradores." },
 ];
 
 const FAQS = [
   {
-    q: "Quanto custa cadastrar como cliente?",
-    a: "O cadastro de clientes é completamente gratuito. Você só paga quando fechar negócio diretamente com o desmanche.",
+    q: "Quanto custa para o cliente usar a plataforma?",
+    a: "Nada. O cliente não paga absolutamente nada pela plataforma — nem mensalidade, nem taxa, nem comissão. Você paga apenas a peça diretamente ao desmanche após fechar o negócio.",
   },
   {
-    q: "Como funciona a assinatura do desmanche?",
-    a: "Os desmanches pagam uma assinatura mensal fixa para acessar a plataforma. Não existe comissão sobre vendas — tudo que você negocia é seu.",
+    q: "Como funciona a cobrança para o desmanche?",
+    a: "O desmanche paga uma taxa única por negociação concluída. Não há mensalidade fixa — você só é cobrado quando vender. Há um teto mensal para meses de alto volume.",
   },
   {
     q: "Quanto tempo leva a aprovação do credenciamento?",
     a: "Nossa equipe analisa os documentos enviados em até 48 horas úteis. Você recebe o retorno por e-mail.",
   },
   {
-    q: "Posso vender qualquer tipo de veículo?",
-    a: "Sim. A plataforma suporta carros, motos, caminhões, ônibus, tratores, náutico, máquinas agrícolas, aeronáutico e mais.",
+    q: "Quais tipos de veículo a plataforma atende?",
+    a: "Carros, motos, caminhões, ônibus, vans, pickups, tratores e máquinas agrícolas. Se tiver dúvida sobre algum tipo específico, entre em contato.",
   },
   {
-    q: "As peças precisam ser novas?",
-    a: "Não. Os clientes podem informar a condição aceita (nova, usada, recondicionada). Você envia proposta conforme o que tem disponível.",
+    q: "Posso comprar peças de qualquer estado do Brasil?",
+    a: "Sim. Seu pedido é enviado a desmanches credenciados de todo o Brasil. O frete e as condições de envio são combinados diretamente com cada desmanche ao fechar o negócio.",
   },
   {
     q: "Como o cliente sabe que o desmanche é confiável?",
