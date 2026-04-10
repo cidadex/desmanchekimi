@@ -1971,6 +1971,56 @@ export async function registerRoutes(server: Server, app: Express) {
   });
 
   // ============================================
+  // LICENSE ALERTS
+  // ============================================
+
+  // Desmanche: checks own Detran license expiry
+  app.get("/api/desmanche/license-alert", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const alertDays = await storage.getSystemSettingNumber("licenseAlertDays", 30);
+      const docs = await storage.getDocumentsByDesmanche(desmancheId);
+      const detranDocs = docs.filter((d: any) => d.type === "credenciamento_detran" && d.validUntil);
+      const now = Date.now();
+      const thresholdMs = alertDays * 24 * 60 * 60 * 1000;
+      const alerts = detranDocs.map((d: any) => {
+        const validUntilMs = d.validUntil instanceof Date ? d.validUntil.getTime() : new Date(d.validUntil).getTime();
+        const daysLeft = Math.ceil((validUntilMs - now) / (24 * 60 * 60 * 1000));
+        return { id: d.id, name: d.name, validUntil: d.validUntil, daysLeft, expired: daysLeft < 0 };
+      }).filter((d: any) => d.daysLeft <= alertDays);
+      res.json({ alerts, alertDays });
+    } catch (error) {
+      console.error("License alert error:", error);
+      res.status(500).json({ message: "Erro ao verificar licenças" });
+    }
+  });
+
+  // Admin: returns all desmanches with expiring/expired Detran licenses
+  app.get("/api/admin/license-alerts", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const alertDays = await storage.getSystemSettingNumber("licenseAlertDays", 30);
+      const desmanches = await storage.getAllDesmanches();
+      const now = Date.now();
+      const thresholdMs = alertDays * 24 * 60 * 60 * 1000;
+      const results = await Promise.all(desmanches.map(async (dm: any) => {
+        const docs = await storage.getDocumentsByDesmanche(dm.id);
+        const detranDocs = docs.filter((d: any) => d.type === "credenciamento_detran" && d.validUntil);
+        const alerts = detranDocs.map((d: any) => {
+          const validUntilMs = d.validUntil instanceof Date ? d.validUntil.getTime() : new Date(d.validUntil).getTime();
+          const daysLeft = Math.ceil((validUntilMs - now) / (24 * 60 * 60 * 1000));
+          return { id: d.id, name: d.name, validUntil: d.validUntil, daysLeft, expired: daysLeft < 0 };
+        }).filter((d: any) => d.daysLeft <= alertDays);
+        return { desmanche: { id: dm.id, companyName: dm.companyName, tradingName: dm.tradingName }, alerts };
+      }));
+      const withAlerts = results.filter((r: any) => r.alerts.length > 0);
+      res.json({ items: withAlerts, alertDays });
+    } catch (error) {
+      console.error("Admin license alerts error:", error);
+      res.status(500).json({ message: "Erro ao verificar licenças" });
+    }
+  });
+
+  // ============================================
   // BILLING / ASAAS ROUTES
   // ============================================
 
@@ -2176,7 +2226,7 @@ export async function registerRoutes(server: Server, app: Express) {
 
   app.patch("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
-      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment"];
+      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment", "licenseAlertDays"];
       for (const [key, value] of Object.entries(req.body)) {
         if (allowed.includes(key)) {
           await storage.setSystemSetting(key, String(value));

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Settings, Clock, DollarSign, AlertTriangle,
-  Zap, CheckCircle2, Eye, EyeOff, ExternalLink,
+  Zap, CheckCircle2, Eye, EyeOff, ExternalLink, ShieldAlert,
 } from "lucide-react";
 
 interface SystemSettings {
@@ -17,6 +17,7 @@ interface SystemSettings {
   maxOverdueBeforeBlock: string;
   perTransactionAmount: string;
   monthlyCapAmount: string;
+  licenseAlertDays: string;
   asaasApiKey?: string;
   asaasEnvironment?: string;
 }
@@ -29,6 +30,7 @@ export default function SettingsTab() {
     maxOverdueBeforeBlock: "1",
     perTransactionAmount: "25",
     monthlyCapAmount: "200",
+    licenseAlertDays: "30",
     asaasApiKey: "",
     asaasEnvironment: "sandbox",
   });
@@ -180,6 +182,30 @@ export default function SettingsTab() {
                   </span>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* ── License Alert ──────────────────────────────────── */}
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="font-mono text-base flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-orange-500" /> Alerta de Vencimento de Licença
+              </CardTitle>
+              <CardDescription>
+                Quantos dias antes do vencimento o sistema alerta o desmanche e o admin sobre a licença do Detran.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label>Dias antes do vencimento para disparar alerta</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={1} max={365} {...f("licenseAlertDays")} className="max-w-[120px]" />
+                  <span className="text-sm text-slate-500">dias</span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  O desmanche verá um aviso no painel e o admin receberá a lista de licenças próximas do vencimento.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

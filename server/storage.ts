@@ -442,6 +442,7 @@ const defaultSettings = [
   { key: 'maxOverdueBeforeBlock', value: '1' },
   { key: 'perTransactionAmount', value: '25' },
   { key: 'monthlyCapAmount', value: '200' },
+  { key: 'licenseAlertDays', value: '30' },
 ];
 for (const s of defaultSettings) {
   sqlite.exec(`INSERT OR IGNORE INTO system_settings (key, value) VALUES ('${s.key}', '${s.value}')`);

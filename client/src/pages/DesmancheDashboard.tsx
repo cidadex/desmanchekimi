@@ -15,6 +15,7 @@ import {
   MessageSquare,
   MessageCircleWarning,
   LogOut,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -119,6 +120,17 @@ export default function DesmancheDashboard() {
   const totalUnread = Array.isArray(chatRooms)
     ? chatRooms.reduce((s: number, r: any) => s + (r.unreadCount || 0), 0)
     : 0;
+
+  const { data: licenseAlert } = useQuery<{ alerts: any[]; alertDays: number }>({
+    queryKey: ["/api/desmanche/license-alert"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/desmanche/license-alert");
+      return res.json();
+    },
+    enabled: !!getToken(),
+    staleTime: 60 * 60 * 1000,
+  });
+  const licenseAlerts = licenseAlert?.alerts || [];
 
   const SidebarContent = () => (
     <>
@@ -225,6 +237,42 @@ export default function DesmancheDashboard() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {licenseAlerts.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {licenseAlerts.map((alert: any) => (
+                <div
+                  key={alert.id}
+                  className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${
+                    alert.expired
+                      ? "bg-red-50 border-red-300 text-red-800"
+                      : "bg-amber-50 border-amber-300 text-amber-800"
+                  }`}
+                >
+                  <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold">
+                      {alert.expired
+                        ? "⚠️ Licença do Detran VENCIDA"
+                        : `⚠️ Licença do Detran vence em ${alert.daysLeft} dia${alert.daysLeft === 1 ? "" : "s"}`}
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      Documento: <strong>{alert.name || "Credenciamento Detran"}</strong> —{" "}
+                      Vencimento: <strong>{new Date(alert.validUntil).toLocaleDateString("pt-BR")}</strong>.{" "}
+                      {alert.expired
+                        ? "Renove o documento imediatamente para evitar bloqueio do cadastro."
+                        : "Renove o documento antes do vencimento para manter seu cadastro ativo."}
+                    </p>
+                  </div>
+                  <button
+                    className="text-xs underline shrink-0 hover:no-underline"
+                    onClick={() => handleSetTab("docs")}
+                  >
+                    Ver documentos
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {activeTab === 'overview' && <DesmancheOverviewTab onNavigate={handleSetTab} />}
           {activeTab === 'orders' && <DesmancheOrdersTab />}
           {activeTab === 'negotiations' && <DesmancheNegotiationsTab onNavigate={handleSetTab} />}

@@ -19,6 +19,7 @@ import {
   Globe,
   MessageCircleWarning,
   LogOut,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,16 @@ export default function AdminDashboard() {
       return res.json();
     },
   });
+
+  const { data: adminLicenseData } = useQuery<{ items: any[]; alertDays: number }>({
+    queryKey: ["/api/admin/license-alerts"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/license-alerts");
+      return res.json();
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+  const adminLicenseItems = adminLicenseData?.items || [];
 
   const pendingCount = stats?.pendingApprovals ?? 0;
   const totalDesmanches = stats?.totalDesmanches ?? 0;
@@ -201,6 +212,40 @@ export default function AdminDashboard() {
 
         {/* Dashboard Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {adminLicenseItems.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm text-orange-800">
+                <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-orange-500" />
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">
+                    Licenças do Detran próximas do vencimento ({adminLicenseItems.length} desmanche{adminLicenseItems.length > 1 ? "s" : ""})
+                  </p>
+                  <ul className="space-y-1 text-xs">
+                    {adminLicenseItems.map((item: any) => (
+                      item.alerts.map((alert: any) => (
+                        <li key={alert.id} className="flex items-center gap-2">
+                          <span className={`font-medium ${alert.expired ? "text-red-700" : ""}`}>
+                            {alert.expired ? "⛔ VENCIDA" : `⚠️ ${alert.daysLeft}d`}
+                          </span>
+                          <span>
+                            <strong>{item.desmanche.tradingName || item.desmanche.companyName}</strong>
+                            {" — "}{alert.name || "Credenciamento Detran"}
+                            {" — Vence: "}{new Date(alert.validUntil).toLocaleDateString("pt-BR")}
+                          </span>
+                          <button
+                            className="underline hover:no-underline"
+                            onClick={() => { setSelectedDesmancheId(item.desmanche.id); handleSetTab("desmanches"); }}
+                          >
+                            Ver
+                          </button>
+                        </li>
+                      ))
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
           {activeTab === 'overview' && <OverviewTab />}
           {activeTab === 'desmanches' && !selectedDesmancheId && (
             <DesmanchesTab onSelectDesmanche={(id) => setSelectedDesmancheId(id)} />
