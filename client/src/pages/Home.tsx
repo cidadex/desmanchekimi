@@ -35,21 +35,46 @@ export default function Home() {
     staleTime: 60000,
   });
 
-  const ts = {
-    negotiating: siteSettings?.ticker_negotiating ?? "1.245",
-    online: siteSettings?.ticker_desmanches_online ?? "42",
-    traded: siteSettings?.ticker_traded_today ?? "145.000",
-    newOrders: siteSettings?.ticker_new_orders ?? "23",
-    custom: siteSettings?.ticker_custom ?? "",
-  };
+  const useRealData = siteSettings?.ticker_use_real_data === "true";
 
-  const tickerSegments = [
-    `${ts.negotiating} pessoas negociando agora`,
-    `${ts.online} desmanches online`,
-    `R$ ${ts.traded} em peças negociadas hoje`,
-    `${ts.newOrders} novos pedidos de peças`,
-    ...(ts.custom ? [ts.custom] : []),
-  ];
+  const { data: realStats } = useQuery<{ desmanchesOnline: number; clientsTotal: number; ordersToday: number; activeNegotiations: number }>({
+    queryKey: ["/api/site-stats/real"],
+    queryFn: async () => { const r = await fetch("/api/site-stats/real"); return r.json(); },
+    staleTime: 120000,
+    enabled: useRealData,
+  });
+
+  const ts = useRealData && realStats
+    ? {
+        negotiating: String(realStats.activeNegotiations),
+        online: String(realStats.desmanchesOnline),
+        traded: String(realStats.ordersToday),
+        newOrders: String(realStats.ordersToday),
+        custom: siteSettings?.ticker_custom ?? "",
+      }
+    : {
+        negotiating: siteSettings?.ticker_negotiating ?? "1.245",
+        online: siteSettings?.ticker_desmanches_online ?? "42",
+        traded: siteSettings?.ticker_traded_today ?? "145.000",
+        newOrders: siteSettings?.ticker_new_orders ?? "23",
+        custom: siteSettings?.ticker_custom ?? "",
+      };
+
+  const tickerSegments = useRealData && realStats
+    ? [
+        `${realStats.activeNegotiations} negociações ativas`,
+        `${realStats.desmanchesOnline} desmanches cadastrados`,
+        `${realStats.ordersToday} pedidos hoje`,
+        `${realStats.clientsTotal} clientes cadastrados`,
+        ...(ts.custom ? [ts.custom] : []),
+      ]
+    : [
+        `${ts.negotiating} pessoas negociando agora`,
+        `${ts.online} desmanches online`,
+        `R$ ${ts.traded} em peças negociadas hoje`,
+        `${ts.newOrders} novos pedidos de peças`,
+        ...(ts.custom ? [ts.custom] : []),
+      ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">

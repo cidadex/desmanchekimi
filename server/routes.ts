@@ -2265,6 +2265,17 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
+  // ─── REAL SITE STATS (public) ───────────────────────────────────────────────
+
+  app.get("/api/site-stats/real", async (_req, res) => {
+    try {
+      res.json(storage.getRealStats());
+    } catch (err) {
+      console.error("Real stats error:", err);
+      res.status(500).json({ message: "Erro ao buscar dados reais" });
+    }
+  });
+
   // ─── BRAND LOGOS (public read, admin write) ─────────────────────────────────
 
   app.get("/api/brand-logos", async (_req, res) => {

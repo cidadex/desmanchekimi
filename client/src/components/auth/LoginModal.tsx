@@ -103,7 +103,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
 export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const [activeTab, setActiveTab] = useState<"client" | "desmanche" | "admin">("client");
+  const [activeTab, setActiveTab] = useState<"client" | "desmanche">("client");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showForgot, setShowForgot] = useState(false);
@@ -111,7 +111,7 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
   const [, navigate] = useLocation();
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab as "client" | "desmanche" | "admin");
+    setActiveTab(tab as "client" | "desmanche");
     setEmail("");
     setPassword("");
     setShowForgot(false);
@@ -129,8 +129,6 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
       setOpen(false);
       if (activeTab === "desmanche") {
         navigate("/desmanche");
-      } else if (activeTab === "admin") {
-        navigate("/admin");
       } else {
         navigate("/cliente");
       }
@@ -138,7 +136,7 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
     }
   };
 
-  const loginForm = (label: string, emailId: string, passwordId: string) => (
+  const loginForm = (label: string, emailId: string) => (
     <form onSubmit={handleSubmit} className="space-y-4 mt-4">
       <div className="space-y-2">
         <Label htmlFor={emailId}>{label}</Label>
@@ -164,23 +162,21 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
           data-testid={`input-${emailId}-password`}
         />
       </div>
-      {activeTab !== "admin" && (
-        <div className="text-right">
-          <button
-            type="button"
-            onClick={() => setShowForgot(true)}
-            className="text-xs text-primary hover:underline"
-            data-testid="link-forgot-password"
-          >
-            Esqueci minha senha
-          </button>
-        </div>
-      )}
+      <div className="text-right">
+        <button
+          type="button"
+          onClick={() => setShowForgot(true)}
+          className="text-xs text-primary hover:underline"
+          data-testid="link-forgot-password"
+        >
+          Esqueci minha senha
+        </button>
+      </div>
       <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login">
         {isLoading ? (
           <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando...</>
         ) : (
-          `Entrar como ${activeTab === "client" ? "Cliente" : activeTab === "desmanche" ? "Desmanche" : "Admin"}`
+          `Entrar como ${activeTab === "client" ? "Cliente" : "Desmanche"}`
         )}
       </Button>
     </form>
@@ -203,25 +199,19 @@ export function LoginModal({ children, defaultOpen = false }: LoginModalProps) {
           <ForgotPasswordForm onBack={() => setShowForgot(false)} />
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="client">Cliente</TabsTrigger>
               <TabsTrigger value="desmanche">Desmanche</TabsTrigger>
-              <TabsTrigger value="admin">Admin</TabsTrigger>
             </TabsList>
 
             <TabsContent value="client">
               <TestCredentials email="recriarme@gmail.com" password="debora123" />
-              {loginForm("Email", "client-email", "client-email")}
+              {loginForm("Email", "client-email")}
             </TabsContent>
 
             <TabsContent value="desmanche">
               <TestCredentials email="contato@irmaossilva.com" password="desmanche123" />
-              {loginForm("Email do Desmanche", "desmanche-email", "desmanche-email")}
-            </TabsContent>
-
-            <TabsContent value="admin">
-              <TestCredentials email="admin@centraldesmanches.com" password="admin123" />
-              {loginForm("Email do Administrador", "admin-email", "admin-email")}
+              {loginForm("Email do Desmanche", "desmanche-email")}
             </TabsContent>
           </Tabs>
         )}

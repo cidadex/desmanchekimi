@@ -20,13 +20,16 @@ import {
   MessageCircleWarning,
   LogOut,
   ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import logoImg from "@assets/Design_sem_nome_(23)_1772229532951.png";
 
 // Import Tabs
@@ -45,6 +48,72 @@ import ComplaintsTab from "@/components/admin/ComplaintsTab";
 import PermissionsTab, { ALL_ADMIN_TABS } from "@/components/admin/PermissionsTab";
 
 const ADMIN_TAB_KEY = "admin_tab";
+
+function AdminLoginPage() {
+  const { login, isLoading } = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await login(email, password, "user");
+    } catch {
+      toast({ title: "Credenciais inválidas", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-muted/40 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center gap-4">
+          <img src={logoImg} alt="Central dos Desmanches" className="h-32 w-auto" />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
+            <p className="text-sm text-muted-foreground mt-1">Acesso restrito a administradores</p>
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl shadow-sm p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="admin-login-email">E-mail</Label>
+              <Input
+                id="admin-login-email"
+                type="email"
+                placeholder="admin@empresa.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                data-testid="input-admin-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-login-password">Senha</Label>
+              <Input
+                id="admin-login-password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                data-testid="input-admin-password"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-admin-login">
+              {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Entrando...</> : "Entrar no Painel"}
+            </Button>
+          </form>
+        </div>
+        <p className="text-center text-xs text-muted-foreground">
+          <Link href="/" className="underline hover:no-underline">← Voltar ao site</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem(ADMIN_TAB_KEY) || "overview");
@@ -91,8 +160,15 @@ export default function AdminDashboard() {
       return res.json();
     },
     staleTime: 60 * 60 * 1000,
+    enabled: user?.type === "admin",
   });
   const adminLicenseItems = adminLicenseData?.items || [];
+
+  const { data: realStats } = useQuery<{ desmanchesOnline: number; clientsTotal: number; ordersToday: number; activeNegotiations: number }>({
+    queryKey: ["/api/site-stats/real"],
+    queryFn: async () => { const r = await fetch("/api/site-stats/real"); return r.json(); },
+    staleTime: 60000,
+  });
 
   const pendingCount = stats?.pendingApprovals ?? 0;
   const totalDesmanches = stats?.totalDesmanches ?? 0;
@@ -148,6 +224,10 @@ export default function AdminDashboard() {
     </>
   );
 
+  if (!user || user.type !== "admin") {
+    return <AdminLoginPage />;
+  }
+
   return (
     <div className="min-h-screen bg-muted/40 flex flex-col md:flex-row font-sans">
       
@@ -189,7 +269,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Live Ticker Area */}
+        {/* Live Ticker Area — always real data */}
         <div className="bg-foreground text-background py-2 px-4 flex items-center gap-4 border-b-4 border-primary relative z-20 shrink-0">
           <div className="flex items-center gap-2 font-mono text-sm shrink-0 font-bold z-10 bg-foreground relative">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -197,15 +277,15 @@ export default function AdminDashboard() {
           </div>
           <div className="flex-1 overflow-hidden relative">
             <div className="animate-ticker whitespace-nowrap font-mono text-sm flex gap-8 w-fit">
-              <span className="text-green-400">1.245 USUÁRIOS ONLINE</span>
+              <span className="text-green-400">{realStats?.clientsTotal ?? "..."} CLIENTES CADASTRADOS</span>
               <span className="text-muted-foreground">|</span>
-              <span className="text-yellow-400">R$ 14.500 NEGOCIADOS NOS ÚLTIMOS 60 MIN</span>
+              <span className="text-yellow-400">{realStats?.activeNegotiations ?? "..."} NEGOCIAÇÕES ATIVAS</span>
               <span className="text-muted-foreground">|</span>
-              <span className="text-blue-400">23 NOVOS PEDIDOS DE PEÇAS</span>
+              <span className="text-blue-400">{realStats?.ordersToday ?? "..."} PEDIDOS HOJE</span>
               <span className="text-muted-foreground">|</span>
               <span>{pendingCount} DESMANCHES AGUARDANDO APROVAÇÃO</span>
               <span className="text-muted-foreground">|</span>
-              <span className="text-green-400">1.245 USUÁRIOS ONLINE</span>
+              <span className="text-green-400">{realStats?.desmanchesOnline ?? "..."} DESMANCHES ATIVOS</span>
             </div>
           </div>
         </div>

@@ -1709,6 +1709,19 @@ export function getComplaintById(id: string): any {
   return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
 }
 
+// ==================== REAL SITE STATS ====================
+
+export function getRealStats() {
+  const desmanchesOnline = (sqlite.prepare("SELECT COUNT(*) as c FROM desmanches WHERE status = 'approved'").get() as any)?.c ?? 0;
+  const clientsTotal = (sqlite.prepare("SELECT COUNT(*) as c FROM users WHERE type = 'client'").get() as any)?.c ?? 0;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartSec = Math.floor(todayStart.getTime() / 1000);
+  const ordersToday = (sqlite.prepare("SELECT COUNT(*) as c FROM orders WHERE created_at >= ?").get(todayStartSec) as any)?.c ?? 0;
+  const activeNegotiations = (sqlite.prepare("SELECT COUNT(*) as c FROM negotiations WHERE status IN ('negotiating','awaiting_review')").get() as any)?.c ?? 0;
+  return { desmanchesOnline, clientsTotal, ordersToday, activeNegotiations };
+}
+
 // ==================== ADMIN USER MANAGEMENT ====================
 
 export function getAdminUsers(): any[] {

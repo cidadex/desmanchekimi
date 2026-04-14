@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2, Radio, Image as ImageIcon, Upload, Trash2, Search,
-  CheckCircle2, AlertCircle, X, RefreshCw, Save
+  CheckCircle2, AlertCircle, X, RefreshCw, Save, Database,
 } from "lucide-react";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,15 @@ function LiveStatusSection() {
     ticker_traded_today: "145.000",
     ticker_new_orders: "23",
     ticker_custom: "",
+    ticker_use_real_data: "false",
+  });
+
+  const useRealData = form.ticker_use_real_data === "true";
+
+  const { data: realStats } = useQuery<{ desmanchesOnline: number; clientsTotal: number; ordersToday: number; activeNegotiations: number }>({
+    queryKey: ["/api/site-stats/real"],
+    queryFn: async () => { const r = await fetch("/api/site-stats/real"); return r.json(); },
+    staleTime: 30000,
   });
 
   useEffect(() => {
@@ -87,37 +97,100 @@ function LiveStatusSection() {
     form.ticker_custom,
   ].filter(Boolean).join("  |  ");
 
+  const realPreviewText = realStats
+    ? [
+        `${realStats.activeNegotiations} negociações ativas`,
+        `${realStats.desmanchesOnline} desmanches cadastrados`,
+        `${realStats.ordersToday} pedidos hoje`,
+        `${realStats.clientsTotal} clientes cadastrados`,
+        ...(form.ticker_custom ? [form.ticker_custom] : []),
+      ].join("  |  ")
+    : "Carregando dados reais...";
+
   return (
     <div className="space-y-4">
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
       ) : (
         <>
+          {/* Real Data Toggle */}
+          <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${useRealData ? "border-green-300 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
+            <div className="flex items-center gap-3">
+              <Database className={`h-5 w-5 ${useRealData ? "text-green-600" : "text-slate-400"}`} />
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Usar dados reais do banco</p>
+                <p className="text-xs text-slate-500">
+                  {useRealData
+                    ? "O ticker exibe contagens reais do sistema (negociações, pedidos, etc.)"
+                    : "O ticker exibe os números configurados manualmente abaixo."}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={useRealData}
+              onCheckedChange={(checked) => setForm(prev => ({ ...prev, ticker_use_real_data: checked ? "true" : "false" }))}
+            />
+          </div>
+
           {/* Preview */}
           <div className="rounded-lg overflow-hidden border border-slate-200 shadow-sm">
             <div className="bg-slate-900 text-slate-300 px-4 py-1.5 text-xs font-mono flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              LIVE STATUS — pré-visualização
+              LIVE STATUS — pré-visualização {useRealData && <span className="text-green-400 ml-1">(dados reais)</span>}
             </div>
             <div className="bg-slate-950 text-white px-4 py-2.5 overflow-hidden">
-              <p className="font-mono text-sm whitespace-nowrap text-slate-200 truncate">{previewText}</p>
+              <p className="font-mono text-sm whitespace-nowrap text-slate-200 truncate">
+                {useRealData ? realPreviewText : previewText}
+              </p>
             </div>
           </div>
 
-          {/* Fields */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {fields.map(({ key, label, placeholder, hint }) => (
-              <div key={key} className="space-y-1.5">
-                <Label className="font-medium">{label}</Label>
-                <Input
-                  value={form[key]}
-                  onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                />
-                <p className="text-xs text-slate-400">{hint}</p>
-              </div>
-            ))}
-          </div>
+          {/* Fields — only shown in manual mode */}
+          {!useRealData && (
+            <div className="grid md:grid-cols-2 gap-4">
+              {fields.map(({ key, label, placeholder, hint }) => (
+                <div key={key} className="space-y-1.5">
+                  <Label className="font-medium">{label}</Label>
+                  <Input
+                    value={form[key]}
+                    onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                  />
+                  <p className="text-xs text-slate-400">{hint}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Custom message always visible */}
+          {useRealData && (
+            <div className="space-y-1.5">
+              <Label className="font-medium">Mensagem personalizada (opcional)</Label>
+              <Input
+                value={form.ticker_custom}
+                onChange={e => setForm(prev => ({ ...prev, ticker_custom: e.target.value }))}
+                placeholder="Promoção especial hoje!"
+              />
+              <p className="text-xs text-slate-400">Texto livre exibido no final do ticker. Deixe vazio para não exibir.</p>
+            </div>
+          )}
+
+          {/* Real data summary */}
+          {useRealData && realStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Negociações ativas", value: realStats.activeNegotiations },
+                { label: "Desmanches ativos", value: realStats.desmanchesOnline },
+                { label: "Pedidos hoje", value: realStats.ordersToday },
+                { label: "Clientes", value: realStats.clientsTotal },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-center">
+                  <p className="text-2xl font-bold text-green-700">{value}</p>
+                  <p className="text-xs text-green-600 mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end pt-2">
             <Button onClick={() => saveMutation.mutate(form)} disabled={saveMutation.isPending} className="gap-2">
