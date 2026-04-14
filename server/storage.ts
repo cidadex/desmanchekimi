@@ -1712,7 +1712,7 @@ export function getComplaintById(id: string): any {
 // ==================== REAL SITE STATS ====================
 
 export function getRealStats() {
-  const desmanchesOnline = (sqlite.prepare("SELECT COUNT(*) as c FROM desmanches WHERE status = 'approved'").get() as any)?.c ?? 0;
+  const desmanchesOnline = (sqlite.prepare("SELECT COUNT(*) as c FROM desmanches WHERE status = 'active'").get() as any)?.c ?? 0;
   const clientsTotal = (sqlite.prepare("SELECT COUNT(*) as c FROM users WHERE type = 'client'").get() as any)?.c ?? 0;
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);

@@ -21,6 +21,7 @@ import {
   LogOut,
   ShieldAlert,
   Loader2,
+  FileBarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import SiteContentTab from "@/components/admin/SiteContentTab";
 import ComplaintsTab from "@/components/admin/ComplaintsTab";
 import PermissionsTab, { ALL_ADMIN_TABS } from "@/components/admin/PermissionsTab";
+import RelatoriosTab from "@/components/admin/RelatoriosTab";
 
 const ADMIN_TAB_KEY = "admin_tab";
 
@@ -189,6 +191,7 @@ export default function AdminDashboard() {
         {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
         {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('reports') && <SidebarItem icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}
         {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
         {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
         {canAccess('settings') && <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
@@ -326,7 +329,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-          {activeTab === 'overview' && <OverviewTab />}
+          {activeTab === 'overview' && <OverviewTab onNavigate={handleSetTab} />}
           {activeTab === 'desmanches' && !selectedDesmancheId && (
             <DesmanchesTab onSelectDesmanche={(id) => setSelectedDesmancheId(id)} />
           )}
@@ -347,6 +350,7 @@ export default function AdminDashboard() {
           )}
           {activeTab === 'finance' && <FinanceTab />}
           {activeTab === 'approvals' && <ApprovalsTab />}
+          {activeTab === 'reports' && <RelatoriosTab />}
           {activeTab === 'site-content' && <SiteContentTab />}
           {activeTab === 'complaints' && <ComplaintsTab />}
           {activeTab === 'settings' && <SettingsTab />}

@@ -46,6 +46,7 @@ import {
   Edit3,
   Check,
   X,
+  FileBarChart2,
 } from "lucide-react";
 
 // All configurable tabs (permissions tab itself is always super-admin only)
@@ -56,6 +57,7 @@ export const ALL_ADMIN_TABS: { key: string; label: string; icon: any }[] = [
   { key: "orders",        label: "Anúncios / Pedidos",     icon: Package },
   { key: "finance",       label: "Assinaturas & Receitas", icon: DollarSign },
   { key: "approvals",     label: "Aprovações",             icon: CheckSquare },
+  { key: "reports",       label: "Relatórios",             icon: FileBarChart2 },
   { key: "site-content",  label: "Conteúdo do Site",       icon: Globe },
   { key: "complaints",    label: "Reclamações",            icon: MessageCircleWarning },
   { key: "settings",      label: "Configurações",          icon: Settings },

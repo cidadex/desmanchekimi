@@ -53,7 +53,7 @@ function MetricCard({ title, value, trend, icon, isLoading }: any) {
   );
 }
 
-export default function OverviewTab() {
+export default function OverviewTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin", "dashboard-stats"],
     queryFn: async () => {
@@ -78,8 +78,7 @@ export default function OverviewTab() {
           <p className="text-muted-foreground">Acompanhe as métricas de negociações em tempo real.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Baixar Relatório</Button>
-          <Button>Criar Campanha</Button>
+          <Button variant="outline" onClick={() => onNavigate?.('reports')}>Gerar Relatório</Button>
         </div>
       </div>
 
@@ -177,7 +176,7 @@ export default function OverviewTab() {
             <CardTitle className="font-mono text-xl">Aprovações Pendentes (Desmanches)</CardTitle>
             <CardDescription>Empresas aguardando validação para entrar na rede.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="hidden sm:flex">
+          <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => onNavigate?.('approvals')}>
             Ver Todas <ArrowUpRight className="ml-2 h-4 w-4" />
           </Button>
         </CardHeader>
@@ -209,7 +208,7 @@ export default function OverviewTab() {
                       <Badge variant="secondary" className="font-medium">Pendente</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost">Revisar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => onNavigate?.('approvals')}>Revisar</Button>
                     </TableCell>
                   </TableRow>
                 ))}

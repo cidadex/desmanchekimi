@@ -15,6 +15,7 @@ type Order = {
   vehicleYear: string | null;
   city: string | null;
   state: string | null;
+  location: string | null;
   status: string;
   createdAt: string;
   proposals?: unknown[];
@@ -138,7 +139,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
         <div className="space-y-4">
           {filtered.map((order) => {
             const vehicle = [order.vehicleBrand, order.vehicleModel, order.vehicleYear].filter(Boolean).join(" ");
-            const location = [order.city, order.state].filter(Boolean).join(", ");
+            const location = [order.city, order.state].filter(Boolean).join(", ") || order.location || "";
             const proposalCount = order.proposals ? order.proposals.length : 0;
 
             return (
