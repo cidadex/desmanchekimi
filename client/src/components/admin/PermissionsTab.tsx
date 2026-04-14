@@ -47,6 +47,7 @@ import {
   Check,
   X,
   FileBarChart2,
+  Power,
 } from "lucide-react";
 
 // All configurable tabs (permissions tab itself is always super-admin only)
@@ -69,6 +70,7 @@ interface AdminUser {
   email: string;
   phone?: string;
   permissions: string[] | null;
+  status: "active" | "inactive";
   created_at: number;
 }
 
@@ -195,6 +197,22 @@ export default function PermissionsTab() {
     onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "inactive" }) => {
+      const res = await apiRequest("PATCH", `/api/admin/admin-users/${id}/status`, { status });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao alterar status");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/admin-users"] });
+      toast({ title: vars.status === "active" ? "Admin ativado" : "Admin desativado" });
+    },
+    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
   const canCreate = newName.trim() && newEmail.trim() && newPassword.trim();
 
   return (
@@ -239,8 +257,9 @@ export default function PermissionsTab() {
             const isEditing = editingPerms?.id === admin.id;
             const enabledCount = admin.permissions?.length ?? 0;
 
+            const isActive = (admin.status ?? "active") === "active";
             return (
-              <Card key={admin.id} className="overflow-hidden">
+              <Card key={admin.id} className={`overflow-hidden ${!isActive ? "opacity-60" : ""}`}>
                 <div
                   className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedId(isExpanded ? null : admin.id)}
@@ -258,10 +277,24 @@ export default function PermissionsTab() {
                         ? <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Super Admin</Badge>
                         : <Badge variant="outline" className="text-xs">{enabledCount} / {ALL_ADMIN_TABS.length} seções</Badge>
                       }
+                      {!isActive && (
+                        <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">Desativado</Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">{admin.email}</p>
                   </div>
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={isActive ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
+                      title={isActive ? "Desativar admin" : "Ativar admin"}
+                      onClick={() => toggleStatusMutation.mutate({ id: admin.id, status: isActive ? "inactive" : "active" })}
+                      disabled={toggleStatusMutation.isPending}
+                      data-testid={`button-toggle-status-${admin.id}`}
+                    >
+                      <Power className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

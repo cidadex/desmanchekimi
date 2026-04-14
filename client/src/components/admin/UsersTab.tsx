@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Search, Mail, Phone, Calendar, ChevronRight, UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
+import { Search, Mail, Phone, Calendar, ChevronRight, UserPlus, Loader2, Eye, EyeOff, Power } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function formatMemberSince(dateStr: string) {
@@ -79,6 +79,22 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
     },
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "inactive" }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${id}/status`, { status });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro ao alterar status");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: vars.status === "active" ? "Usuário ativado" : "Usuário desativado" });
+    },
+    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
   const set = (field: keyof typeof EMPTY_FORM, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
   const canSubmit = form.name && form.email && form.phone && form.password.length >= 6;
@@ -123,15 +139,16 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
         <div className="text-center py-12 text-muted-foreground">Nenhum usuário encontrado.</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {filtered.map((user: any) => (
+          {filtered.map((user: any) => {
+            const isActive = (user.status ?? "active") === "active";
+            return (
             <Card
               key={user.id}
-              className="hover:border-primary/50 transition-colors cursor-pointer hover:shadow-sm"
-              onClick={() => onSelectUser?.(user.id)}
+              className={`transition-colors hover:shadow-sm ${isActive ? "hover:border-primary/50" : "opacity-60 border-dashed"}`}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <Avatar className="h-12 w-12 border-2 border-primary/10">
+                  <Avatar className="h-12 w-12 border-2 border-primary/10 cursor-pointer" onClick={() => onSelectUser?.(user.id)}>
                     <AvatarFallback className="bg-primary/5 text-primary font-bold">
                       {(user.name || "U")
                         .split(" ")
@@ -143,11 +160,23 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
                   </Avatar>
                   <div className="flex items-center gap-2">
                     {typeBadge(user.type)}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 ${isActive ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}`}
+                      title={isActive ? "Desativar usuário" : "Ativar usuário"}
+                      onClick={(e) => { e.stopPropagation(); toggleStatusMutation.mutate({ id: user.id, status: isActive ? "inactive" : "active" }); }}
+                      disabled={toggleStatusMutation.isPending}
+                      data-testid={`button-toggle-user-${user.id}`}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                    </Button>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => onSelectUser?.(user.id)} />
                   </div>
                 </div>
 
-                <h3 className="font-bold text-lg leading-none mb-1">{user.name}</h3>
+                <h3 className="font-bold text-lg leading-none mb-1 cursor-pointer" onClick={() => onSelectUser?.(user.id)}>{user.name}</h3>
+                {!isActive && <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200 mb-2">Desativado</Badge>}
 
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -169,7 +198,8 @@ export default function UsersTab({ onSelectUser }: { onSelectUser?: (id: string)
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

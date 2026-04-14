@@ -14,6 +14,7 @@ export const users = sqliteTable("users", {
   type: text("type", { enum: ["client", "admin"] }).notNull().default("client"),
   avatar: text("avatar"),
   profileComplete: integer("profile_complete", { mode: "boolean" }).notNull().default(false),
+  status: text("status", { enum: ["active", "inactive"] }).notNull().default("active"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 

@@ -94,6 +94,10 @@ export async function registerRoutes(server: Server, app: Express) {
       if (!isValid) {
         return res.status(401).json({ message: "Credenciais inválidas" });
       }
+
+      if ((user as any).status === "inactive") {
+        return res.status(403).json({ message: "Usuário desativado. Entre em contato com o suporte." });
+      }
       
       const permissions = user.type === "admin" ? storage.getAdminPermissions(user.id) : undefined;
 
@@ -1424,17 +1428,33 @@ export async function registerRoutes(server: Server, app: Express) {
   app.get("/api/admin/users", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users.map(u => ({
+      res.json(users.map((u: any) => ({
         id: u.id,
         name: u.name,
         email: u.email,
         phone: u.phone,
         type: u.type,
+        status: u.status ?? "active",
         createdAt: u.createdAt,
       })));
     } catch (error) {
       console.error("Get admin users error:", error);
       res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/status", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      if (status !== "active" && status !== "inactive") {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+      storage.setUserStatus(id, status);
+      res.json({ success: true, status });
+    } catch (error) {
+      console.error("Toggle user status error:", error);
+      res.status(500).json({ message: "Erro ao atualizar status" });
     }
   });
   
@@ -1793,6 +1813,28 @@ export async function registerRoutes(server: Server, app: Express) {
       res.json({ ...updated, permissions: updated.permissions ? JSON.parse(updated.permissions) : null });
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar admin" });
+    }
+  });
+
+  app.patch("/api/admin/admin-users/:id/status", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const callerPerms = storage.getAdminPermissions((req as any).user.id);
+      if (callerPerms !== null) {
+        return res.status(403).json({ message: "Apenas super-admins podem alterar status de admins" });
+      }
+      const { id } = req.params;
+      const { status } = req.body;
+      if (status !== "active" && status !== "inactive") {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+      if (id === (req as any).user.id) {
+        return res.status(400).json({ message: "Você não pode desativar sua própria conta" });
+      }
+      storage.setUserStatus(id, status);
+      res.json({ success: true, status });
+    } catch (error) {
+      console.error("Toggle admin status error:", error);
+      res.status(500).json({ message: "Erro ao atualizar status do admin" });
     }
   });
 

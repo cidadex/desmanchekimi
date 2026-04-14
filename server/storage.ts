@@ -272,6 +272,11 @@ try {
   sqlite.exec("ALTER TABLE users ADD COLUMN permissions TEXT");
 } catch {}
 
+// ── Migrate: add status column to users ──
+try {
+  sqlite.exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+} catch {}
+
 // ── Migrate orders.client_id to be nullable (SQLite requires table rebuild) ──
 try {
   const colInfo = sqlite.prepare("PRAGMA table_info(orders)").all() as any[];
@@ -1748,4 +1753,8 @@ export function updateAdminUser(id: string, data: { name?: string }): void {
   if (data.name) {
     sqlite.prepare("UPDATE users SET name = ? WHERE id = ? AND type = 'admin'").run(data.name, id);
   }
+}
+
+export function setUserStatus(id: string, status: "active" | "inactive"): void {
+  sqlite.prepare("UPDATE users SET status = ? WHERE id = ?").run(status, id);
 }
