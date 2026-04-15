@@ -2379,7 +2379,7 @@ export async function registerRoutes(server: Server, app: Express) {
         perTransactionAmount: [1, 1000],
         monthlyCapAmount: [1, 10000],
         licenseAlertDays: [1, 365],
-        staleNegotiationDays: [7, 180],
+        staleNegotiationDays: [1, 365],
       };
       for (const [key, value] of Object.entries(req.body)) {
         if (allowed.includes(key)) {

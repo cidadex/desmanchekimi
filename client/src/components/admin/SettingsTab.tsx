@@ -225,7 +225,7 @@ export default function SettingsTab() {
               <div className="space-y-1">
                 <Label>Dias de inatividade para iniciar verificação</Label>
                 <div className="flex items-center gap-2">
-                  <Input type="number" min={7} max={180} {...f("staleNegotiationDays")} className="max-w-[120px]" />
+                  <Input type="number" min={1} max={365} {...f("staleNegotiationDays")} className="max-w-[120px]" />
                   <span className="text-sm text-slate-500">dias</span>
                 </div>
                 <p className="text-xs text-slate-400">
