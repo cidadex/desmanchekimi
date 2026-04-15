@@ -1825,8 +1825,16 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
       const updated = await storage.resolveModerationNegotiation(id, resolution, reviewDeadlineDays);
-      // Billing fires naturally when client submits review (POST /api/reviews) or auto-expire runs.
-      // Do NOT trigger billing here to avoid double-charging on the same negotiation.
+      // Billing fires immediately on admin confirmation of sale.
+      // The idempotency guard in triggerTransactionBilling prevents double-charging if
+      // review submission or auto-expiry also attempt to charge the same negotiation.
+      if (resolution === "sold") {
+        try {
+          await triggerTransactionBilling(negotiation.desmancheId, negotiation.id);
+        } catch (billingErr) {
+          console.error("Billing on moderation resolution error:", billingErr);
+        }
+      }
       res.json(updated);
     } catch (error) {
       console.error("Resolve moderation error:", error);
