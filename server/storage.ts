@@ -451,6 +451,9 @@ try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN stale_check_at INTEGER`);
 // Negotiations: moderation columns
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN desmanche_response TEXT`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN client_response TEXT`); } catch (e) {}
+// Negotiations: audit trail for moderation resolution
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN resolved_by_admin_id TEXT REFERENCES users(id)`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN resolved_at INTEGER`); } catch (e) {}
 // Seed default system settings
 const defaultSettings = [
   { key: 'reviewDeadlineDays', value: '10' },
@@ -1653,19 +1656,36 @@ export async function getModerationNegotiations() {
   });
 }
 
-export async function resolveModerationNegotiation(id: string, resolution: 'sold' | 'cancelled', reviewDeadlineDays: number) {
+export async function resolveModerationNegotiation(id: string, resolution: 'sold' | 'cancelled', reviewDeadlineDays: number, adminId: string) {
   const now = new Date();
   if (resolution === 'sold') {
     const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
     await db.update(schema.negotiations)
-      .set({ status: 'awaiting_review', receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .set({ status: 'awaiting_review', receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now, resolvedByAdminId: adminId, resolvedAt: now })
       .where(eq(schema.negotiations.id, id));
   } else {
     await db.update(schema.negotiations)
-      .set({ status: 'cancelled', updatedAt: now })
+      .set({ status: 'cancelled', updatedAt: now, resolvedByAdminId: adminId, resolvedAt: now })
       .where(eq(schema.negotiations.id, id));
   }
   return getNegotiationById(id);
+}
+
+export async function getResolvedModerationNegotiations() {
+  return db.query.negotiations.findMany({
+    where: (neg, { and, isNotNull, inArray }) => and(
+      isNotNull(neg.resolvedByAdminId),
+      inArray(neg.status, ['awaiting_review', 'completed', 'cancelled'])
+    ),
+    with: {
+      order: true,
+      desmanche: true,
+      client: true,
+      resolvedByAdmin: true,
+    },
+    orderBy: [desc(schema.negotiations.resolvedAt)],
+    limit: 50,
+  });
 }
 
 export async function setNegotiationReceived(id: string, reviewDeadlineDays: number) {

@@ -215,6 +215,8 @@ export const negotiations = sqliteTable("negotiations", {
   staleCheckAt: integer("stale_check_at", { mode: "timestamp" }),
   desmanchemResponse: text("desmanche_response"),
   clientResponse: text("client_response"),
+  resolvedByAdminId: text("resolved_by_admin_id").references(() => users.id),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
@@ -334,7 +336,8 @@ export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans
 export const usersRelations = relations(users, ({ many }) => ({
   addresses: many(addresses),
   orders: many(orders),
-  negotiations: many(negotiations),
+  negotiations: many(negotiations, { relationName: "clientNegotiations" }),
+  resolvedNegotiations: many(negotiations, { relationName: "resolvedNegotiations" }),
   reviews: many(reviews),
 }));
 
@@ -394,8 +397,9 @@ export const negotiationsRelations = relations(negotiations, ({ one }) => ({
   order: one(orders, { fields: [negotiations.orderId], references: [orders.id] }),
   orderItem: one(orderItems, { fields: [negotiations.orderItemId], references: [orderItems.id] }),
   proposal: one(proposals, { fields: [negotiations.proposalId], references: [proposals.id] }),
-  client: one(users, { fields: [negotiations.clientId], references: [users.id] }),
+  client: one(users, { fields: [negotiations.clientId], references: [users.id], relationName: "clientNegotiations" }),
   desmanche: one(desmanches, { fields: [negotiations.desmancheId], references: [desmanches.id] }),
+  resolvedByAdmin: one(users, { fields: [negotiations.resolvedByAdminId], references: [users.id], relationName: "resolvedNegotiations" }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one }) => ({

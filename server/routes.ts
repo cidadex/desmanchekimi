@@ -1810,6 +1810,17 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
+  // Admin: histórico de negociações resolvidas via moderação
+  app.get("/api/admin/negotiations/moderation/resolved", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const negs = await storage.getResolvedModerationNegotiations();
+      res.json(negs);
+    } catch (error) {
+      console.error("Get resolved moderation negotiations error:", error);
+      res.status(500).json({ message: "Erro ao buscar histórico de moderação" });
+    }
+  });
+
   // Admin: resolver negociação em moderação
   app.post("/api/admin/negotiations/moderation/:id/resolve", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
@@ -1824,7 +1835,8 @@ export async function registerRoutes(server: Server, app: Express) {
         return res.status(400).json({ message: "Negociação não está em moderação" });
       }
       const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
-      const updated = await storage.resolveModerationNegotiation(id, resolution, reviewDeadlineDays);
+      const adminId = (req as any).user.id as string;
+      const updated = await storage.resolveModerationNegotiation(id, resolution, reviewDeadlineDays, adminId);
       // Billing fires immediately on admin confirmation of sale.
       // The idempotency guard in triggerTransactionBilling prevents double-charging if
       // review submission or auto-expiry also attempt to charge the same negotiation.
