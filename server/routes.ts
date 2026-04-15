@@ -2572,10 +2572,11 @@ export async function registerRoutes(server: Server, app: Express) {
 
   // Billing helper
   async function triggerTransactionBilling(desmancheId: string, negotiationId: string) {
-    // Idempotency guard: skip if a non-exempt billing transaction already exists for this negotiation
+    // Idempotency guard: skip if any billing transaction already exists for this negotiation,
+    // regardless of status (including exempt), to prevent any duplicate charge attempt.
     const existingTx = await storage.getBillingTransactionsByDesmanche(desmancheId);
     const alreadyBilled = existingTx.some(
-      (t: any) => t.negotiationId === negotiationId && t.status !== "exempt"
+      (t: any) => t.negotiationId === negotiationId
     );
     if (alreadyBilled) {
       console.log(`[billing] Skipping duplicate charge for negotiation ${negotiationId}`);

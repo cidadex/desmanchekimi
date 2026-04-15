@@ -192,7 +192,7 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
               <li key={n.id} className="text-xs text-amber-800">
                 • <span className="font-medium">{n.order?.title || "Negociação"}</span>
                 {n.client?.name ? ` com ${n.client.name}` : ""}
-                {" — "}iniciada há <span className="font-semibold">{daysOld(n.createdAt)} dias</span>
+                {" — "}parada há <span className="font-semibold">{daysOld(n.staleCheckAt || n.updatedAt)} dias</span>
               </li>
             ))}
           </ul>
@@ -623,7 +623,7 @@ function NegotiationCard({
                 <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                   A negociação de <span className="font-semibold">{neg.order?.title || "peça"}</span>
                   {neg.client?.name ? <> com <span className="font-semibold">{neg.client.name}</span></> : null}
-                  {" "}está parada há <span className="font-semibold">{daysOld(neg.createdAt)} dias</span>. O que aconteceu?
+                  {" "}está parada há <span className="font-semibold">{daysOld(neg.staleCheckAt || neg.updatedAt)} dias</span>. O que aconteceu?
                 </p>
               </div>
             </div>
