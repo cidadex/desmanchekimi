@@ -1302,6 +1302,17 @@ export async function registerRoutes(server: Server, app: Express) {
   // DASHBOARD STATS
   // ============================================
   
+  // Negociações pendentes (stale) para o admin
+  app.get("/api/admin/negotiations/pending", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const pending = await storage.getStaleNegotiations();
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending negotiations:", error);
+      res.status(500).json({ message: "Erro ao buscar negociações pendentes" });
+    }
+  });
+
   app.get("/api/dashboard/stats", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();

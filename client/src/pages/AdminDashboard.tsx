@@ -159,6 +159,8 @@ export default function AdminDashboard() {
     activeDesmanches: number;
     pendingApprovals: number;
     openOrders: number;
+    pendingComplaints: number;
+    pendingNegotiations: number;
   }>({
     queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
@@ -186,6 +188,7 @@ export default function AdminDashboard() {
 
   const pendingCount = stats?.pendingApprovals ?? 0;
   const pendingComplaints = stats?.pendingComplaints ?? 0;
+  const pendingNegotiations = stats?.pendingNegotiations ?? 0;
   const totalDesmanches = stats?.totalDesmanches ?? 0;
   const userName = user?.name || user?.companyName || "Admin";
   const userEmail = user?.email || "Sistema";
@@ -201,7 +204,7 @@ export default function AdminDashboard() {
         {canAccess('overview') && <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />}
         {canAccess('desmanches') && <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
         {canAccess('users') && <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} badge={pendingNegotiations > 0 ? String(pendingNegotiations) : undefined} badgeAlert={pendingNegotiations > 0} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
         {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
         {canAccess('reports') && <SidebarItem icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}

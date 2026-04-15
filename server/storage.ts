@@ -1163,6 +1163,15 @@ export async function getDashboardStats() {
 
   const pendingComplaintsCount = getPendingComplaintsCount();
 
+  const [pendingNegotiationsRow] = await db.select({ count: countSql })
+    .from(schema.negotiations)
+    .where(
+      or(
+        eq(schema.negotiations.status, 'stale_awaiting_desmanche'),
+        eq(schema.negotiations.status, 'stale_awaiting_client'),
+      )
+    );
+
   return {
     totalUsers: Number(usersCount?.count ?? 0),
     totalDesmanches: Number(desmanchesCount?.count ?? 0),
@@ -1171,7 +1180,22 @@ export async function getDashboardStats() {
     pendingApprovals: Number(pendingApprovals?.count ?? 0),
     openOrders: Number(openOrders?.count ?? 0),
     pendingComplaints: pendingComplaintsCount,
+    pendingNegotiations: Number(pendingNegotiationsRow?.count ?? 0),
   };
+}
+
+export async function getStaleNegotiations() {
+  return db.query.negotiations.findMany({
+    where: or(
+      eq(schema.negotiations.status, 'stale_awaiting_desmanche'),
+      eq(schema.negotiations.status, 'stale_awaiting_client'),
+    ),
+    with: {
+      order: true,
+      desmanche: true,
+    },
+    orderBy: [desc(schema.negotiations.updatedAt)],
+  });
 }
 
 // ==================== CHAT ====================
