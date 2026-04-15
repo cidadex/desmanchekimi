@@ -277,6 +277,11 @@ try {
   sqlite.exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
 } catch {}
 
+// ── Migrate: add desmanche_id to complaints ──
+try {
+  sqlite.exec("ALTER TABLE complaints ADD COLUMN desmanche_id TEXT");
+} catch {}
+
 // ── Migrate orders.client_id to be nullable (SQLite requires table rebuild) ──
 try {
   const colInfo = sqlite.prepare("PRAGMA table_info(orders)").all() as any[];
@@ -1153,6 +1158,8 @@ export async function getDashboardStats() {
     .from(schema.orders)
     .where(eq(schema.orders.status, 'open'));
 
+  const pendingComplaintsCount = getPendingComplaintsCount();
+
   return {
     totalUsers: Number(usersCount?.count ?? 0),
     totalDesmanches: Number(desmanchesCount?.count ?? 0),
@@ -1160,6 +1167,7 @@ export async function getDashboardStats() {
     activeDesmanches: Number(activeDesmanches?.count ?? 0),
     pendingApprovals: Number(pendingApprovals?.count ?? 0),
     openOrders: Number(openOrders?.count ?? 0),
+    pendingComplaints: pendingComplaintsCount,
   };
 }
 
@@ -1689,19 +1697,40 @@ export interface ComplaintInput {
   authorId: string;
   authorType: "client" | "desmanche";
   authorName?: string;
-  targetType?: "listing" | "general";
+  targetType?: "listing" | "general" | "desmanche";
   targetId?: string;
   targetDescription?: string;
+  desmancheId?: string;
 }
 
 export function createComplaint(data: ComplaintInput): any {
   const id = randomUUID();
   sqlite.prepare(`
-    INSERT INTO complaints (id, type, subject, message, author_id, author_type, author_name, target_type, target_id, target_description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO complaints (id, type, subject, message, author_id, author_type, author_name, target_type, target_id, target_description, desmanche_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, data.type, data.subject, data.message, data.authorId, data.authorType,
-    data.authorName || null, data.targetType || null, data.targetId || null, data.targetDescription || null);
+    data.authorName || null, data.targetType || null, data.targetId || null,
+    data.targetDescription || null, data.desmancheId || null);
   return sqlite.prepare("SELECT * FROM complaints WHERE id = ?").get(id);
+}
+
+export function getPendingComplaintsCount(): number {
+  const row = sqlite.prepare("SELECT COUNT(*) as c FROM complaints WHERE status = 'pending'").get() as any;
+  return row?.c ?? 0;
+}
+
+// Returns distinct desmanches a client has negotiated with (for complaint association)
+export async function getDesmanchesByClientNegotiations(clientId: string): Promise<any[]> {
+  const rows = sqlite.prepare(`
+    SELECT DISTINCT d.id, d.trading_name, d.company_name, d.logo,
+      n.id as negotiation_id, o.id as order_id, o.title as order_title
+    FROM negotiations n
+    JOIN desmanches d ON n.desmanche_id = d.id
+    JOIN orders o ON n.order_id = o.id
+    WHERE n.client_id = ?
+    ORDER BY n.created_at DESC
+  `).all(clientId) as any[];
+  return rows;
 }
 
 export function getComplaintsByAuthor(authorId: string): any[] {

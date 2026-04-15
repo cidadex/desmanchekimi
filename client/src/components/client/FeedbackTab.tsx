@@ -9,13 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   AlertTriangle, Lightbulb, MessageSquare, CheckCircle2, Clock,
-  Loader2, Plus, ChevronDown, ChevronUp,
+  Loader2, Plus, ChevronDown, ChevronUp, Store,
 } from "lucide-react";
 
 const TYPE_OPTIONS = [
   { value: "sugestao",   label: "Sugestão",   icon: Lightbulb,      desc: "Mande sua ideia para melhorar a plataforma", color: "border-blue-300 bg-blue-50 text-blue-700" },
-  { value: "reclamacao", label: "Reclamação",  icon: AlertTriangle,  desc: "Teve algum problema? Nos conte o que aconteceu", color: "border-orange-300 bg-orange-50 text-orange-700" },
+  { value: "reclamacao", label: "Reclamação",  icon: AlertTriangle,  desc: "Problema com desmanche, pedido ou plataforma", color: "border-orange-300 bg-orange-50 text-orange-700" },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -36,6 +39,8 @@ export function FeedbackTab() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedDesmancheId, setSelectedDesmancheId] = useState<string>("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: myComplaints = [], isLoading } = useQuery<any[]>({
@@ -46,14 +51,37 @@ export function FeedbackTab() {
     },
   });
 
+  const { data: myDesmanches = [] } = useQuery<any[]>({
+    queryKey: ["/api/complaints/my-desmanches"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/complaints/my-desmanches");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: selectedType === "reclamacao",
+  });
+
+  const selectedDesmanche = myDesmanches.find((d: any) => d.id === selectedDesmancheId);
+  const availableOrders: any[] = selectedDesmanche?.orders ?? [];
+
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/complaints", {
+      const body: any = {
         type: selectedType,
         subject: subject.trim(),
         message: message.trim(),
-        targetType: "general",
-      });
+        targetType: selectedType === "reclamacao" && selectedDesmancheId ? "desmanche" : "general",
+      };
+      if (selectedType === "reclamacao" && selectedDesmancheId) {
+        body.desmancheId = selectedDesmancheId;
+        body.targetDescription = selectedDesmanche?.tradingName || selectedDesmanche?.companyName;
+        if (selectedOrderId) {
+          body.targetId = selectedOrderId;
+          const orderObj = availableOrders.find((o: any) => o.id === selectedOrderId);
+          body.targetDescription = `${body.targetDescription} — ${orderObj?.title || "Pedido"}`;
+        }
+      }
+      const res = await apiRequest("POST", "/api/complaints", body);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "Erro ao enviar");
@@ -65,6 +93,8 @@ export function FeedbackTab() {
       setSelectedType(null);
       setSubject("");
       setMessage("");
+      setSelectedDesmancheId("");
+      setSelectedOrderId("");
       toast({ title: "Enviado com sucesso!", description: "Nossa equipe analisará em breve." });
     },
     onError: (err: Error) => {
@@ -76,7 +106,6 @@ export function FeedbackTab() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      {/* Formulário */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -85,7 +114,6 @@ export function FeedbackTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Tipo */}
           <div className="space-y-2">
             <Label>O que você quer enviar? <span className="text-destructive">*</span></Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -96,7 +124,11 @@ export function FeedbackTab() {
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setSelectedType(opt.value)}
+                    onClick={() => {
+                      setSelectedType(opt.value);
+                      setSelectedDesmancheId("");
+                      setSelectedOrderId("");
+                    }}
                     className={`text-left rounded-xl border-2 p-4 transition-all ${
                       isSelected ? `${opt.color} border-current` : "border-muted hover:border-primary/30"
                     }`}
@@ -113,24 +145,78 @@ export function FeedbackTab() {
             </div>
           </div>
 
-          {/* Assunto */}
+          {selectedType === "reclamacao" && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-orange-800">
+                <Store className="h-4 w-4" />
+                Associar a um Desmanche (opcional)
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-orange-900">Desmanche envolvido</Label>
+                {myDesmanches.length === 0 ? (
+                  <p className="text-xs text-orange-700 italic">
+                    Você não possui negociações para associar. A reclamação será registrada como geral.
+                  </p>
+                ) : (
+                  <Select
+                    value={selectedDesmancheId}
+                    onValueChange={(v) => { setSelectedDesmancheId(v); setSelectedOrderId(""); }}
+                  >
+                    <SelectTrigger data-testid="select-desmanche" className="bg-white">
+                      <SelectValue placeholder="Selecione um desmanche..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {myDesmanches.map((d: any) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.tradingName || d.companyName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {selectedDesmancheId && availableOrders.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-orange-900">Pedido relacionado (opcional)</Label>
+                  <Select
+                    value={selectedOrderId}
+                    onValueChange={setSelectedOrderId}
+                  >
+                    <SelectTrigger data-testid="select-order" className="bg-white">
+                      <SelectValue placeholder="Selecione um pedido..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum pedido específico</SelectItem>
+                      {availableOrders.map((o: any) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="fb-subject">Assunto <span className="text-destructive">*</span></Label>
             <Input
               id="fb-subject"
-              placeholder={selectedType === "sugestao" ? "Ex: Melhorar filtro de busca" : "Ex: Problema no pagamento"}
+              placeholder={selectedType === "sugestao" ? "Ex: Melhorar filtro de busca" : "Ex: Desmanche não respondeu após negociação"}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               data-testid="input-fb-subject"
             />
           </div>
 
-          {/* Mensagem */}
           <div className="space-y-1.5">
             <Label htmlFor="fb-message">Mensagem <span className="text-destructive">*</span></Label>
             <Textarea
               id="fb-message"
-              placeholder="Descreva com detalhes..."
+              placeholder="Descreva com detalhes o que aconteceu..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
@@ -152,7 +238,6 @@ export function FeedbackTab() {
         </CardContent>
       </Card>
 
-      {/* Histórico */}
       <div className="space-y-3">
         <h2 className="font-semibold text-lg">Meus Envios</h2>
         {isLoading ? (
@@ -186,6 +271,11 @@ export function FeedbackTab() {
                       <span className="text-xs text-muted-foreground">{formatDate(c.created_at)}</span>
                     </div>
                     <p className="font-medium text-sm truncate">{c.subject}</p>
+                    {c.target_description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <Store className="h-3 w-3" /> {c.target_description}
+                      </p>
+                    )}
                   </div>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                 </button>

@@ -185,6 +185,7 @@ export default function AdminDashboard() {
   });
 
   const pendingCount = stats?.pendingApprovals ?? 0;
+  const pendingComplaints = stats?.pendingComplaints ?? 0;
   const totalDesmanches = stats?.totalDesmanches ?? 0;
   const userName = user?.name || user?.companyName || "Admin";
   const userEmail = user?.email || "Sistema";
@@ -205,7 +206,7 @@ export default function AdminDashboard() {
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
         {canAccess('reports') && <SidebarItem icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}
         {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" badge={pendingComplaints > 0 ? String(pendingComplaints) : undefined} badgeAlert={pendingComplaints > 0} active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
         {canAccess('settings') && <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
         {isSuperAdmin && (
           <>

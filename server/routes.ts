@@ -1859,9 +1859,39 @@ export async function registerRoutes(server: Server, app: Express) {
   // COMPLAINTS / FEEDBACK
   // ============================================
 
+  app.get("/api/complaints/my-desmanches", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const rows = await storage.getDesmanchesByClientNegotiations(clientId);
+      // Deduplicate by desmanche id, keep all orders per desmanche
+      const map = new Map<string, any>();
+      for (const row of rows) {
+        if (!map.has(row.id)) {
+          map.set(row.id, {
+            id: row.id,
+            tradingName: row.trading_name,
+            companyName: row.company_name,
+            logo: row.logo,
+            orders: [],
+          });
+        }
+        if (row.order_id) {
+          const d = map.get(row.id)!;
+          if (!d.orders.find((o: any) => o.id === row.order_id)) {
+            d.orders.push({ id: row.order_id, title: row.order_title });
+          }
+        }
+      }
+      res.json(Array.from(map.values()));
+    } catch (error) {
+      console.error("Get my desmanches error:", error);
+      res.status(500).json({ message: "Erro ao buscar desmanches" });
+    }
+  });
+
   app.post("/api/complaints", authMiddleware, async (req, res) => {
     try {
-      const { type, subject, message, targetType, targetId, targetDescription } = req.body;
+      const { type, subject, message, targetType, targetId, targetDescription, desmancheId } = req.body;
       if (!type || !["denuncia", "sugestao", "reclamacao"].includes(type)) {
         return res.status(400).json({ message: "Tipo inválido. Use: denuncia, sugestao ou reclamacao" });
       }
@@ -1883,7 +1913,7 @@ export async function registerRoutes(server: Server, app: Express) {
       const complaint = storage.createComplaint({
         type, subject: subject.trim(), message: message.trim(),
         authorId, authorType: authorType === "admin" ? "client" : authorType,
-        authorName, targetType, targetId, targetDescription,
+        authorName, targetType, targetId, targetDescription, desmancheId,
       });
 
       res.status(201).json(complaint);

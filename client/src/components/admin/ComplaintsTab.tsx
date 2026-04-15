@@ -164,6 +164,11 @@ export default function ComplaintsTab() {
                               Anúncio #{c.target_id?.slice(0, 8)}
                             </Badge>
                           )}
+                          {c.target_type === "desmanche" && (
+                            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                              Desmanche
+                            </Badge>
+                          )}
                         </div>
                         <p className="font-semibold text-sm truncate">{c.subject}</p>
                         <p className="text-xs text-muted-foreground truncate">{c.message}</p>
@@ -204,8 +209,8 @@ export default function ComplaintsTab() {
                   <p className="font-semibold">{selected.subject}</p>
                   <p className="text-sm text-muted-foreground">{selected.message}</p>
                   {selected.target_description && (
-                    <p className="text-xs bg-red-50 text-red-700 border border-red-200 rounded px-2 py-1">
-                      Anúncio denunciado: {selected.target_description}
+                    <p className={`text-xs border rounded px-2 py-1 ${selected.target_type === "desmanche" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                      {selected.target_type === "desmanche" ? "Desmanche / Pedido:" : "Alvo:"} {selected.target_description}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
