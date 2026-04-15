@@ -1608,9 +1608,9 @@ export async function respondStaleAsClient(
   id: string,
   response: "received" | "not_received",
   reviewDeadlineDays: number,
-): Promise<{ negotiation: any; divergence: boolean }> {
+): Promise<{ negotiation: ReturnType<typeof getNegotiationById> extends Promise<infer T> ? T : never; divergence: boolean }> {
   const negotiation = await getNegotiationById(id);
-  if (!negotiation) return { negotiation: null, divergence: false };
+  if (!negotiation) return { negotiation: null as any, divergence: false };
 
   const desmancheResp = negotiation.desmanchemResponse;
   const now = new Date();
@@ -1620,25 +1620,23 @@ export async function respondStaleAsClient(
   const clientReceived = response === "received";
   const divergence = desmancheSold !== clientReceived;
 
-  let newStatus: string;
   if (divergence) {
-    newStatus = 'in_moderation';
+    await db.update(schema.negotiations)
+      .set({ status: 'in_moderation', staleCheckAt: null, clientResponse: response, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
   } else if (clientReceived) {
-    newStatus = 'awaiting_review';
-  } else {
-    newStatus = 'cancelled';
-  }
-
-  const updateData: any = { status: newStatus, staleCheckAt: null, clientResponse: response, updatedAt: now };
-  if (newStatus === 'awaiting_review') {
     const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
-    updateData.receivedAt = now;
-    updateData.reviewDeadlineAt = deadline;
+    await db.update(schema.negotiations)
+      .set({ status: 'awaiting_review', staleCheckAt: null, clientResponse: response, receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  } else {
+    await db.update(schema.negotiations)
+      .set({ status: 'cancelled', staleCheckAt: null, clientResponse: response, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
   }
 
-  await db.update(schema.negotiations).set(updateData).where(eq(schema.negotiations.id, id));
   const updated = await getNegotiationById(id);
-  return { negotiation: updated, divergence };
+  return { negotiation: updated as any, divergence };
 }
 
 export async function getModerationNegotiations() {

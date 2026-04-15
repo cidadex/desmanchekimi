@@ -213,6 +213,7 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
   });
 
   const awaitingReviewCount = negotiations.filter((n) => n.status === "awaiting_review").length;
+  const staleClientNeg = negotiations.filter((n) => n.status === "stale_awaiting_client");
 
   return (
     <div className="space-y-6">
@@ -230,6 +231,29 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
               Você tem {blockStatus.overdueCount} avaliação(ões) atrasada(s). Avalie as negociações abaixo para reativar sua conta.
             </p>
           </div>
+        </div>
+      )}
+
+      {staleClientNeg.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 space-y-2" data-testid="banner-stale-client-top">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-700 shrink-0" />
+            <p className="font-bold text-amber-900">
+              {staleClientNeg.length === 1
+                ? "1 compra aguarda sua confirmação"
+                : `${staleClientNeg.length} compras aguardam sua confirmação`}
+            </p>
+          </div>
+          <ul className="space-y-1 pl-7">
+            {staleClientNeg.map((n) => (
+              <li key={n.id} className="text-xs text-amber-800">
+                • <span className="font-medium">{n.order?.title || "Negociação"}</span>
+                {n.desmanche?.tradingName ? ` — ${n.desmanche.tradingName}` : ""}
+                {" — "}iniciada há <span className="font-semibold">{daysOld(n.createdAt)} dias</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-amber-700 pl-7">Role para baixo para responder.</p>
         </div>
       )}
 
@@ -346,6 +370,14 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function daysOld(ts: string | number | null | undefined): number {
+  if (!ts) return 0;
+  const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 // ─── Negotiation Card ─────────────────────────────────────────────────────────
 
 function NegotiationCard({
@@ -438,8 +470,11 @@ function NegotiationCard({
               <div>
                 <p className="font-bold text-amber-900 text-sm">Sua confirmação é necessária</p>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  A negociação de <span className="font-semibold">{neg.order?.title || "peça"}</span>
+                  {neg.desmanche?.tradingName ? <> com <span className="font-semibold">{neg.desmanche.tradingName}</span></> : null}
+                  {" "}está parada há <span className="font-semibold">{daysOld(neg.createdAt)} dias</span>.{" "}
                   {neg.desmanchemResponse === "sold"
-                    ? "O desmanche informou que a venda foi concluída e a peça foi enviada/entregue. Você recebeu a peça?"
+                    ? "O desmanche informou que a venda foi concluída. Você recebeu a peça?"
                     : "O desmanche informou que não houve venda. Você chegou a receber alguma peça?"}
                 </p>
               </div>

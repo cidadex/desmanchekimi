@@ -11,7 +11,19 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-function timeAgo(val: any): string {
+interface ModerationNegotiation {
+  id: string;
+  price: number | null;
+  createdAt: string | number | null;
+  updatedAt: string | number | null;
+  desmanchemResponse: string | null;
+  clientResponse: string | null;
+  order: { title: string; vehicleBrand?: string | null; vehicleModel?: string | null; vehicleYear?: string | null } | null;
+  client: { name: string } | null;
+  desmanche: { tradingName: string } | null;
+}
+
+function timeAgo(val: string | number | null | undefined): string {
   if (!val) return "—";
   const date = typeof val === "number" ? new Date(val * 1000) : new Date(val);
   const now = new Date();
@@ -44,7 +56,7 @@ export default function ModerationTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: negotiations = [], isLoading } = useQuery<any[]>({
+  const { data: negotiations = [], isLoading } = useQuery<ModerationNegotiation[]>({
     queryKey: ["/api/admin/negotiations/moderation"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/negotiations/moderation");
@@ -104,7 +116,7 @@ export default function ModerationTab() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {negotiations.map((neg: any) => {
+          {negotiations.map((neg) => {
             const vehicle = [neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ");
             const desmancheResp = DESMANCHE_RESP_LABELS[neg.desmanchemResponse] || { label: neg.desmanchemResponse || "—", color: "text-slate-700 bg-slate-50 border-slate-200" };
             const clientResp = CLIENT_RESP_LABELS[neg.clientResponse] || { label: neg.clientResponse || "—", color: "text-slate-700 bg-slate-50 border-slate-200" };

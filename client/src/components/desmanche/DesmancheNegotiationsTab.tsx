@@ -146,6 +146,8 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
   const answeredProposals = proposals.filter((p: any) => p.status !== "sent");
   const activeNeg = negotiations.filter((n: any) => !["completed", "cancelled"].includes(n.status));
   const finishedNeg = negotiations.filter((n: any) => ["completed", "cancelled"].includes(n.status));
+  const staleDesmanches = negotiations.filter((n: any) => n.status === "stale_awaiting_desmanche");
+
   const isLoading = loadingProposals || loadingNeg;
 
   if (isLoading) {
@@ -172,6 +174,29 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
               Você tem {blockStatus.overdueCount} avaliação(ões) do cliente atrasada(s). Aguarde o cliente avaliar as negociações pendentes.
             </p>
           </div>
+        </div>
+      )}
+
+      {staleDesmanches.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 space-y-2" data-testid="banner-stale-desmanche-top">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="font-bold text-amber-900">
+              {staleDesmanches.length === 1
+                ? "1 negociação aguarda sua verificação"
+                : `${staleDesmanches.length} negociações aguardam sua verificação`}
+            </p>
+          </div>
+          <ul className="space-y-1 pl-7">
+            {staleDesmanches.map((n: any) => (
+              <li key={n.id} className="text-xs text-amber-800">
+                • <span className="font-medium">{n.order?.title || "Negociação"}</span>
+                {n.client?.name ? ` com ${n.client.name}` : ""}
+                {" — "}iniciada há <span className="font-semibold">{daysOld(n.createdAt)} dias</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-amber-700 pl-7">Vá até "Em Andamento" para responder.</p>
         </div>
       )}
 
@@ -455,6 +480,12 @@ function ProposalCard({ proposal, onNavigate }: { proposal: any; onNavigate?: (t
 
 // ─── Negotiation Card ─────────────────────────────────────────────────────────
 
+function daysOld(ts: string | number | null | undefined): number {
+  if (!ts) return 0;
+  const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function NegotiationCard({
   neg,
   onShip,
@@ -590,7 +621,9 @@ function NegotiationCard({
               <div>
                 <p className="font-bold text-amber-900 text-sm">Verificação necessária</p>
                 <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                  Esta negociação está inativa há um tempo. Por favor, informe o que aconteceu para que possamos registrar corretamente:
+                  A negociação de <span className="font-semibold">{neg.order?.title || "peça"}</span>
+                  {neg.client?.name ? <> com <span className="font-semibold">{neg.client.name}</span></> : null}
+                  {" "}está parada há <span className="font-semibold">{daysOld(neg.createdAt)} dias</span>. O que aconteceu?
                 </p>
               </div>
             </div>
