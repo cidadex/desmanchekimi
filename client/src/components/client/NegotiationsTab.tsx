@@ -27,6 +27,7 @@ const statusConfig: Record<string, { label: string; color: string; step: number 
   cancelled:                { label: "Cancelado",           color: "bg-red-100 text-red-800 border-red-200",        step: 0 },
   stale_awaiting_desmanche: { label: "⚠ Verificação Desmanche", color: "bg-amber-100 text-amber-800 border-amber-200", step: 1 },
   stale_awaiting_client:    { label: "⚠ Confirme sua Compra",   color: "bg-amber-200 text-amber-900 border-amber-400", step: 1 },
+  in_moderation:            { label: "Em Moderação",        color: "bg-orange-100 text-orange-800 border-orange-300", step: 1 },
 };
 
 function fmt(ts: any) {
@@ -71,6 +72,8 @@ interface Negotiation {
   reviewDeadlineAt?: any;
   createdAt: any;
   updatedAt?: any;
+  desmanchemResponse?: string | null;
+  clientResponse?: string | null;
   order?: {
     title: string;
     vehicleBrand: string;
@@ -151,12 +154,14 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
       const res = await apiRequest("PATCH", `/api/negotiations/${id}/stale-client-response`, { response });
       return res.json();
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (data, vars) => {
       qc.invalidateQueries({ queryKey: ["/api/negotiations/my"] });
-      if (vars.response === "confirmed_nothing") {
-        toast({ title: "Negociação cancelada.", description: "Obrigado pela confirmação." });
-      } else {
+      if (data?.divergence) {
+        toast({ title: "Divergência identificada", description: "Suas respostas foram diferentes. Nossa equipe irá analisar e resolver." });
+      } else if (vars.response === "received") {
         toast({ title: "Recebimento confirmado!", description: "Prazo para avaliação iniciado." });
+      } else {
+        toast({ title: "Negociação cancelada.", description: "Obrigado pela confirmação." });
       }
     },
     onError: (err: Error) => toast({ title: "Erro ao responder", description: err.message, variant: "destructive" }),
@@ -361,7 +366,7 @@ function NegotiationCard({
   onCancel: () => void;
   onViewDetail: () => void;
   onNavigate?: (tab: string) => void;
-  onStaleResponse: (response: "confirmed_nothing" | "received_it") => void;
+  onStaleResponse: (response: "received" | "not_received") => void;
   isConfirmingReceived: boolean;
   isCancelling: boolean;
   isStaleResponding: boolean;
@@ -427,36 +432,51 @@ function NegotiationCard({
         )}
 
         {neg.status === "stale_awaiting_client" && (
-          <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-900 text-sm">Confirmação necessária</p>
-                <p className="text-xs text-amber-800 mt-0.5">
-                  O desmanche informou que não houve acordo. Você chegou a receber alguma peça?
+                <p className="font-bold text-amber-900 text-sm">Sua confirmação é necessária</p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  {neg.desmanchemResponse === "sold"
+                    ? "O desmanche informou que a venda foi concluída e a peça foi enviada/entregue. Você recebeu a peça?"
+                    : "O desmanche informou que não houve venda. Você chegou a receber alguma peça?"}
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid gap-2">
               <Button
                 size="sm"
-                className="gap-1.5 bg-green-600 hover:bg-green-700 text-white flex-1"
-                onClick={() => onStaleResponse("received_it")}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-start"
+                onClick={() => onStaleResponse("received")}
                 disabled={isStaleResponding}
-                data-testid="button-stale-received-it"
+                data-testid="button-stale-received"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" /> Recebi a peça sim!
+                {isStaleResponding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Sim, recebi a peça
               </Button>
               <Button
                 size="sm"
-                className="gap-1.5 bg-red-500 hover:bg-red-600 text-white flex-1"
-                onClick={() => onStaleResponse("confirmed_nothing")}
+                className="gap-2 bg-slate-600 hover:bg-slate-700 text-white w-full justify-start"
+                onClick={() => onStaleResponse("not_received")}
                 disabled={isStaleResponding}
-                data-testid="button-stale-confirmed-nothing"
+                data-testid="button-stale-not-received"
               >
-                <XCircle className="h-3.5 w-3.5" /> Confirmo, não recebi nada
+                {isStaleResponding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                Não, não recebi nada
               </Button>
             </div>
+          </div>
+        )}
+
+        {neg.status === "in_moderation" && (
+          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1">
+            <div className="flex items-center gap-1.5 text-orange-800 text-sm font-semibold">
+              <AlertTriangle className="h-4 w-4" /> Em análise pela moderação
+            </div>
+            <p className="text-xs text-orange-700 leading-relaxed">
+              Houve divergência entre as informações do desmanche e as suas. Nossa equipe está analisando o caso e irá resolver em breve.
+            </p>
           </div>
         )}
 

@@ -60,6 +60,7 @@ export const ALL_ADMIN_TABS: { key: string; label: string; icon: any }[] = [
   { key: "approvals",     label: "Aprovações",             icon: CheckSquare },
   { key: "reports",       label: "Relatórios",             icon: FileBarChart2 },
   { key: "site-content",  label: "Conteúdo do Site",       icon: Globe },
+  { key: "moderation",    label: "Moderação",              icon: MessageCircleWarning },
   { key: "complaints",    label: "Reclamações",            icon: MessageCircleWarning },
   { key: "settings",      label: "Configurações",          icon: Settings },
 ];

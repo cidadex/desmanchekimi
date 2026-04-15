@@ -27,6 +27,7 @@ const NEGOTIATION_STATUS: Record<string, { label: string; color: string; icon: a
   cancelled:                { label: "Cancelado",             color: "bg-red-100 text-red-800 border-red-200",       icon: XCircle },
   stale_awaiting_desmanche: { label: "⚠ Verificação Pendente", color: "bg-amber-100 text-amber-800 border-amber-200", icon: AlertTriangle },
   stale_awaiting_client:    { label: "Aguard. Cliente",       color: "bg-amber-50 text-amber-700 border-amber-200",  icon: Clock },
+  in_moderation:            { label: "Em Moderação",          color: "bg-orange-100 text-orange-800 border-orange-200", icon: ShieldAlert },
 };
 
 const PROPOSAL_STATUS: Record<string, { label: string; color: string }> = {
@@ -128,10 +129,12 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/negotiations/my"] });
-      if (vars.response === "nothing_happened") {
+      if (vars.response === "sold") {
+        toast({ title: "Resposta enviada!", description: "O cliente será consultado para confirmar o recebimento." });
+      } else if (vars.response === "not_sold") {
         toast({ title: "Resposta enviada!", description: "O cliente será consultado para confirmar." });
       } else {
-        toast({ title: "Negociação reativada!", description: "O prazo foi resetado." });
+        toast({ title: "Negociação reativada!", description: "O prazo foi resetado e a negociação voltou ao status ativo." });
       }
     },
     onError: (err: Error) => {
@@ -465,7 +468,7 @@ function NegotiationCard({
   neg: any;
   onShip?: () => void;
   onUpdateStatus?: (status: string) => void;
-  onStaleResponse?: (response: "nothing_happened" | "still_negotiating") => void;
+  onStaleResponse?: (response: "sold" | "not_sold" | "still_negotiating") => void;
   onViewDetail: () => void;
   onNavigate?: (tab: string) => void;
   isPending: boolean;
@@ -581,45 +584,77 @@ function NegotiationCard({
         )}
 
         {neg.status === "stale_awaiting_desmanche" && !readonly && (
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-800 text-sm">Verificação necessária</p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  Esta negociação está inativa há um tempo. O que aconteceu com ela?
+                <p className="font-bold text-amber-900 text-sm">Verificação necessária</p>
+                <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  Esta negociação está inativa há um tempo. Por favor, informe o que aconteceu para que possamos registrar corretamente:
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid gap-2">
               <Button
                 size="sm"
-                className="gap-1.5 bg-red-500 hover:bg-red-600 text-white flex-1"
-                onClick={() => onStaleResponse?.("nothing_happened")}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-start"
+                onClick={() => onStaleResponse?.("sold")}
                 disabled={isPending}
-                data-testid="button-stale-nothing-happened"
+                data-testid="button-stale-sold"
               >
-                <XCircle className="h-3.5 w-3.5" /> Nada aconteceu
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>Sim, a venda foi concluída — a peça foi enviada/entregue</span>
               </Button>
               <Button
                 size="sm"
-                className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                className="gap-2 bg-slate-600 hover:bg-slate-700 text-white w-full justify-start"
+                onClick={() => onStaleResponse?.("not_sold")}
+                disabled={isPending}
+                data-testid="button-stale-not-sold"
+              >
+                <XCircle className="h-4 w-4 shrink-0" />
+                <span>Não houve venda — negociação não foi adiante</span>
+              </Button>
+              <Button
+                size="sm"
+                className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full justify-start"
                 onClick={() => onStaleResponse?.("still_negotiating")}
                 disabled={isPending}
                 data-testid="button-stale-still-negotiating"
               >
-                <MessageSquare className="h-3.5 w-3.5" /> Ainda negociando
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                <span>Ainda estamos negociando — reativar a negociação</span>
               </Button>
             </div>
+            {isPending && (
+              <div className="flex items-center gap-2 text-amber-700 text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processando…
+              </div>
+            )}
           </div>
         )}
 
         {neg.status === "stale_awaiting_client" && (
-          <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 space-y-1">
-            <div className="font-semibold flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> Aguardando confirmação do cliente
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+            <div className="font-semibold flex items-center gap-1.5 text-amber-800 text-sm">
+              <Clock className="h-4 w-4" /> Aguardando confirmação do cliente
             </div>
-            <p>Você informou que nada aconteceu. O cliente está sendo consultado para confirmar.</p>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              {neg.desmanchemResponse === "sold"
+                ? "Você informou que a venda foi concluída. O cliente será consultado para confirmar o recebimento."
+                : "Você informou que não houve venda. O cliente está sendo consultado para confirmar."}
+            </p>
+          </div>
+        )}
+
+        {neg.status === "in_moderation" && (
+          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1">
+            <div className="font-semibold flex items-center gap-1.5 text-orange-800 text-sm">
+              <ShieldAlert className="h-4 w-4" /> Em moderação
+            </div>
+            <p className="text-xs text-orange-700 leading-relaxed">
+              Houve divergência nas respostas. Nossa equipe está analisando e irá resolver em breve.
+            </p>
           </div>
         )}
 

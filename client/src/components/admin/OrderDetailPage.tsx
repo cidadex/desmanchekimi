@@ -35,6 +35,7 @@ const NEG_STATUS: Record<string, { label: string; color: string }> = {
   cancelled:                { label: "Cancelado",            color: "bg-red-100 text-red-700" },
   stale_awaiting_desmanche: { label: "⚠ Verificação",        color: "bg-amber-100 text-amber-700" },
   stale_awaiting_client:    { label: "Aguard. Cliente",      color: "bg-amber-50 text-amber-600" },
+  in_moderation:            { label: "⚠ Em Moderação",       color: "bg-orange-100 text-orange-700" },
 };
 
 function fmt(val: any) {

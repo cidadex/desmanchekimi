@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   Loader2,
   FileBarChart2,
+  Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ import SiteContentTab from "@/components/admin/SiteContentTab";
 import ComplaintsTab from "@/components/admin/ComplaintsTab";
 import PermissionsTab, { ALL_ADMIN_TABS } from "@/components/admin/PermissionsTab";
 import RelatoriosTab from "@/components/admin/RelatoriosTab";
+import ModerationTab from "@/components/admin/ModerationTab";
 
 const ADMIN_TAB_KEY = "admin_tab";
 
@@ -186,6 +188,17 @@ export default function AdminDashboard() {
     staleTime: 60000,
   });
 
+  const { data: moderationNegs = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/negotiations/moderation"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/negotiations/moderation");
+      return res.json();
+    },
+    refetchInterval: 30 * 1000,
+    staleTime: 0,
+  });
+  const moderationCount = moderationNegs.length;
+
   const pendingCount = stats?.pendingApprovals ?? 0;
   const pendingComplaints = stats?.pendingComplaints ?? 0;
   const pendingNegotiations = stats?.pendingNegotiations ?? 0;
@@ -209,6 +222,7 @@ export default function AdminDashboard() {
         {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
         {canAccess('reports') && <SidebarItem icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}
         {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('moderation') && <SidebarItem icon={<Scale />} label="Moderação" badge={moderationCount > 0 ? String(moderationCount) : undefined} badgeAlert={moderationCount > 0} active={activeTab === 'moderation'} onClick={() => {handleSetTab('moderation'); setIsMobileMenuOpen(false);}} />}
         {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" badge={pendingComplaints > 0 ? String(pendingComplaints) : undefined} badgeAlert={pendingComplaints > 0} active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
         {canAccess('settings') && <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
         {isSuperAdmin && (
@@ -368,6 +382,7 @@ export default function AdminDashboard() {
           {activeTab === 'approvals' && <ApprovalsTab />}
           {activeTab === 'reports' && <RelatoriosTab />}
           {activeTab === 'site-content' && <SiteContentTab />}
+          {activeTab === 'moderation' && <ModerationTab />}
           {activeTab === 'complaints' && <ComplaintsTab />}
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'permissions' && isSuperAdmin && <PermissionsTab />}

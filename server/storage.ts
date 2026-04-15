@@ -448,6 +448,9 @@ try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN received_at INTEGER`); } 
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGER`); } catch (e) {}
 // Negotiations: stale detection column
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN stale_check_at INTEGER`); } catch (e) {}
+// Negotiations: moderation columns
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN desmanche_response TEXT`); } catch (e) {}
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN client_response TEXT`); } catch (e) {}
 // Seed default system settings
 const defaultSettings = [
   { key: 'reviewDeadlineDays', value: '10' },
@@ -1586,30 +1589,80 @@ export async function detectStaleNegotiations(staleDays: number): Promise<Array<
   return stale;
 }
 
-export async function respondStaleAsDesmanche(id: string, response: "nothing_happened" | "still_negotiating") {
+export async function respondStaleAsDesmanche(id: string, response: "sold" | "not_sold" | "still_negotiating") {
   const now = new Date();
-  if (response === "nothing_happened") {
+  if (response === "still_negotiating") {
     await db.update(schema.negotiations)
-      .set({ status: 'stale_awaiting_client', staleCheckAt: null, updatedAt: now })
+      .set({ status: 'negotiating', staleCheckAt: null, desmanchemResponse: response, updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   } else {
+    // Both "sold" and "not_sold" proceed to client confirmation
     await db.update(schema.negotiations)
-      .set({ status: 'negotiating', staleCheckAt: null, updatedAt: now })
+      .set({ status: 'stale_awaiting_client', staleCheckAt: null, desmanchemResponse: response, updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   }
   return getNegotiationById(id);
 }
 
-export async function respondStaleAsClient(id: string, response: "confirmed_nothing" | "received_it", reviewDeadlineDays: number) {
+export async function respondStaleAsClient(
+  id: string,
+  response: "received" | "not_received",
+  reviewDeadlineDays: number,
+): Promise<{ negotiation: any; divergence: boolean }> {
+  const negotiation = await getNegotiationById(id);
+  if (!negotiation) return { negotiation: null, divergence: false };
+
+  const desmancheResp = negotiation.desmanchemResponse;
   const now = new Date();
-  if (response === "confirmed_nothing") {
-    await db.update(schema.negotiations)
-      .set({ status: 'cancelled', staleCheckAt: null, updatedAt: now })
-      .where(eq(schema.negotiations.id, id));
+
+  // Determine outcome based on both responses
+  const desmancheSold = desmancheResp === "sold";
+  const clientReceived = response === "received";
+  const divergence = desmancheSold !== clientReceived;
+
+  let newStatus: string;
+  if (divergence) {
+    newStatus = 'in_moderation';
+  } else if (clientReceived) {
+    newStatus = 'awaiting_review';
   } else {
+    newStatus = 'cancelled';
+  }
+
+  const updateData: any = { status: newStatus, staleCheckAt: null, clientResponse: response, updatedAt: now };
+  if (newStatus === 'awaiting_review') {
+    const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
+    updateData.receivedAt = now;
+    updateData.reviewDeadlineAt = deadline;
+  }
+
+  await db.update(schema.negotiations).set(updateData).where(eq(schema.negotiations.id, id));
+  const updated = await getNegotiationById(id);
+  return { negotiation: updated, divergence };
+}
+
+export async function getModerationNegotiations() {
+  return db.query.negotiations.findMany({
+    where: eq(schema.negotiations.status, 'in_moderation'),
+    with: {
+      order: true,
+      desmanche: true,
+      client: true,
+    },
+    orderBy: [desc(schema.negotiations.updatedAt)],
+  });
+}
+
+export async function resolveModerationNegotiation(id: string, resolution: 'sold' | 'cancelled', reviewDeadlineDays: number) {
+  const now = new Date();
+  if (resolution === 'sold') {
     const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
     await db.update(schema.negotiations)
-      .set({ status: 'awaiting_review', staleCheckAt: null, receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .set({ status: 'awaiting_review', receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  } else {
+    await db.update(schema.negotiations)
+      .set({ status: 'cancelled', updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   }
   return getNegotiationById(id);

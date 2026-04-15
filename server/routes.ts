@@ -1756,7 +1756,7 @@ export async function registerRoutes(server: Server, app: Express) {
     try {
       const desmancheId = (req as any).user.id;
       const { response } = req.body;
-      if (!["nothing_happened", "still_negotiating"].includes(response)) {
+      if (!["sold", "not_sold", "still_negotiating"].includes(response)) {
         return res.status(400).json({ message: "Resposta inválida" });
       }
       const negotiation = await storage.getNegotiationById(req.params.id);
@@ -1778,7 +1778,7 @@ export async function registerRoutes(server: Server, app: Express) {
     try {
       const clientId = (req as any).user.id;
       const { response } = req.body;
-      if (!["confirmed_nothing", "received_it"].includes(response)) {
+      if (!["received", "not_received"].includes(response)) {
         return res.status(400).json({ message: "Resposta inválida" });
       }
       const negotiation = await storage.getNegotiationById(req.params.id);
@@ -1788,19 +1788,55 @@ export async function registerRoutes(server: Server, app: Express) {
         return res.status(400).json({ message: "Negociação não está aguardando confirmação do cliente" });
       }
       const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
-      const updated = await storage.respondStaleAsClient(req.params.id, response, reviewDeadlineDays);
-      // Se o cliente confirmou que recebeu, gerar cobrança
-      if (response === "received_it") {
+      const { negotiation: updated, divergence } = await storage.respondStaleAsClient(req.params.id, response, reviewDeadlineDays);
+      // Billing: both agree on sale → will fire on review submit / auto-expire (standard flow)
+      // Divergence → in_moderation: admin will decide billing on resolution
+      // Both agree nothing happened → cancelled: no billing
+      res.json({ negotiation: updated, divergence });
+    } catch (error) {
+      console.error("Stale client response error:", error);
+      res.status(500).json({ message: "Erro ao processar resposta" });
+    }
+  });
+
+  // Admin: listar negociações em moderação
+  app.get("/api/admin/negotiations/moderation", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const negs = await storage.getModerationNegotiations();
+      res.json(negs);
+    } catch (error) {
+      console.error("Get moderation negotiations error:", error);
+      res.status(500).json({ message: "Erro ao buscar negociações em moderação" });
+    }
+  });
+
+  // Admin: resolver negociação em moderação
+  app.post("/api/admin/negotiations/moderation/:id/resolve", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resolution } = req.body;
+      if (!["sold", "cancelled"].includes(resolution)) {
+        return res.status(400).json({ message: "Resolução inválida. Use 'sold' ou 'cancelled'." });
+      }
+      const negotiation = await storage.getNegotiationById(id);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      if (negotiation.status !== "in_moderation") {
+        return res.status(400).json({ message: "Negociação não está em moderação" });
+      }
+      const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
+      const updated = await storage.resolveModerationNegotiation(id, resolution, reviewDeadlineDays);
+      // If confirmed as sold, trigger billing immediately
+      if (resolution === "sold") {
         try {
           await triggerTransactionBilling(negotiation.desmancheId, negotiation.id);
         } catch (billingErr) {
-          console.error("Billing on client stale response error:", billingErr);
+          console.error("Billing on moderation resolution error:", billingErr);
         }
       }
       res.json(updated);
     } catch (error) {
-      console.error("Stale client response error:", error);
-      res.status(500).json({ message: "Erro ao processar resposta" });
+      console.error("Resolve moderation error:", error);
+      res.status(500).json({ message: "Erro ao resolver negociação" });
     }
   });
 
