@@ -195,7 +195,7 @@ export default function Home() {
             </h1>
             
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed">
-              Carros, motos ou barcos. Faça um único pedido e receba propostas de toda a rede de desmanches credenciados. Rápido, seguro e direto.
+              Carros e motos. Faça um único pedido e receba propostas de toda a rede de desmanches credenciados. Rápido, seguro e direto.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
