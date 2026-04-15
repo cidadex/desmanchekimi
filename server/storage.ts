@@ -1566,7 +1566,7 @@ export async function respondStaleAsDesmanche(id: string, response: "nothing_hap
   const now = new Date();
   if (response === "nothing_happened") {
     await db.update(schema.negotiations)
-      .set({ status: 'stale_awaiting_client', updatedAt: now })
+      .set({ status: 'stale_awaiting_client', staleCheckAt: null, updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   } else {
     await db.update(schema.negotiations)
@@ -1580,12 +1580,12 @@ export async function respondStaleAsClient(id: string, response: "confirmed_noth
   const now = new Date();
   if (response === "confirmed_nothing") {
     await db.update(schema.negotiations)
-      .set({ status: 'cancelled', updatedAt: now })
+      .set({ status: 'cancelled', staleCheckAt: null, updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   } else {
     const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
     await db.update(schema.negotiations)
-      .set({ status: 'awaiting_review', receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .set({ status: 'awaiting_review', staleCheckAt: null, receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
       .where(eq(schema.negotiations.id, id));
   }
   return getNegotiationById(id);

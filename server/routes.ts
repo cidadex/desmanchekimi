@@ -2362,8 +2362,23 @@ export async function registerRoutes(server: Server, app: Express) {
   app.patch("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
       const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment", "licenseAlertDays", "staleNegotiationDays"];
+      const numericRanges: Record<string, [number, number]> = {
+        reviewDeadlineDays: [1, 90],
+        maxOverdueBeforeBlock: [1, 100],
+        perTransactionAmount: [1, 1000],
+        monthlyCapAmount: [1, 10000],
+        licenseAlertDays: [1, 365],
+        staleNegotiationDays: [7, 180],
+      };
       for (const [key, value] of Object.entries(req.body)) {
         if (allowed.includes(key)) {
+          if (key in numericRanges) {
+            const num = Number(value);
+            const [min, max] = numericRanges[key];
+            if (isNaN(num) || num < min || num > max) {
+              return res.status(400).json({ message: `${key} deve ser um número entre ${min} e ${max}` });
+            }
+          }
           await storage.setSystemSetting(key, String(value));
         }
       }
