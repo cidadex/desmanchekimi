@@ -1604,13 +1604,15 @@ export async function respondStaleAsDesmanche(id: string, response: "sold" | "no
   return getNegotiationById(id);
 }
 
+type NegotiationById = Awaited<ReturnType<typeof getNegotiationById>>;
+
 export async function respondStaleAsClient(
   id: string,
   response: "received" | "not_received",
   reviewDeadlineDays: number,
-): Promise<{ negotiation: ReturnType<typeof getNegotiationById> extends Promise<infer T> ? T : never; divergence: boolean }> {
+): Promise<{ negotiation: NegotiationById; divergence: boolean }> {
   const negotiation = await getNegotiationById(id);
-  if (!negotiation) return { negotiation: null as any, divergence: false };
+  if (!negotiation) return { negotiation: undefined, divergence: false };
 
   const desmancheResp = negotiation.desmanchemResponse;
   const now = new Date();
@@ -1636,7 +1638,7 @@ export async function respondStaleAsClient(
   }
 
   const updated = await getNegotiationById(id);
-  return { negotiation: updated as any, divergence };
+  return { negotiation: updated, divergence };
 }
 
 export async function getModerationNegotiations() {

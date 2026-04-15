@@ -118,8 +118,8 @@ export default function ModerationTab() {
         <div className="space-y-4">
           {negotiations.map((neg) => {
             const vehicle = [neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" · ");
-            const desmancheResp = DESMANCHE_RESP_LABELS[neg.desmanchemResponse] || { label: neg.desmanchemResponse || "—", color: "text-slate-700 bg-slate-50 border-slate-200" };
-            const clientResp = CLIENT_RESP_LABELS[neg.clientResponse] || { label: neg.clientResponse || "—", color: "text-slate-700 bg-slate-50 border-slate-200" };
+            const desmancheResp = (neg.desmanchemResponse ? DESMANCHE_RESP_LABELS[neg.desmanchemResponse] : null) ?? { label: neg.desmanchemResponse ?? "—", color: "text-slate-700 bg-slate-50 border-slate-200" };
+            const clientResp = (neg.clientResponse ? CLIENT_RESP_LABELS[neg.clientResponse] : null) ?? { label: neg.clientResponse ?? "—", color: "text-slate-700 bg-slate-50 border-slate-200" };
 
             return (
               <Card key={neg.id} className="border-orange-200 bg-orange-50/30" data-testid={`card-moderation-${neg.id}`}>
@@ -165,7 +165,7 @@ export default function ModerationTab() {
                         <Store className="h-3.5 w-3.5" /> Desmanche
                       </p>
                       <p className="font-medium text-sm">
-                        {neg.desmanche?.tradingName || neg.desmanche?.companyName || "—"}
+                        {neg.desmanche?.tradingName || "—"}
                       </p>
                       <div className="text-xs text-muted-foreground">Respondeu:</div>
                       <Badge variant="outline" className={`text-xs ${desmancheResp.color}`}>
