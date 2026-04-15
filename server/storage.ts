@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq, and, desc, asc, like, or, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, asc, like, or, gte, lte, sql, isNotNull, inArray, SQL } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -1671,12 +1671,51 @@ export async function resolveModerationNegotiation(id: string, resolution: 'sold
   return getNegotiationById(id);
 }
 
-export async function getResolvedModerationNegotiations() {
+export async function getResolvedModerationNegotiations(filters?: {
+  dateFrom?: string;
+  dateTo?: string;
+  resolution?: 'sold' | 'cancelled';
+  desmancheName?: string;
+  clientName?: string;
+}) {
+  const conditions: SQL<unknown>[] = [
+    isNotNull(schema.negotiations.resolvedByAdminId),
+  ];
+
+  if (filters?.resolution === 'sold') {
+    conditions.push(inArray(schema.negotiations.status, ['awaiting_review', 'completed']));
+  } else if (filters?.resolution === 'cancelled') {
+    conditions.push(eq(schema.negotiations.status, 'cancelled'));
+  } else {
+    conditions.push(inArray(schema.negotiations.status, ['awaiting_review', 'completed', 'cancelled']));
+  }
+
+  if (filters?.dateFrom) {
+    conditions.push(gte(schema.negotiations.resolvedAt, new Date(filters.dateFrom)));
+  }
+
+  if (filters?.dateTo) {
+    const toDate = new Date(filters.dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(lte(schema.negotiations.resolvedAt, toDate));
+  }
+
+  if (filters?.desmancheName) {
+    const term = `%${filters.desmancheName}%`;
+    conditions.push(
+      sql`lower((SELECT trading_name FROM desmanches WHERE desmanches.id = ${schema.negotiations.desmancheId})) LIKE lower(${term})`
+    );
+  }
+
+  if (filters?.clientName) {
+    const term = `%${filters.clientName}%`;
+    conditions.push(
+      sql`lower((SELECT name FROM users WHERE users.id = ${schema.negotiations.clientId})) LIKE lower(${term})`
+    );
+  }
+
   return db.query.negotiations.findMany({
-    where: (neg, { and, isNotNull, inArray }) => and(
-      isNotNull(neg.resolvedByAdminId),
-      inArray(neg.status, ['awaiting_review', 'completed', 'cancelled'])
-    ),
+    where: and(...conditions),
     with: {
       order: true,
       desmanche: true,
@@ -1684,7 +1723,7 @@ export async function getResolvedModerationNegotiations() {
       resolvedByAdmin: true,
     },
     orderBy: [desc(schema.negotiations.resolvedAt)],
-    limit: 50,
+    limit: 200,
   });
 }
 

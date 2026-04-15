@@ -1830,7 +1830,21 @@ export async function registerRoutes(server: Server, app: Express) {
   // Admin: histórico de negociações resolvidas via moderação
   app.get("/api/admin/negotiations/moderation/resolved", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
-      const negs = await storage.getResolvedModerationNegotiations();
+      const { dateFrom, dateTo, resolution, desmancheName, clientName } = req.query as Record<string, string | undefined>;
+      if (dateFrom && isNaN(Date.parse(dateFrom))) {
+        return res.status(400).json({ message: "Formato de data inválido para 'dateFrom'" });
+      }
+      if (dateTo && isNaN(Date.parse(dateTo))) {
+        return res.status(400).json({ message: "Formato de data inválido para 'dateTo'" });
+      }
+      const validResolution = resolution === 'sold' || resolution === 'cancelled' ? resolution : undefined;
+      const negs = await storage.getResolvedModerationNegotiations({
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        resolution: validResolution,
+        desmancheName: desmancheName || undefined,
+        clientName: clientName || undefined,
+      });
       res.json(negs);
     } catch (error) {
       console.error("Get resolved moderation negotiations error:", error);
