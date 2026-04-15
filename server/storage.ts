@@ -1220,6 +1220,21 @@ export async function getChatRoomsByClient(clientId: string) {
   });
 }
 
+export async function getChatRoomsByOrder(orderId: string) {
+  return db.query.chatRooms.findMany({
+    where: eq(schema.chatRooms.orderId, orderId),
+    orderBy: [desc(schema.chatRooms.lastMessageAt), desc(schema.chatRooms.createdAt)],
+    with: {
+      client: true,
+      desmanche: true,
+      messages: {
+        orderBy: desc(schema.chatMessages.createdAt),
+        limit: 3,
+      },
+    },
+  });
+}
+
 export async function getChatRoomsByDesmanche(desmancheId: string) {
   return db.query.chatRooms.findMany({
     where: eq(schema.chatRooms.desmancheId, desmancheId),

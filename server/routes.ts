@@ -1464,12 +1464,22 @@ export async function registerRoutes(server: Server, app: Express) {
       const order = await storage.getOrderById(id);
       if (!order) return res.status(404).json({ message: "Pedido não encontrado" });
 
-      const proposals = await storage.getProposalsByOrder(id);
-      const negotiations = await storage.getNegotiationsByOrder ? await storage.getNegotiationsByOrder(id) : [];
+      const [proposals, negotiations, chatRooms] = await Promise.all([
+        storage.getProposalsByOrder(id),
+        storage.getNegotiationsByOrder ? storage.getNegotiationsByOrder(id) : Promise.resolve([]),
+        storage.getChatRoomsByOrder(id),
+      ]);
+
+      // Get reviews per negotiation
+      const negIds = (negotiations as any[]).map((n: any) => n.id);
+      const reviews: any[] = [];
+      for (const neg of negotiations as any[]) {
+        if (neg.review) reviews.push({ ...neg.review, negotiationId: neg.id, desmancheName: neg.desmanche?.tradingName || neg.desmanche?.companyName });
+      }
 
       res.json({
         ...order,
-        proposals: proposals.map((p: any) => ({
+        proposals: (proposals as any[]).map((p: any) => ({
           id: p.id,
           price: p.price,
           message: p.message,
@@ -1482,18 +1492,37 @@ export async function registerRoutes(server: Server, app: Express) {
             companyName: p.desmanche.companyName,
             rating: p.desmanche.rating,
             phone: p.desmanche.phone,
+            city: p.desmanche.city,
+            state: p.desmanche.state,
           } : null,
         })),
-        negotiations: negotiations.map ? negotiations.map((n: any) => ({
+        negotiations: (negotiations as any[]).map((n: any) => ({
           id: n.id,
           status: n.status,
           agreedPrice: n.agreedPrice,
           createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
           trackingCode: n.trackingCode,
+          desmancheId: n.desmancheId,
           desmancheName: n.desmanche?.tradingName || n.desmanche?.companyName || null,
+          desmanchePhone: n.desmanche?.phone || null,
           desmancheRating: n.desmanche?.rating || null,
           clientName: n.client?.name || null,
-        })) : [],
+          clientEmail: n.client?.email || null,
+        })),
+        chatRooms: (chatRooms as any[]).map((r: any) => ({
+          id: r.id,
+          desmancheName: r.desmanche?.tradingName || r.desmanche?.companyName || null,
+          clientName: r.client?.name || null,
+          messageCount: r.messages?.length ?? 0,
+          lastMessageAt: r.lastMessageAt,
+          lastMessage: r.messages?.[0] ? {
+            content: r.messages[0].content,
+            senderType: r.messages[0].senderType,
+            createdAt: r.messages[0].createdAt,
+          } : null,
+        })),
+        reviews,
       });
     } catch (error) {
       console.error("Get admin order detail error:", error);

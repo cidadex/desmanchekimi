@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PackageSearch, Clock, MapPin, Search, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PackageSearch, Clock, MapPin, Search, Loader2, User, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -18,7 +19,7 @@ type Order = {
   location: string | null;
   status: string;
   createdAt: string;
-  proposals?: unknown[];
+  proposals?: { desmanche?: { tradingName?: string; companyName?: string } | null }[];
   client?: { name: string; email: string } | null;
 };
 
@@ -28,6 +29,7 @@ const statusLabels: Record<string, string> = {
   completed: "Concluído",
   shipped: "Enviado",
   cancelled: "Cancelado",
+  expired: "Expirado",
 };
 
 const statusStyles: Record<string, string> = {
@@ -37,6 +39,7 @@ const statusStyles: Record<string, string> = {
   completed: "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20",
   shipped: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20",
   cancelled: "bg-red-500/10 text-red-600 hover:bg-red-500/20",
+  expired: "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20",
 };
 
 function timeAgo(dateStr: string): string {
@@ -51,6 +54,14 @@ function timeAgo(dateStr: string): string {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "Ontem";
   return `Há ${diffDays} dias`;
+}
+
+function getDesmancheNames(order: Order): string[] {
+  if (!order.proposals) return [];
+  const names = order.proposals
+    .map((p) => p.desmanche?.tradingName || p.desmanche?.companyName || "")
+    .filter(Boolean);
+  return [...new Set(names)];
 }
 
 export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: string) => void }) {
@@ -72,11 +83,15 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
     if (statusFilter && order.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
+      const desmancheNames = getDesmancheNames(order);
       const match =
         order.title?.toLowerCase().includes(q) ||
         order.vehicleBrand?.toLowerCase().includes(q) ||
         order.vehicleModel?.toLowerCase().includes(q) ||
-        String(order.id).includes(q);
+        String(order.id).toLowerCase().includes(q) ||
+        order.client?.name?.toLowerCase().includes(q) ||
+        order.client?.email?.toLowerCase().includes(q) ||
+        desmancheNames.some((n) => n.toLowerCase().includes(q));
       if (!match) return false;
     }
     return true;
@@ -89,7 +104,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-mono tracking-tight">Anúncios & Pedidos de Peças</h1>
-          <p className="text-muted-foreground">Monitoramento do fluxo de necessidades na plataforma.</p>
+          <p className="text-muted-foreground">Clique em um pedido para ver todo o histórico de propostas, negociações e conversas.</p>
         </div>
       </div>
 
@@ -103,7 +118,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
         </Badge>
         {Object.entries(statusLabels).map(([key, label]) => {
           const count = countByStatus(key);
-          if (count === 0 && key !== "open" && key !== "negotiating" && key !== "completed") return null;
+          if (count === 0) return null;
           return (
             <Badge
               key={key}
@@ -117,15 +132,30 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
         })}
       </div>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-lg">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por peça, veículo ou ID do pedido..."
-          className="pl-9"
+          placeholder="Buscar por peça, ID, cliente ou desmanche..."
+          className="pl-9 pr-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          data-testid="input-orders-search"
         />
+        {search && (
+          <button
+            className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            onClick={() => setSearch("")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {search && (
+        <p className="text-sm text-muted-foreground -mt-3">
+          {filtered.length === 0 ? "Nenhum resultado." : `${filtered.length} pedido(s) encontrado(s).`}
+        </p>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -133,49 +163,78 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          Nenhum pedido encontrado.
+          {search ? `Nenhum resultado para "${search}".` : "Nenhum pedido encontrado."}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.map((order) => {
             const vehicle = [order.vehicleBrand, order.vehicleModel, order.vehicleYear].filter(Boolean).join(" ");
             const location = [order.city, order.state].filter(Boolean).join(", ") || order.location || "";
             const proposalCount = order.proposals ? order.proposals.length : 0;
+            const desmancheNames = getDesmancheNames(order);
 
             return (
-              <Card key={order.id} className="overflow-hidden hover:border-primary/40 transition-all cursor-pointer" onClick={() => onSelectOrder?.(order.id)}>
-                <CardContent className="p-0 sm:flex items-center">
-                  <div className="bg-muted/50 p-4 sm:p-6 sm:w-1/4 flex flex-col justify-center border-r">
-                    <span className="font-mono text-xs text-muted-foreground mb-1">PED-{order.id}</span>
-                    <span className="font-bold text-lg leading-tight">{order.title}</span>
-                    {vehicle && <Badge variant="secondary" className="w-fit mt-2">{vehicle}</Badge>}
-                  </div>
-
-                  <div className="p-4 sm:p-6 flex-1 grid sm:grid-cols-3 gap-4 items-center">
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> Destino
-                      </div>
-                      <div className="font-medium text-sm">{location || "Não informado"}</div>
-                      {order.client && <div className="text-xs text-muted-foreground">{order.client.name}</div>}
+              <Card
+                key={order.id}
+                className="overflow-hidden hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group"
+                onClick={() => onSelectOrder?.(order.id)}
+                data-testid={`card-order-${order.id}`}
+              >
+                <CardContent className="p-0">
+                  <div className="flex flex-col sm:flex-row items-stretch">
+                    {/* Left accent */}
+                    <div className="bg-muted/40 px-4 py-4 sm:w-64 flex flex-col justify-center border-r gap-1 shrink-0">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        PED-{String(order.id).slice(0, 8).toUpperCase()}
+                      </span>
+                      <span className="font-bold text-base leading-tight group-hover:text-primary transition-colors">
+                        {order.title}
+                      </span>
+                      {vehicle && (
+                        <Badge variant="secondary" className="w-fit text-xs mt-1">{vehicle}</Badge>
+                      )}
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <PackageSearch className="h-3 w-3" /> Propostas de Desmanches
-                      </div>
-                      <div className="font-bold text-lg text-primary">
-                        {proposalCount} <span className="text-sm font-normal text-muted-foreground">ofertas</span>
-                      </div>
+                    {/* Middle info */}
+                    <div className="flex-1 px-4 py-4 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
+                      {order.client && (
+                        <div className="flex items-center gap-1.5 text-sm col-span-2 md:col-span-1">
+                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{order.client.name}</span>
+                        </div>
+                      )}
+                      {location && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{location}</span>
+                        </div>
+                      )}
+                      {desmancheNames.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground col-span-2 md:col-span-1">
+                          <Store className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate text-xs">
+                            {desmancheNames.slice(0, 2).join(", ")}
+                            {desmancheNames.length > 2 && ` +${desmancheNames.length - 2}`}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex flex-col items-start sm:items-end gap-2">
+                    {/* Right: status + proposals */}
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 px-4 py-4 sm:w-40 shrink-0 border-t sm:border-t-0 sm:border-l">
                       <Badge
-                        className={statusStyles[order.status] || "bg-slate-500/10 text-slate-600 hover:bg-slate-500/20"}
+                        className={statusStyles[order.status] || "bg-slate-500/10 text-slate-600"}
                         variant="outline"
                       >
                         {statusLabels[order.status] || order.status}
                       </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                          <PackageSearch className="h-3.5 w-3.5" />
+                          <span className="font-bold text-primary">{proposalCount}</span>
+                          <span>prop.</span>
+                        </div>
+                      </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" /> {timeAgo(order.createdAt)}
                       </div>
