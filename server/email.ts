@@ -46,6 +46,80 @@ export async function sendVerificationEmail(to: string, token: string) {
   );
 }
 
+export async function sendModerationNotificationEmail(opts: {
+  clientEmail: string;
+  clientName: string;
+  desmancheEmail: string;
+  desmancheName: string;
+  orderTitle: string;
+  negotiationId: string;
+}) {
+  const { clientEmail, clientName, desmancheEmail, desmancheName, orderTitle, negotiationId } = opts;
+  const appUrl = getAppUrl();
+
+  const sharedBody = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <span style="font-size:28px;">⚖️</span>
+        <h2 style="color:#1e293b;margin:0;">Negociação em Moderação</h2>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="color:#9a3412;font-weight:600;margin:0 0 6px 0;font-size:14px;">📦 Pedido</p>
+        <p style="color:#7c2d12;margin:0;font-size:14px;">${orderTitle}</p>
+      </div>
+  `;
+
+  const sharedFooter = `
+      <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
+        Você receberá outra notificação assim que a moderação encerrar o caso.<br/>
+        <a href="${appUrl}" style="color:#f97316;">Acessar plataforma</a> · Referência: <code>${negotiationId}</code>
+      </p>
+    </div>
+  `;
+
+  const results = await Promise.allSettled([
+    sendMail(
+      clientEmail,
+      "Sua negociação está em moderação — Central dos Desmanches",
+      `${sharedBody}
+      <p style="color:#475569;">Olá, <strong>${clientName}</strong>!</p>
+      <p style="color:#475569;">
+        Detectamos uma divergência entre as informações fornecidas pelo desmanche e as suas sobre o pedido acima.
+        Por isso, a negociação foi encaminhada para análise pela nossa equipe de moderação.
+      </p>
+      <p style="color:#475569;">
+        <strong>O que acontece agora?</strong><br/>
+        Nossa equipe irá revisar o caso e tomar a decisão mais justa para ambas as partes.
+        Você não precisa fazer nada — aguarde nosso contato.
+      </p>
+    ${sharedFooter}`
+    ),
+    sendMail(
+      desmancheEmail,
+      "Negociação encaminhada à moderação — Central dos Desmanches",
+      `${sharedBody}
+      <p style="color:#475569;">Olá, <strong>${desmancheName}</strong>!</p>
+      <p style="color:#475569;">
+        Detectamos uma divergência entre as informações que você forneceu e as do cliente sobre o pedido acima.
+        A negociação foi encaminhada para análise pela nossa equipe de moderação.
+      </p>
+      <p style="color:#475569;">
+        <strong>O que acontece agora?</strong><br/>
+        Nossa equipe irá revisar o caso e tomar a decisão mais justa para ambas as partes.
+        Você não precisa fazer nada — aguarde nosso contato.
+      </p>
+    ${sharedFooter}`
+    ),
+  ]);
+
+  results.forEach((result, i) => {
+    if (result.status === "rejected") {
+      const recipient = i === 0 ? clientEmail : desmancheEmail;
+      console.error(`Moderation email failed for ${recipient}:`, result.reason);
+    }
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, token: string) {
   const link = `${getAppUrl()}/redefinir-senha?token=${token}`;
   await sendMail(

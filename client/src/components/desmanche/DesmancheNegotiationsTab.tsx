@@ -681,12 +681,12 @@ function NegotiationCard({
         )}
 
         {neg.status === "in_moderation" && (
-          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1">
+          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1" data-testid="banner-in-moderation">
             <div className="font-semibold flex items-center gap-1.5 text-orange-800 text-sm">
-              <ShieldAlert className="h-4 w-4" /> Em moderação
+              <ShieldAlert className="h-4 w-4" /> Em moderação — aguarde a decisão do admin
             </div>
             <p className="text-xs text-orange-700 leading-relaxed">
-              Houve divergência nas respostas. Nossa equipe está analisando e irá resolver em breve.
+              Houve divergência nas respostas. Nossa equipe está analisando o caso. Você receberá um e-mail com a decisão final.
             </p>
           </div>
         )}

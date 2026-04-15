@@ -1792,6 +1792,23 @@ export async function registerRoutes(server: Server, app: Express) {
       // Billing: both agree on sale → will fire on review submit / auto-expire (standard flow)
       // Divergence → in_moderation: admin will decide billing on resolution
       // Both agree nothing happened → cancelled: no billing
+
+      if (divergence && updated) {
+        const clientUser = await storage.getUserById(negotiation.clientId);
+        const desmanche = updated.desmanche;
+        const orderTitle = updated.order?.title || "Pedido sem título";
+        if (clientUser && desmanche?.email) {
+          email.sendModerationNotificationEmail({
+            clientEmail: clientUser.email,
+            clientName: clientUser.name,
+            desmancheEmail: desmanche.email,
+            desmancheName: desmanche.tradingName,
+            orderTitle,
+            negotiationId: updated.id,
+          }).catch((err) => console.error("Moderation email send error:", err));
+        }
+      }
+
       res.json({ negotiation: updated, divergence });
     } catch (error) {
       console.error("Stale client response error:", error);

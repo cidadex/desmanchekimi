@@ -505,12 +505,12 @@ function NegotiationCard({
         )}
 
         {neg.status === "in_moderation" && (
-          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1">
+          <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 space-y-1" data-testid="banner-in-moderation">
             <div className="flex items-center gap-1.5 text-orange-800 text-sm font-semibold">
               <AlertTriangle className="h-4 w-4" /> Em análise pela moderação
             </div>
             <p className="text-xs text-orange-700 leading-relaxed">
-              Houve divergência entre as informações do desmanche e as suas. Nossa equipe está analisando o caso e irá resolver em breve.
+              Houve divergência entre as informações do desmanche e as suas. Nossa equipe está analisando o caso e irá resolver em breve. Você receberá um e-mail com a decisão final.
             </p>
           </div>
         )}
