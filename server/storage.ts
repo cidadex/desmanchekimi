@@ -836,6 +836,19 @@ export async function expireOldOrders() {
     );
 }
 
+// Expire orders where ALL items are expired/archived (no active items remain)
+export function expireOrdersWithAllExpiredItems(): void {
+  sqlite.exec(`
+    UPDATE orders
+    SET status = 'expired', updated_at = strftime('%s', 'now')
+    WHERE status IN ('open', 'has_proposals')
+    AND id NOT IN (
+      SELECT DISTINCT order_id FROM order_items
+      WHERE status IN ('open', 'has_proposals', 'negotiating', 'shipped', 'delivered', 'awaiting_review')
+    )
+  `);
+}
+
 export async function getOrdersByDesmanche(desmancheId: string) {
   return db.query.orders.findMany({
     where: eq(schema.orders.desmancheId, desmancheId),

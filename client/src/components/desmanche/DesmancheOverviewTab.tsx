@@ -50,6 +50,33 @@ export default function DesmancheOverviewTab({ onNavigate }: { onNavigate: (tab:
     },
   });
 
+  const desmancheVehicleTypes: string[] = (() => {
+    try { return JSON.parse(desmanche?.vehicleTypes || "[]"); } catch { return []; }
+  })();
+
+  // Count available items the same way DesmancheOrdersTab does
+  const availableItemsCount = (orders as any[]).reduce((count: number, order: any) => {
+    if (order.items && order.items.length > 0) {
+      const open = order.items.filter((item: any) =>
+        (item.status === "open" || item.status === "has_proposals") &&
+        (desmancheVehicleTypes.length === 0 || !item.vehicleType || desmancheVehicleTypes.includes(item.vehicleType))
+      ).length;
+      return count + open;
+    }
+    // Legacy single-item order
+    if (desmancheVehicleTypes.length > 0 && order.vehicleType && !desmancheVehicleTypes.includes(order.vehicleType)) {
+      return count;
+    }
+    return count + 1;
+  }, 0);
+
+  const recentOrders = (orders as any[]).filter((order: any) => {
+    if (order.items && order.items.length > 0) {
+      return order.items.some((item: any) => item.status === "open" || item.status === "has_proposals");
+    }
+    return true;
+  });
+
   const activeNegotiations = negotiations.filter((n: any) =>
     ["negotiating", "shipped"].includes(n.status)
   );
@@ -122,9 +149,9 @@ export default function DesmancheOverviewTab({ onNavigate }: { onNavigate: (tab:
               <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
             ) : (
               <>
-                <div className="text-3xl font-bold font-mono text-primary">{orders.length}</div>
+                <div className="text-3xl font-bold font-mono text-primary">{availableItemsCount}</div>
                 <p className="text-xs text-slate-600 mt-1 font-medium">
-                  pedidos abertos disponíveis agora
+                  itens disponíveis para proposta agora
                 </p>
               </>
             )}
@@ -143,13 +170,13 @@ export default function DesmancheOverviewTab({ onNavigate }: { onNavigate: (tab:
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
               </div>
-            ) : orders.length === 0 ? (
+            ) : recentOrders.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <PackageSearch className="h-10 w-10 mx-auto mb-2 text-slate-300" />
                 <p>Nenhum pedido aberto no momento.</p>
               </div>
             ) : (
-              orders.slice(0, 3).map((order: any) => (
+              recentOrders.slice(0, 3).map((order: any) => (
                 <div key={order.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div>
                     <p className="font-medium text-slate-900 text-sm">{order.title}</p>
@@ -164,9 +191,9 @@ export default function DesmancheOverviewTab({ onNavigate }: { onNavigate: (tab:
                 </div>
               ))
             )}
-            {orders.length > 0 && (
+            {recentOrders.length > 0 && (
               <Button variant="link" className="w-full text-primary mt-2" onClick={() => onNavigate("orders")}>
-                Ver todos os {orders.length} pedidos <ArrowRight className="ml-2 h-4 w-4" />
+                Ver todos os {availableItemsCount} itens disponíveis <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
           </CardContent>

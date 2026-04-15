@@ -105,7 +105,7 @@ export default function DesmancheOrdersTab() {
     return (orders as any[]).flatMap((order: any) => {
       if (order.items && order.items.length > 0) {
         return order.items
-          .filter((item: any) => item.status === "open")
+          .filter((item: any) => item.status === "open" || item.status === "has_proposals")
           .map((item: any) => ({
             ...item,
             orderId: order.id,

@@ -2372,8 +2372,9 @@ export async function registerRoutes(server: Server, app: Express) {
   async function runAutoExpire() {
     try {
       await storage.autoExpireOverdueReviews();
-      await storage.expireOldOrders();
       await storage.expireOldOrderItems();
+      await storage.expireOldOrders();
+      storage.expireOrdersWithAllExpiredItems();
     } catch (e) {
       console.error("Auto-expire error:", e);
     }
