@@ -219,7 +219,7 @@ export default function ModerationTab() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Confirmar como venda moverá para aguardando avaliação e gerará cobrança ao desmanche. Cancelar encerrará sem cobrança.
+                      Confirmar como venda moverá para aguardando avaliação. A cobrança ao desmanche ocorrerá quando o cliente avaliar (ou o prazo expirar). Cancelar encerrará sem cobrança.
                     </p>
                   </div>
                 </CardContent>

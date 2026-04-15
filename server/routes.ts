@@ -1825,14 +1825,8 @@ export async function registerRoutes(server: Server, app: Express) {
       }
       const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
       const updated = await storage.resolveModerationNegotiation(id, resolution, reviewDeadlineDays);
-      // If confirmed as sold, trigger billing immediately
-      if (resolution === "sold") {
-        try {
-          await triggerTransactionBilling(negotiation.desmancheId, negotiation.id);
-        } catch (billingErr) {
-          console.error("Billing on moderation resolution error:", billingErr);
-        }
-      }
+      // Billing fires naturally when client submits review (POST /api/reviews) or auto-expire runs.
+      // Do NOT trigger billing here to avoid double-charging on the same negotiation.
       res.json(updated);
     } catch (error) {
       console.error("Resolve moderation error:", error);
@@ -2570,6 +2564,16 @@ export async function registerRoutes(server: Server, app: Express) {
 
   // Billing helper
   async function triggerTransactionBilling(desmancheId: string, negotiationId: string) {
+    // Idempotency guard: skip if a non-exempt billing transaction already exists for this negotiation
+    const existingTx = await storage.getBillingTransactionsByDesmanche(desmancheId);
+    const alreadyBilled = existingTx.some(
+      (t: any) => t.negotiationId === negotiationId && t.status !== "exempt"
+    );
+    if (alreadyBilled) {
+      console.log(`[billing] Skipping duplicate charge for negotiation ${negotiationId}`);
+      return;
+    }
+
     let billing = await storage.getDesmancheBilling(desmancheId);
 
     // Auto-create billing record with default per_transaction model if not set up yet
