@@ -28,11 +28,13 @@ const PROPOSAL_STATUS: Record<string, { label: string; color: string; icon: any 
 };
 
 const NEG_STATUS: Record<string, { label: string; color: string }> = {
-  negotiating:      { label: "Negociando",         color: "bg-blue-100 text-blue-700" },
-  shipped:          { label: "Enviado",             color: "bg-orange-100 text-orange-700" },
-  awaiting_review:  { label: "Aguard. Avaliação",  color: "bg-yellow-100 text-yellow-700" },
-  completed:        { label: "Concluído",           color: "bg-green-100 text-green-700" },
-  cancelled:        { label: "Cancelado",           color: "bg-red-100 text-red-700" },
+  negotiating:              { label: "Negociando",           color: "bg-blue-100 text-blue-700" },
+  shipped:                  { label: "Enviado",              color: "bg-orange-100 text-orange-700" },
+  awaiting_review:          { label: "Aguard. Avaliação",   color: "bg-yellow-100 text-yellow-700" },
+  completed:                { label: "Concluído",            color: "bg-green-100 text-green-700" },
+  cancelled:                { label: "Cancelado",            color: "bg-red-100 text-red-700" },
+  stale_awaiting_desmanche: { label: "⚠ Verificação",        color: "bg-amber-100 text-amber-700" },
+  stale_awaiting_client:    { label: "Aguard. Cliente",      color: "bg-amber-50 text-amber-600" },
 };
 
 function fmt(val: any) {

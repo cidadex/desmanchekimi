@@ -446,6 +446,8 @@ try { sqlite.exec(`ALTER TABLE orders ADD COLUMN expires_at INTEGER`); } catch (
 // Negotiations: new columns for review gate
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN received_at INTEGER`); } catch (e) {}
 try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGER`); } catch (e) {}
+// Negotiations: stale detection column
+try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN stale_check_at INTEGER`); } catch (e) {}
 // Seed default system settings
 const defaultSettings = [
   { key: 'reviewDeadlineDays', value: '10' },
@@ -453,6 +455,7 @@ const defaultSettings = [
   { key: 'perTransactionAmount', value: '25' },
   { key: 'monthlyCapAmount', value: '200' },
   { key: 'licenseAlertDays', value: '30' },
+  { key: 'staleNegotiationDays', value: '30' },
 ];
 for (const s of defaultSettings) {
   sqlite.exec(`INSERT OR IGNORE INTO system_settings (key, value) VALUES ('${s.key}', '${s.value}')`);
@@ -1505,10 +1508,12 @@ export async function getPendingReviewsForClient(clientId: string) {
   });
 }
 
-export async function autoExpireOverdueReviews() {
+export async function autoExpireOverdueReviews(): Promise<Array<{ id: string; desmancheId: string }>> {
   const now = Math.floor(Date.now() / 1000);
-  await db.update(schema.negotiations)
-    .set({ status: 'completed', updatedAt: sql`(strftime('%s', 'now'))` })
+  const overdue = await db.select({
+    id: schema.negotiations.id,
+    desmancheId: schema.negotiations.desmancheId,
+  }).from(schema.negotiations)
     .where(
       and(
         eq(schema.negotiations.status, 'awaiting_review'),
@@ -1516,6 +1521,74 @@ export async function autoExpireOverdueReviews() {
         sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
       )
     );
+  if (overdue.length > 0) {
+    await db.update(schema.negotiations)
+      .set({ status: 'completed', updatedAt: sql`(strftime('%s', 'now'))` })
+      .where(
+        and(
+          eq(schema.negotiations.status, 'awaiting_review'),
+          sql`${schema.negotiations.reviewDeadlineAt} IS NOT NULL`,
+          sql`${schema.negotiations.reviewDeadlineAt} < ${now}`,
+        )
+      );
+  }
+  return overdue;
+}
+
+export async function detectStaleNegotiations(staleDays: number): Promise<Array<{ id: string; desmancheId: string }>> {
+  const cutoff = Math.floor(Date.now() / 1000) - staleDays * 24 * 60 * 60;
+  const stale = await db.select({
+    id: schema.negotiations.id,
+    desmancheId: schema.negotiations.desmancheId,
+  }).from(schema.negotiations)
+    .where(
+      and(
+        eq(schema.negotiations.status, 'negotiating'),
+        sql`${schema.negotiations.updatedAt} IS NOT NULL`,
+        sql`${schema.negotiations.updatedAt} < ${cutoff}`,
+      )
+    );
+  if (stale.length > 0) {
+    const now = new Date();
+    await db.update(schema.negotiations)
+      .set({ status: 'stale_awaiting_desmanche', staleCheckAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(schema.negotiations.status, 'negotiating'),
+          sql`${schema.negotiations.updatedAt} < ${cutoff}`,
+        )
+      );
+  }
+  return stale;
+}
+
+export async function respondStaleAsDesmanche(id: string, response: "nothing_happened" | "still_negotiating") {
+  const now = new Date();
+  if (response === "nothing_happened") {
+    await db.update(schema.negotiations)
+      .set({ status: 'stale_awaiting_client', updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  } else {
+    await db.update(schema.negotiations)
+      .set({ status: 'negotiating', staleCheckAt: null, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  }
+  return getNegotiationById(id);
+}
+
+export async function respondStaleAsClient(id: string, response: "confirmed_nothing" | "received_it", reviewDeadlineDays: number) {
+  const now = new Date();
+  if (response === "confirmed_nothing") {
+    await db.update(schema.negotiations)
+      .set({ status: 'cancelled', updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  } else {
+    const deadline = new Date(now.getTime() + reviewDeadlineDays * 24 * 60 * 60 * 1000);
+    await db.update(schema.negotiations)
+      .set({ status: 'awaiting_review', receivedAt: now, reviewDeadlineAt: deadline, updatedAt: now })
+      .where(eq(schema.negotiations.id, id));
+  }
+  return getNegotiationById(id);
 }
 
 export async function setNegotiationReceived(id: string, reviewDeadlineDays: number) {

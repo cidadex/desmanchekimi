@@ -20,11 +20,13 @@ import {
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; step: number }> = {
-  negotiating:     { label: "Negociando",          color: "bg-blue-100 text-blue-800 border-blue-200",     step: 1 },
-  shipped:         { label: "Enviado",              color: "bg-orange-100 text-orange-800 border-orange-200", step: 2 },
-  awaiting_review: { label: "Aguardando Avaliação", color: "bg-purple-100 text-purple-800 border-purple-200", step: 3 },
-  completed:       { label: "Concluído",            color: "bg-green-100 text-green-800 border-green-200",  step: 4 },
-  cancelled:       { label: "Cancelado",            color: "bg-red-100 text-red-800 border-red-200",        step: 0 },
+  negotiating:              { label: "Negociando",          color: "bg-blue-100 text-blue-800 border-blue-200",     step: 1 },
+  shipped:                  { label: "Enviado",             color: "bg-orange-100 text-orange-800 border-orange-200", step: 2 },
+  awaiting_review:          { label: "Aguardando Avaliação", color: "bg-purple-100 text-purple-800 border-purple-200", step: 3 },
+  completed:                { label: "Concluído",           color: "bg-green-100 text-green-800 border-green-200",  step: 4 },
+  cancelled:                { label: "Cancelado",           color: "bg-red-100 text-red-800 border-red-200",        step: 0 },
+  stale_awaiting_desmanche: { label: "⚠ Verificação Desmanche", color: "bg-amber-100 text-amber-800 border-amber-200", step: 1 },
+  stale_awaiting_client:    { label: "⚠ Confirme sua Compra",   color: "bg-amber-200 text-amber-900 border-amber-400", step: 1 },
 };
 
 function fmt(ts: any) {
@@ -144,6 +146,22 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
     onError: () => toast({ title: "Erro ao confirmar recebimento", variant: "destructive" }),
   });
 
+  const staleClientResponseMutation = useMutation({
+    mutationFn: async ({ id, response }: { id: string; response: string }) => {
+      const res = await apiRequest("PATCH", `/api/negotiations/${id}/stale-client-response`, { response });
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/negotiations/my"] });
+      if (vars.response === "confirmed_nothing") {
+        toast({ title: "Negociação cancelada.", description: "Obrigado pela confirmação." });
+      } else {
+        toast({ title: "Recebimento confirmado!", description: "Prazo para avaliação iniciado." });
+      }
+    },
+    onError: (err: Error) => toast({ title: "Erro ao responder", description: err.message, variant: "destructive" }),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async (negotiationId: string) => {
       const res = await apiRequest("PATCH", `/api/negotiations/${negotiationId}/status`, { status: "cancelled" });
@@ -258,8 +276,10 @@ export function NegotiationsTab({ onNavigate }: { onNavigate?: (tab: string) => 
               onCancel={() => cancelMutation.mutate(neg.id)}
               onViewDetail={() => setDetailDialog(neg)}
               onNavigate={onNavigate}
+              onStaleResponse={(response) => staleClientResponseMutation.mutate({ id: neg.id, response })}
               isConfirmingReceived={receivedMutation.isPending && receivedMutation.variables === neg.id}
               isCancelling={cancelMutation.isPending && cancelMutation.variables === neg.id}
+              isStaleResponding={staleClientResponseMutation.isPending}
             />
           ))}
         </div>
@@ -330,8 +350,10 @@ function NegotiationCard({
   onCancel,
   onViewDetail,
   onNavigate,
+  onStaleResponse,
   isConfirmingReceived,
   isCancelling,
+  isStaleResponding,
 }: {
   neg: Negotiation;
   onConfirmReceived: () => void;
@@ -339,8 +361,10 @@ function NegotiationCard({
   onCancel: () => void;
   onViewDetail: () => void;
   onNavigate?: (tab: string) => void;
+  onStaleResponse: (response: "confirmed_nothing" | "received_it") => void;
   isConfirmingReceived: boolean;
   isCancelling: boolean;
+  isStaleResponding: boolean;
 }) {
   const config = statusConfig[neg.status] || { label: neg.status, color: "bg-slate-100 text-slate-700 border-slate-200", step: 0 };
   const countdown = neg.status === "awaiting_review" ? deadlineCountdown(neg.reviewDeadlineAt) : null;
@@ -391,6 +415,51 @@ function NegotiationCard({
         </div>
 
         {/* Status banners */}
+        {neg.status === "stale_awaiting_desmanche" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+            <div className="flex items-center gap-2 text-amber-800 text-sm font-semibold">
+              <AlertTriangle className="h-4 w-4" /> Verificação em andamento
+            </div>
+            <p className="text-xs text-amber-700">
+              Essa negociação está parada há um tempo. O desmanche foi consultado e irá responder em breve.
+            </p>
+          </div>
+        )}
+
+        {neg.status === "stale_awaiting_client" && (
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900 text-sm">Confirmação necessária</p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  O desmanche informou que não houve acordo. Você chegou a receber alguma peça?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                className="gap-1.5 bg-green-600 hover:bg-green-700 text-white flex-1"
+                onClick={() => onStaleResponse("received_it")}
+                disabled={isStaleResponding}
+                data-testid="button-stale-received-it"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Recebi a peça sim!
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-red-500 hover:bg-red-600 text-white flex-1"
+                onClick={() => onStaleResponse("confirmed_nothing")}
+                disabled={isStaleResponding}
+                data-testid="button-stale-confirmed-nothing"
+              >
+                <XCircle className="h-3.5 w-3.5" /> Confirmo, não recebi nada
+              </Button>
+            </div>
+          </div>
+        )}
+
         {neg.status === "shipped" && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
             <div className="flex items-center gap-2 text-orange-800 text-sm font-semibold">

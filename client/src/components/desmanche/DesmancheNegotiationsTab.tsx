@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Package, Truck, CheckCircle2, Clock, Loader2, Car, MapPin,
   SendHorizonal, XCircle, MessageSquare, ShieldAlert, Phone, Eye,
-  Handshake, FileText, MessageCircle, Ban, CalendarDays, Star,
+  Handshake, FileText, MessageCircle, Ban, CalendarDays, Star, AlertTriangle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,12 +19,14 @@ import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 const NEGOTIATION_STATUS: Record<string, { label: string; color: string; icon: any }> = {
-  negotiating:     { label: "Negociando",       color: "bg-blue-100 text-blue-800 border-blue-200",   icon: MessageSquare },
-  shipped:         { label: "Peça Enviada",      color: "bg-orange-100 text-orange-800 border-orange-200", icon: Truck },
-  awaiting_review: { label: "Aguard. Avaliação", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
-  delivered:       { label: "Entregue",          color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
-  completed:       { label: "Concluído",         color: "bg-green-100 text-green-800 border-green-200",  icon: CheckCircle2 },
-  cancelled:       { label: "Cancelado",         color: "bg-red-100 text-red-800 border-red-200",       icon: XCircle },
+  negotiating:              { label: "Negociando",            color: "bg-blue-100 text-blue-800 border-blue-200",    icon: MessageSquare },
+  shipped:                  { label: "Peça Enviada",          color: "bg-orange-100 text-orange-800 border-orange-200", icon: Truck },
+  awaiting_review:          { label: "Aguard. Avaliação",     color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
+  delivered:                { label: "Entregue",              color: "bg-purple-100 text-purple-800 border-purple-200", icon: Package },
+  completed:                { label: "Concluído",             color: "bg-green-100 text-green-800 border-green-200",  icon: CheckCircle2 },
+  cancelled:                { label: "Cancelado",             color: "bg-red-100 text-red-800 border-red-200",       icon: XCircle },
+  stale_awaiting_desmanche: { label: "⚠ Verificação Pendente", color: "bg-amber-100 text-amber-800 border-amber-200", icon: AlertTriangle },
+  stale_awaiting_client:    { label: "Aguard. Cliente",       color: "bg-amber-50 text-amber-700 border-amber-200",  icon: Clock },
 };
 
 const PROPOSAL_STATUS: Record<string, { label: string; color: string }> = {
@@ -116,6 +118,24 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
     },
     onError: (err: Error) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const staleResponseMutation = useMutation({
+    mutationFn: async ({ id, response }: { id: string; response: string }) => {
+      const res = await apiRequest("PATCH", `/api/negotiations/${id}/stale-desmanche-response`, { response });
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/negotiations/my"] });
+      if (vars.response === "nothing_happened") {
+        toast({ title: "Resposta enviada!", description: "O cliente será consultado para confirmar." });
+      } else {
+        toast({ title: "Negociação reativada!", description: "O prazo foi resetado." });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro ao responder", description: err.message, variant: "destructive" });
     },
   });
 
@@ -238,8 +258,9 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
                 neg={neg}
                 onShip={() => { setShipDialog(neg); setTrackingCode(""); }}
                 onUpdateStatus={(status) => updateNegMutation.mutate({ id: neg.id, status })}
+                onStaleResponse={(response) => staleResponseMutation.mutate({ id: neg.id, response })}
                 onViewDetail={() => setDetailDialog(neg)}
-                isPending={updateNegMutation.isPending}
+                isPending={updateNegMutation.isPending || staleResponseMutation.isPending}
               />
             ))
           )}
@@ -435,6 +456,7 @@ function NegotiationCard({
   neg,
   onShip,
   onUpdateStatus,
+  onStaleResponse,
   onViewDetail,
   onNavigate,
   isPending,
@@ -443,6 +465,7 @@ function NegotiationCard({
   neg: any;
   onShip?: () => void;
   onUpdateStatus?: (status: string) => void;
+  onStaleResponse?: (response: "nothing_happened" | "still_negotiating") => void;
   onViewDetail: () => void;
   onNavigate?: (tab: string) => void;
   isPending: boolean;
@@ -554,6 +577,49 @@ function NegotiationCard({
             <div className="font-semibold flex items-center gap-1">
               <Package className="h-3.5 w-3.5" /> Entregue — aguardando avaliação do cliente
             </div>
+          </div>
+        )}
+
+        {neg.status === "stale_awaiting_desmanche" && !readonly && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-800 text-sm">Verificação necessária</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Esta negociação está inativa há um tempo. O que aconteceu com ela?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                className="gap-1.5 bg-red-500 hover:bg-red-600 text-white flex-1"
+                onClick={() => onStaleResponse?.("nothing_happened")}
+                disabled={isPending}
+                data-testid="button-stale-nothing-happened"
+              >
+                <XCircle className="h-3.5 w-3.5" /> Nada aconteceu
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                onClick={() => onStaleResponse?.("still_negotiating")}
+                disabled={isPending}
+                data-testid="button-stale-still-negotiating"
+              >
+                <MessageSquare className="h-3.5 w-3.5" /> Ainda negociando
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {neg.status === "stale_awaiting_client" && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 space-y-1">
+            <div className="font-semibold flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" /> Aguardando confirmação do cliente
+            </div>
+            <p>Você informou que nada aconteceu. O cliente está sendo consultado para confirmar.</p>
           </div>
         )}
 

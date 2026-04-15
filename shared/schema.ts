@@ -208,10 +208,11 @@ export const negotiations = sqliteTable("negotiations", {
   clientId: text("client_id").references(() => users.id).notNull(),
   desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
   price: real("price").notNull(),
-  status: text("status", { enum: ["negotiating", "paid", "shipped", "delivered", "awaiting_review", "completed", "cancelled"] }).notNull().default("negotiating"),
+  status: text("status", { enum: ["negotiating", "paid", "shipped", "delivered", "awaiting_review", "completed", "cancelled", "stale_awaiting_desmanche", "stale_awaiting_client"] }).notNull().default("negotiating"),
   trackingCode: text("tracking_code"),
   receivedAt: integer("received_at", { mode: "timestamp" }),
   reviewDeadlineAt: integer("review_deadline_at", { mode: "timestamp" }),
+  staleCheckAt: integer("stale_check_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });

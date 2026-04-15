@@ -1740,6 +1740,59 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   });
 
+  // Resposta do desmanche sobre negociação parada
+  app.patch("/api/negotiations/:id/stale-desmanche-response", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { response } = req.body;
+      if (!["nothing_happened", "still_negotiating"].includes(response)) {
+        return res.status(400).json({ message: "Resposta inválida" });
+      }
+      const negotiation = await storage.getNegotiationById(req.params.id);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      if (negotiation.desmancheId !== desmancheId) return res.status(403).json({ message: "Acesso negado" });
+      if (negotiation.status !== "stale_awaiting_desmanche") {
+        return res.status(400).json({ message: "Negociação não está aguardando resposta do desmanche" });
+      }
+      const updated = await storage.respondStaleAsDesmanche(req.params.id, response);
+      res.json(updated);
+    } catch (error) {
+      console.error("Stale desmanche response error:", error);
+      res.status(500).json({ message: "Erro ao processar resposta" });
+    }
+  });
+
+  // Resposta do cliente sobre negociação parada
+  app.patch("/api/negotiations/:id/stale-client-response", authMiddleware, requireType(["client"]), async (req, res) => {
+    try {
+      const clientId = (req as any).user.id;
+      const { response } = req.body;
+      if (!["confirmed_nothing", "received_it"].includes(response)) {
+        return res.status(400).json({ message: "Resposta inválida" });
+      }
+      const negotiation = await storage.getNegotiationById(req.params.id);
+      if (!negotiation) return res.status(404).json({ message: "Negociação não encontrada" });
+      if (negotiation.clientId !== clientId) return res.status(403).json({ message: "Acesso negado" });
+      if (negotiation.status !== "stale_awaiting_client") {
+        return res.status(400).json({ message: "Negociação não está aguardando confirmação do cliente" });
+      }
+      const reviewDeadlineDays = await storage.getSystemSettingNumber("reviewDeadlineDays", 10);
+      const updated = await storage.respondStaleAsClient(req.params.id, response, reviewDeadlineDays);
+      // Se o cliente confirmou que recebeu, gerar cobrança
+      if (response === "received_it") {
+        try {
+          await triggerTransactionBilling(negotiation.desmancheId, negotiation.id);
+        } catch (billingErr) {
+          console.error("Billing on client stale response error:", billingErr);
+        }
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Stale client response error:", error);
+      res.status(500).json({ message: "Erro ao processar resposta" });
+    }
+  });
+
   // Endpoint para checar bloqueio do cliente (usado no frontend)
   app.get("/api/client/review-block-status", authMiddleware, requireType(["client"]), async (req, res) => {
     try {
@@ -2308,7 +2361,7 @@ export async function registerRoutes(server: Server, app: Express) {
 
   app.patch("/api/admin/settings", authMiddleware, requireType(["admin"]), async (req, res) => {
     try {
-      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment", "licenseAlertDays"];
+      const allowed = ["reviewDeadlineDays", "maxOverdueBeforeBlock", "perTransactionAmount", "monthlyCapAmount", "asaasApiKey", "asaasEnvironment", "licenseAlertDays", "staleNegotiationDays"];
       for (const [key, value] of Object.entries(req.body)) {
         if (allowed.includes(key)) {
           await storage.setSystemSetting(key, String(value));
@@ -2411,7 +2464,20 @@ export async function registerRoutes(server: Server, app: Express) {
   // Auto-expire overdue reviews e order items
   async function runAutoExpire() {
     try {
-      await storage.autoExpireOverdueReviews();
+      // Auto-complete negociações com prazo de avaliação vencido e gerar cobrança para cada uma
+      const expired = await storage.autoExpireOverdueReviews();
+      for (const neg of expired) {
+        try {
+          await triggerTransactionBilling(neg.desmancheId, neg.id);
+        } catch (billingErr) {
+          console.error(`Billing on auto-expire error for neg ${neg.id}:`, billingErr);
+        }
+      }
+
+      // Detectar negociações paradas e mover para verificação
+      const staleDays = await storage.getSystemSettingNumber("staleNegotiationDays", 30);
+      await storage.detectStaleNegotiations(staleDays);
+
       await storage.expireOldOrderItems();
       await storage.expireOldOrders();
       storage.expireOrdersWithAllExpiredItems();

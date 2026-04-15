@@ -18,6 +18,7 @@ interface SystemSettings {
   perTransactionAmount: string;
   monthlyCapAmount: string;
   licenseAlertDays: string;
+  staleNegotiationDays: string;
   asaasApiKey?: string;
   asaasEnvironment?: string;
 }
@@ -31,6 +32,7 @@ export default function SettingsTab() {
     perTransactionAmount: "25",
     monthlyCapAmount: "200",
     licenseAlertDays: "30",
+    staleNegotiationDays: "30",
     asaasApiKey: "",
     asaasEnvironment: "sandbox",
   });
@@ -204,6 +206,30 @@ export default function SettingsTab() {
                 </div>
                 <p className="text-xs text-slate-400">
                   O desmanche verá um aviso no painel e o admin receberá a lista de licenças próximas do vencimento.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Stale Negotiations ──────────────────────────────── */}
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="font-mono text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" /> Negociações Paradas
+              </CardTitle>
+              <CardDescription>
+                Quantos dias de inatividade até o sistema perguntar ao desmanche o que aconteceu com a negociação.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label>Dias de inatividade para iniciar verificação</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={7} max={180} {...f("staleNegotiationDays")} className="max-w-[120px]" />
+                  <span className="text-sm text-slate-500">dias</span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Negociações em &quot;Negociando&quot; sem atualização por este período serão sinalizadas para verificação.
                 </p>
               </div>
             </CardContent>
