@@ -2398,12 +2398,32 @@ export async function registerRoutes(server: Server, app: Express) {
       const env = await storage.getSystemSetting("asaasEnvironment");
       asaas.setAsaasConfig(apiKey || "", env || "sandbox");
 
+      // Se staleNegotiationDays foi alterado, rodar detecção imediatamente
+      if ("staleNegotiationDays" in req.body) {
+        const staleDays = await storage.getSystemSettingNumber("staleNegotiationDays", 30);
+        storage.detectStaleNegotiations(staleDays).catch((e) =>
+          console.error("Immediate stale detection error:", e)
+        );
+      }
+
       const settings = await storage.getAllSystemSettings();
       const obj: Record<string, string> = {};
       for (const s of settings) obj[s.key] = s.value;
       res.json(obj);
     } catch (error) {
       res.status(500).json({ message: "Erro ao salvar configurações" });
+    }
+  });
+
+  // Endpoint manual: forçar detecção de negociações paradas
+  app.post("/api/admin/negotiations/detect-stale", authMiddleware, requireType(["admin"]), async (req, res) => {
+    try {
+      const staleDays = await storage.getSystemSettingNumber("staleNegotiationDays", 30);
+      const detected = await storage.detectStaleNegotiations(staleDays);
+      res.json({ detected: detected.length, message: `${detected.length} negociação(ões) marcada(s) como pendente.` });
+    } catch (error) {
+      console.error("Manual detect stale error:", error);
+      res.status(500).json({ message: "Erro ao verificar negociações" });
     }
   });
 

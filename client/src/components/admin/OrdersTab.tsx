@@ -6,10 +6,11 @@ import {
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { getToken } from "@/lib/auth";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 type Order = {
   id: string;
@@ -93,6 +94,24 @@ function getDesmancheNames(order: Order): string[] {
 export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const detectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/negotiations/detect-stale");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/negotiations/pending"] });
+      qc.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({
+        title: data.detected > 0 ? `${data.detected} negociação(ões) pendente(s) encontrada(s)!` : "Nenhuma negociação pendente encontrada.",
+        description: data.detected > 0 ? "A lista foi atualizada." : "Todas as negociações estão dentro do prazo.",
+      });
+    },
+    onError: () => toast({ title: "Erro ao verificar negociações", variant: "destructive" }),
+  });
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/admin/orders"],
@@ -143,6 +162,19 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
           <h1 className="text-3xl font-bold font-mono tracking-tight">Anúncios & Pedidos de Peças</h1>
           <p className="text-muted-foreground">Clique em um pedido para ver todo o histórico de propostas, negociações e conversas.</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 shrink-0"
+          onClick={() => detectMutation.mutate()}
+          disabled={detectMutation.isPending}
+          data-testid="button-detect-stale"
+        >
+          {detectMutation.isPending
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <AlertTriangle className="h-4 w-4 text-amber-500" />}
+          Verificar pendências
+        </Button>
       </div>
 
       {/* ── Negociações Pendentes ───────────────────────────── */}
