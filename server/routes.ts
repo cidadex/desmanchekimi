@@ -1891,27 +1891,8 @@ export async function registerRoutes(server: Server, app: Express) {
   app.get("/api/complaints/my-desmanches", authMiddleware, requireType(["client"]), async (req, res) => {
     try {
       const clientId = (req as any).user.id;
-      const rows = await storage.getDesmanchesByClientNegotiations(clientId);
-      // Deduplicate by desmanche id, keep all orders per desmanche
-      const map = new Map<string, any>();
-      for (const row of rows) {
-        if (!map.has(row.id)) {
-          map.set(row.id, {
-            id: row.id,
-            tradingName: row.trading_name,
-            companyName: row.company_name,
-            logo: row.logo,
-            orders: [],
-          });
-        }
-        if (row.order_id) {
-          const d = map.get(row.id)!;
-          if (!d.orders.find((o: any) => o.id === row.order_id)) {
-            d.orders.push({ id: row.order_id, title: row.order_title });
-          }
-        }
-      }
-      res.json(Array.from(map.values()));
+      const result = await storage.getDesmanchesByClientInteractions(clientId);
+      res.json(result);
     } catch (error) {
       console.error("Get my desmanches error:", error);
       res.status(500).json({ message: "Erro ao buscar desmanches" });

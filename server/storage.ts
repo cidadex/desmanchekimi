@@ -1734,18 +1734,61 @@ export function getPendingComplaintsCount(): number {
   return row?.c ?? 0;
 }
 
-// Returns distinct desmanches a client has negotiated with (for complaint association)
-export async function getDesmanchesByClientNegotiations(clientId: string): Promise<any[]> {
-  const rows = sqlite.prepare(`
-    SELECT DISTINCT d.id, d.trading_name, d.company_name, d.logo,
-      n.id as negotiation_id, o.id as order_id, o.title as order_title
+// Returns distinct desmanches a client has interacted with (proposals OR negotiations)
+// plus all client orders — used for complaint association dropdowns
+export async function getDesmanchesByClientInteractions(clientId: string): Promise<{
+  desmanches: any[];
+  orders: any[];
+}> {
+  // All client orders
+  const orders = sqlite.prepare(`
+    SELECT o.id, o.title, o.status, o.created_at
+    FROM orders o
+    WHERE o.client_id = ? AND o.posted_by_type = 'client'
+    ORDER BY o.created_at DESC
+  `).all(clientId) as any[];
+
+  // Desmanches from negotiations
+  const fromNeg = sqlite.prepare(`
+    SELECT DISTINCT d.id, d.trading_name, d.company_name, d.logo, n.order_id
     FROM negotiations n
     JOIN desmanches d ON n.desmanche_id = d.id
-    JOIN orders o ON n.order_id = o.id
     WHERE n.client_id = ?
-    ORDER BY n.created_at DESC
   `).all(clientId) as any[];
-  return rows;
+
+  // Desmanches from proposals on client's orders
+  const fromProp = sqlite.prepare(`
+    SELECT DISTINCT d.id, d.trading_name, d.company_name, d.logo, p.order_id
+    FROM proposals p
+    JOIN desmanches d ON p.desmanche_id = d.id
+    JOIN orders o ON p.order_id = o.id
+    WHERE o.client_id = ?
+  `).all(clientId) as any[];
+
+  // Merge and deduplicate desmanches, tracking which orders they relate to
+  const desmancheMap = new Map<string, { id: string; tradingName: string; companyName: string; logo: string | null; orderIds: Set<string> }>();
+  for (const row of [...fromNeg, ...fromProp]) {
+    if (!desmancheMap.has(row.id)) {
+      desmancheMap.set(row.id, {
+        id: row.id,
+        tradingName: row.trading_name,
+        companyName: row.company_name,
+        logo: row.logo,
+        orderIds: new Set(),
+      });
+    }
+    if (row.order_id) desmancheMap.get(row.id)!.orderIds.add(row.order_id);
+  }
+
+  const desmanches = Array.from(desmancheMap.values()).map((d) => ({
+    id: d.id,
+    tradingName: d.tradingName,
+    companyName: d.companyName,
+    logo: d.logo,
+    orderIds: Array.from(d.orderIds),
+  }));
+
+  return { desmanches, orders };
 }
 
 export function getComplaintsByAuthor(authorId: string): any[] {
