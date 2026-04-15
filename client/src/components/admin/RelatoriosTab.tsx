@@ -61,7 +61,7 @@ export default function RelatóriosTab() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["admin", "dashboard-stats", refreshKey],
+    queryKey: ["/api/dashboard/stats", refreshKey],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/dashboard/stats");
       return res.json();
@@ -77,7 +77,7 @@ export default function RelatóriosTab() {
   });
 
   const { data: desmanches = [], isLoading: desmanchesLoading } = useQuery({
-    queryKey: ["admin", "all-desmanches", refreshKey],
+    queryKey: ["/api/admin/desmanches", refreshKey],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/desmanches");
       return res.json();
@@ -93,7 +93,7 @@ export default function RelatóriosTab() {
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ["admin", "users-list", refreshKey],
+    queryKey: ["/api/admin/users", refreshKey],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/users");
       return res.json();

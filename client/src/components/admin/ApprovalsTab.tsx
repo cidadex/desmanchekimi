@@ -29,13 +29,18 @@ export default function ApprovalsTab() {
     },
   });
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/desmanches"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/site-stats/real"] });
+  };
+
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("PATCH", `/api/desmanches/${id}/status`, { status: "active" });
+      await apiRequest("PATCH", `/api/admin/desmanches/${id}/status`, { status: "active" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/desmanches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      invalidateAll();
       toast({ title: "Desmanche aprovado com sucesso!" });
     },
     onError: (error: Error) => {
@@ -45,11 +50,10 @@ export default function ApprovalsTab() {
 
   const rejectMutation = useMutation({
     mutationFn: async ({ id, rejectionReason }: { id: string; rejectionReason: string }) => {
-      await apiRequest("PATCH", `/api/desmanches/${id}/status`, { status: "rejected", rejectionReason });
+      await apiRequest("PATCH", `/api/admin/desmanches/${id}/status`, { status: "rejected", rejectionReason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/desmanches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      invalidateAll();
       setRejectDialogOpen(false);
       setRejectingId(null);
       setRejectionReason("");
