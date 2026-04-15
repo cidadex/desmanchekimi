@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   PackageSearch, Clock, MapPin, Search, Loader2, User, Store, X, AlertTriangle,
 } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -104,7 +105,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
     staleTime: 0,
   });
 
-  const { data: pendingNegs = [], isLoading: isLoadingPending } = useQuery<PendingNeg[]>({
+  const { data: pendingNegs = [] } = useQuery<PendingNeg[]>({
     queryKey: ["/api/admin/negotiations/pending"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/negotiations/pending");
@@ -145,57 +146,49 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
       </div>
 
       {/* ── Negociações Pendentes ───────────────────────────── */}
-      {(isLoadingPending || pendingNegs.length > 0) && (
+      {pendingNegs.length > 0 && (
         <Card className="border-amber-300 bg-amber-50/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-amber-800">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               Negociações Pendentes
-              {pendingNegs.length > 0 && (
-                <Badge className="bg-amber-500 text-white text-xs ml-1">{pendingNegs.length}</Badge>
-              )}
+              <Badge className="bg-amber-500 text-white text-xs ml-1">{pendingNegs.length}</Badge>
             </CardTitle>
             <p className="text-xs text-amber-700">
               Essas negociações estão paradas há muito tempo e aguardam resposta para serem resolvidas.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
-            {isLoadingPending ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-              </div>
-            ) : (
-              pendingNegs.map((neg) => {
-                const cfg = pendingNegLabels[neg.status] || { label: neg.status, desc: "", color: "bg-slate-100 text-slate-700 border-slate-200" };
-                const vehicle = [neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" ");
-                const desmancheName = neg.desmanche?.tradingName || neg.desmanche?.companyName || "—";
-                return (
-                  <div
-                    key={neg.id}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-shadow ${cfg.color}`}
-                    onClick={() => onSelectOrder?.(neg.orderId)}
-                    data-testid={`card-pending-neg-${neg.id}`}
-                  >
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs border-current">{cfg.label}</Badge>
-                        <span className="font-mono text-xs opacity-70">NEG-{neg.id.slice(0, 8).toUpperCase()}</span>
-                      </div>
-                      <p className="font-semibold text-sm truncate">{neg.order?.title || "Pedido sem título"}</p>
-                      {vehicle && <p className="text-xs opacity-80">{vehicle}</p>}
-                      <p className="text-xs opacity-75 flex items-center gap-1">
-                        <Store className="h-3 w-3" /> {desmancheName}
-                        <span className="mx-1">·</span>
-                        <Clock className="h-3 w-3" /> última atualização {timeAgo(neg.updatedAt)}
-                      </p>
+            {pendingNegs.map((neg) => {
+              const cfg = pendingNegLabels[neg.status] || { label: neg.status, desc: "", color: "bg-slate-100 text-slate-700 border-slate-200" };
+              const vehicle = [neg.order?.vehicleBrand, neg.order?.vehicleModel, neg.order?.vehicleYear].filter(Boolean).join(" ");
+              const desmancheName = neg.desmanche?.tradingName || neg.desmanche?.companyName || "—";
+              return (
+                <div
+                  key={neg.id}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-shadow ${cfg.color}`}
+                  onClick={() => onSelectOrder?.(neg.orderId)}
+                  data-testid={`card-pending-neg-${neg.id}`}
+                >
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs border-current">{cfg.label}</Badge>
+                      <span className="font-mono text-xs opacity-70">NEG-{neg.id.slice(0, 8).toUpperCase()}</span>
                     </div>
-                    <Button size="sm" variant="outline" className="shrink-0 border-current bg-white/60 hover:bg-white text-inherit">
-                      Ver pedido
-                    </Button>
+                    <p className="font-semibold text-sm truncate">{neg.order?.title || "Pedido sem título"}</p>
+                    {vehicle && <p className="text-xs opacity-80">{vehicle}</p>}
+                    <p className="text-xs opacity-75 flex items-center gap-1">
+                      <Store className="h-3 w-3" /> {desmancheName}
+                      <span className="mx-1">·</span>
+                      <Clock className="h-3 w-3" /> última atualização {timeAgo(neg.updatedAt)}
+                    </p>
                   </div>
-                );
-              })
-            )}
+                  <Button size="sm" variant="outline" className="shrink-0 border-current bg-white/60 hover:bg-white text-inherit">
+                    Ver pedido
+                  </Button>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
