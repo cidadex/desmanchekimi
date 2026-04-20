@@ -195,7 +195,7 @@ export default function Home() {
             </h1>
             
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed">
-              Carros e motos. Faça um único pedido e receba propostas de toda a rede de desmanches credenciados. Rápido, seguro e direto.
+              Carros, motos e veículos pesados. Faça um único pedido e receba propostas de toda a rede de desmanches credenciados. Rápido, seguro e direto.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
@@ -285,7 +285,7 @@ export default function Home() {
                   {[
                     "Faça seu credenciamento provando regularidade (Detran).",
                     "Acesse o painel e veja centenas de pedidos em tempo real.",
-                    "Filtre por tipo de veículo (Carro, Moto, Caminhão, Trator) e marca.",
+                    "Filtre por tipo de veículo (Carro, Moto, Veículos Pesados) e marca.",
                     "Chame o cliente direto no WhatsApp e feche a venda."
                   ].map((step, i) => (
                     <li key={i} className="flex gap-4 items-start bg-background p-3 rounded-lg shadow-sm border">
