@@ -425,6 +425,13 @@ try { sqlite.exec(`ALTER TABLE negotiations ADD COLUMN review_deadline_at INTEGE
   }
 }
 
+// Migração: ciclo mensal — atualizar billing_model existente de per_transaction para monthly_cycle
+// e normalizar current_period_start para ciclos sem transações acumuladas
+try {
+  sqlite.exec(`UPDATE desmanche_billing SET billing_model = 'monthly_cycle' WHERE billing_model = 'per_transaction'`);
+  sqlite.exec(`UPDATE desmanche_billing SET current_period_start = 0 WHERE monthly_transaction_count = 0 AND current_period_start > 0`);
+} catch (e) {}
+
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS site_settings (
     key TEXT PRIMARY KEY,

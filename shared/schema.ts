@@ -72,7 +72,7 @@ export const desmancheBilling = sqliteTable("desmanche_billing", {
   planId: text("plan_id").references(() => subscriptionPlans.id),
   monthlyTransactionCount: integer("monthly_transaction_count").notNull().default(0),
   monthlyAmountPaid: real("monthly_amount_paid").notNull().default(0),
-  currentPeriodStart: integer("current_period_start", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  currentPeriodStart: integer("current_period_start").notNull().default(0),
   asaasCustomerId: text("asaas_customer_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
