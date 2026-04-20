@@ -1401,7 +1401,7 @@ export async function getDesmancheBilling(desmancheId: string) {
 }
 
 export async function createOrUpdateDesmancheBilling(desmancheId: string, data: {
-  billingModel: "subscription" | "per_transaction";
+  billingModel: "subscription" | "per_transaction" | "monthly_cycle";
   planId?: string | null;
   asaasCustomerId?: string;
 }) {
@@ -1424,12 +1424,16 @@ export async function createOrUpdateDesmancheBilling(desmancheId: string, data: 
   return getDesmancheBilling(desmancheId);
 }
 
-export async function incrementBillingTransaction(desmancheId: string, amount: number) {
+export async function incrementBillingTransaction(desmancheId: string, amount: number, isFirstInCycle = false) {
+  const setData: any = {
+    monthlyTransactionCount: sql`monthly_transaction_count + 1`,
+    monthlyAmountPaid: sql`monthly_amount_paid + ${amount}`,
+  };
+  if (isFirstInCycle) {
+    setData.currentPeriodStart = sql`(strftime('%s', 'now'))`;
+  }
   await db.update(schema.desmancheBilling)
-    .set({
-      monthlyTransactionCount: sql`monthly_transaction_count + 1`,
-      monthlyAmountPaid: sql`monthly_amount_paid + ${amount}`,
-    })
+    .set(setData)
     .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
 }
 
@@ -1441,6 +1445,50 @@ export async function resetMonthlyBillingCounters(desmancheId: string) {
       currentPeriodStart: sql`(strftime('%s', 'now'))`,
     })
     .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+}
+
+export async function resetMonthlyCycle(desmancheId: string) {
+  await db.update(schema.desmancheBilling)
+    .set({
+      monthlyTransactionCount: 0,
+      monthlyAmountPaid: 0,
+      currentPeriodStart: sql`0`,
+    })
+    .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+}
+
+export async function getDesmanchesWithOverdueMonthlyCycles() {
+  const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+  return db.query.desmancheBilling.findMany({
+    where: and(
+      eq(schema.desmancheBilling.billingModel, "monthly_cycle"),
+      sql`${schema.desmancheBilling.monthlyTransactionCount} > 0`,
+      sql`${schema.desmancheBilling.currentPeriodStart} > 0`,
+      sql`${schema.desmancheBilling.currentPeriodStart} <= ${thirtyDaysAgo}`,
+    ),
+    with: { desmanche: true },
+  });
+}
+
+export async function getPendingCycleBillingTransactions(desmancheId: string) {
+  return db.query.billingTransactions.findMany({
+    where: and(
+      eq(schema.billingTransactions.desmancheId, desmancheId),
+      eq(schema.billingTransactions.status, "pending"),
+      eq(schema.billingTransactions.type, "monthly_cycle"),
+    ),
+    orderBy: asc(schema.billingTransactions.createdAt),
+  });
+}
+
+export async function markBillingTransactionsAsBilled(txIds: string[], asaasChargeId: string, paymentLink?: string) {
+  for (const id of txIds) {
+    const updateData: any = { status: "billed", asaasChargeId };
+    if (paymentLink) updateData.paymentLink = paymentLink;
+    await db.update(schema.billingTransactions)
+      .set(updateData)
+      .where(eq(schema.billingTransactions.id, id));
+  }
 }
 
 // ==================== BILLING TRANSACTIONS ====================
@@ -1462,11 +1510,11 @@ export async function createBillingTransaction(data: {
   desmancheId: string;
   negotiationId?: string;
   amount: number;
-  type: "per_transaction" | "subscription";
+  type: "per_transaction" | "subscription" | "monthly_cycle";
   description?: string;
   asaasChargeId?: string;
   paymentLink?: string;
-  status?: "pending" | "paid" | "failed" | "exempt";
+  status?: "pending" | "paid" | "failed" | "exempt" | "billed";
 }) {
   const id = randomUUID();
   await db.insert(schema.billingTransactions).values({
@@ -1483,7 +1531,7 @@ export async function createBillingTransaction(data: {
   return db.query.billingTransactions.findFirst({ where: eq(schema.billingTransactions.id, id) });
 }
 
-export async function updateBillingTransactionStatus(id: string, status: "pending" | "paid" | "failed" | "exempt", asaasChargeId?: string, paymentLink?: string) {
+export async function updateBillingTransactionStatus(id: string, status: "pending" | "paid" | "failed" | "exempt" | "billed", asaasChargeId?: string, paymentLink?: string) {
   const updateData: any = { status };
   if (asaasChargeId) updateData.asaasChargeId = asaasChargeId;
   if (paymentLink) updateData.paymentLink = paymentLink;

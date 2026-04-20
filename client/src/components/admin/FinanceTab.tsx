@@ -10,16 +10,19 @@ const TX_STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   failed: "bg-red-50 text-red-700 border-red-200",
   exempt: "bg-blue-50 text-blue-700 border-blue-200",
+  billed: "bg-purple-50 text-purple-700 border-purple-200",
 };
 const TX_STATUS_LABELS: Record<string, string> = {
   paid: "Pago",
-  pending: "Pendente",
+  pending: "Acumulando",
   failed: "Falhou",
   exempt: "Isento",
+  billed: "Faturado",
 };
 const TX_TYPE_LABELS: Record<string, string> = {
   per_transaction: "Por Transação",
   subscription: "Assinatura",
+  monthly_cycle: "Ciclo Mensal",
 };
 
 export default function FinanceTab() {
@@ -27,6 +30,7 @@ export default function FinanceTab() {
     transactions: any[];
     totalPaid: number;
     totalPending: number;
+    totalBilled: number;
     plans: any[];
   }>({
     queryKey: ["/api/admin/billing"],
@@ -47,6 +51,7 @@ export default function FinanceTab() {
   const transactions = data?.transactions || [];
   const totalPaid = data?.totalPaid || 0;
   const totalPending = data?.totalPending || 0;
+  const totalBilled = data?.totalBilled || 0;
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -63,40 +68,53 @@ export default function FinanceTab() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-2 border-primary/20 bg-primary/5">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Receita Paga</CardTitle>
                 <DollarSign className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold font-mono">{fmt(totalPaid)}</div>
+                <div className="text-2xl font-bold font-mono">{fmt(totalPaid)}</div>
                 <p className="text-xs text-muted-foreground mt-1">Total de cobranças pagas</p>
               </CardContent>
             </Card>
 
-            <Card className="border-2">
+            <Card className="border-2 border-purple-200 bg-purple-50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">A Receber</CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-purple-700">Faturas Emitidas</CardTitle>
+                <CreditCard className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold font-mono">{fmt(totalPending)}</div>
+                <div className="text-2xl font-bold font-mono text-purple-800">{fmt(totalBilled)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {transactions.filter((t) => t.status === "pending").length} cobranças pendentes
+                  {transactions.filter((t) => t.status === "billed").length} op. faturadas aguardando pagamento
                 </p>
               </CardContent>
             </Card>
 
             <Card className="border-2">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total de Cobranças</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Acumulando (ciclo)</CardTitle>
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-mono">{fmt(totalPending)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {transactions.filter((t) => t.status === "pending").length} operações no ciclo atual
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total de Operações</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold font-mono">{transactions.length}</div>
+                <div className="text-2xl font-bold font-mono">{transactions.length}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {transactions.filter((t) => t.status === "exempt").length} isenções no mês
+                  {transactions.filter((t) => t.status === "exempt").length} isenções registradas
                 </p>
               </CardContent>
             </Card>

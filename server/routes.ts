@@ -2256,20 +2256,39 @@ export async function registerRoutes(server: Server, app: Express) {
     try {
       const desmancheId = (req as any).user.id;
       let billing = await storage.getDesmancheBilling(desmancheId);
-      // Auto-create billing record with default model if desmanche hasn't configured it yet
+      // Auto-create billing record with default monthly_cycle model if not set up yet
       if (!billing) {
-        billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "per_transaction" });
+        billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "monthly_cycle" });
       }
       const transactions = await storage.getBillingTransactionsByDesmanche(desmancheId);
       const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
       const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
       const monthlyProposalCount = await storage.getMonthlyProposalCountForDesmanche(desmancheId);
+
+      // Compute cycle info for monthly_cycle model
+      let cycleInfo = null;
+      if (billing && billing.billingModel === "monthly_cycle") {
+        const periodStart = billing.currentPeriodStart && Number(billing.currentPeriodStart) > 0
+          ? new Date(Number(billing.currentPeriodStart) * 1000)
+          : null;
+        const cycleCloseDate = periodStart
+          ? new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1000)
+          : null;
+        cycleInfo = {
+          periodStart: periodStart ? periodStart.toISOString() : null,
+          cycleCloseDate: cycleCloseDate ? cycleCloseDate.toISOString() : null,
+          accumulatedAmount: billing.monthlyAmountPaid || 0,
+          transactionCount: billing.monthlyTransactionCount || 0,
+        };
+      }
+
       res.json({
         billing: billing || null,
         transactions,
         settings: { capAmount, perTxAmount },
         asaasConfigured: asaas.isAsaasConfigured(),
         monthlyProposalCount,
+        cycleInfo,
       });
     } catch (error) {
       console.error("Get billing error:", error);
@@ -2281,7 +2300,7 @@ export async function registerRoutes(server: Server, app: Express) {
     try {
       const desmancheId = (req as any).user.id;
       const { billingModel, planId } = req.body;
-      if (!billingModel || !["subscription", "per_transaction"].includes(billingModel)) {
+      if (!billingModel || !["subscription", "per_transaction", "monthly_cycle"].includes(billingModel)) {
         return res.status(400).json({ message: "Modelo de cobrança inválido" });
       }
       if (billingModel === "subscription" && !planId) {
@@ -2371,7 +2390,7 @@ export async function registerRoutes(server: Server, app: Express) {
         value: tx.amount,
         dueDate: asaas.getDueDateString(3),
         description: tx.description || `Central dos Desmanches — transação #${txId.slice(0, 8)}`,
-        billingType: "PIX",
+        billingType: "UNDEFINED",
       });
       if (!charge) return res.status(502).json({ message: "Erro ao criar cobrança no Asaas" });
 
@@ -2582,8 +2601,11 @@ export async function registerRoutes(server: Server, app: Express) {
       const totalPending = transactions
         .filter((t: any) => t.status === "pending")
         .reduce((sum: number, t: any) => sum + t.amount, 0);
+      const totalBilled = transactions
+        .filter((t: any) => t.status === "billed")
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
       const plans = await storage.getAllSubscriptionPlans();
-      res.json({ transactions, totalPaid, totalPending, plans });
+      res.json({ transactions, totalPaid, totalPending, totalBilled, plans });
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar financeiro" });
     }
@@ -2616,12 +2638,9 @@ export async function registerRoutes(server: Server, app: Express) {
 
   // Billing helper
   async function triggerTransactionBilling(desmancheId: string, negotiationId: string) {
-    // Idempotency guard: skip if any billing transaction already exists for this negotiation,
-    // regardless of status (including exempt), to prevent any duplicate charge attempt.
+    // Idempotency guard: skip if any billing transaction already exists for this negotiation
     const existingTx = await storage.getBillingTransactionsByDesmanche(desmancheId);
-    const alreadyBilled = existingTx.some(
-      (t: any) => t.negotiationId === negotiationId
-    );
+    const alreadyBilled = existingTx.some((t: any) => t.negotiationId === negotiationId);
     if (alreadyBilled) {
       console.log(`[billing] Skipping duplicate charge for negotiation ${negotiationId}`);
       return;
@@ -2629,17 +2648,35 @@ export async function registerRoutes(server: Server, app: Express) {
 
     let billing = await storage.getDesmancheBilling(desmancheId);
 
-    // Auto-create billing record with default per_transaction model if not set up yet
+    // Auto-create billing record with default monthly_cycle model if not set up yet
     if (!billing) {
-      billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "per_transaction" });
+      billing = await storage.createOrUpdateDesmancheBilling(desmancheId, { billingModel: "monthly_cycle" });
     }
+    if (!billing) return;
 
-    if (!billing || billing.billingModel !== "per_transaction") return;
-
-    const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
     const perTxAmount = await storage.getSystemSettingNumber("perTransactionAmount", 25);
 
-    // Se já atingiu o teto este mês, isento
+    // ── Modelo: ciclo mensal ─────────────────────────────────────────────────
+    if (billing.billingModel === "monthly_cycle") {
+      const isFirstInCycle = !billing.currentPeriodStart || Number(billing.currentPeriodStart) === 0 || billing.monthlyTransactionCount === 0;
+      const tx = await storage.createBillingTransaction({
+        desmancheId,
+        negotiationId,
+        amount: perTxAmount,
+        type: "monthly_cycle",
+        description: `Ciclo mensal — negociação #${negotiationId.slice(0, 8)}`,
+        status: "pending",
+      });
+      await storage.incrementBillingTransaction(desmancheId, perTxAmount, isFirstInCycle);
+      console.log(`[billing] monthly_cycle: recorded R$${perTxAmount} for negotiation ${negotiationId} (first=${isFirstInCycle})`);
+      return tx;
+    }
+
+    // ── Modelo: por transação (legado) ───────────────────────────────────────
+    if (billing.billingModel !== "per_transaction") return;
+
+    const capAmount = await storage.getSystemSettingNumber("monthlyCapAmount", 200);
+
     if (billing.monthlyAmountPaid >= capAmount) {
       await storage.createBillingTransaction({
         desmancheId,
@@ -2662,7 +2699,7 @@ export async function registerRoutes(server: Server, app: Express) {
         value: chargeAmount,
         dueDate: asaas.getDueDateString(3),
         description: `Central dos Desmanches — transação #${negotiationId.slice(0, 8)}`,
-        billingType: "PIX",
+        billingType: "UNDEFINED",
       });
       if (charge) {
         asaasChargeId = charge.id;
@@ -2678,16 +2715,72 @@ export async function registerRoutes(server: Server, app: Express) {
       description: `Transação — negociação #${negotiationId.slice(0, 8)}`,
       asaasChargeId,
       paymentLink,
-      status: asaas.isAsaasConfigured() ? "pending" : "pending",
+      status: "pending",
     });
 
     await storage.incrementBillingTransaction(desmancheId, chargeAmount);
     return tx;
   }
 
+  // Monthly cycle close job
+  async function runMonthlyCycleClose() {
+    try {
+      const overdue = await storage.getDesmanchesWithOverdueMonthlyCycles();
+      if (overdue.length === 0) return;
+      console.log(`[billing] Monthly cycle close: ${overdue.length} desmanche(s) due`);
+
+      for (const billingRecord of overdue) {
+        const desmancheId = billingRecord.desmancheId;
+        try {
+          const pendingTxs = await storage.getPendingCycleBillingTransactions(desmancheId);
+          const totalAmount = pendingTxs.reduce((s: number, t: any) => s + t.amount, 0);
+
+          if (pendingTxs.length === 0 || totalAmount === 0) {
+            await storage.resetMonthlyCycle(desmancheId);
+            continue;
+          }
+
+          let asaasChargeId: string | undefined;
+          let paymentLink: string | undefined;
+
+          if (asaas.isAsaasConfigured() && billingRecord.asaasCustomerId) {
+            const periodStart = new Date(Number(billingRecord.currentPeriodStart) * 1000);
+            const periodEnd = new Date();
+            const desc = `Central dos Desmanches — ${pendingTxs.length} operações (${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")})`;
+            const charge = await asaas.createAsaasCharge({
+              customerId: billingRecord.asaasCustomerId,
+              value: totalAmount,
+              dueDate: asaas.getDueDateString(5),
+              description: desc,
+              billingType: "UNDEFINED",
+            });
+            if (charge) {
+              asaasChargeId = charge.id;
+              paymentLink = charge.invoiceUrl || charge.bankSlipUrl;
+            }
+          }
+
+          const txIds = pendingTxs.map((t: any) => t.id);
+          await storage.markBillingTransactionsAsBilled(txIds, asaasChargeId || "", paymentLink);
+          await storage.resetMonthlyCycle(desmancheId);
+
+          console.log(`[billing] Closed cycle for ${desmancheId}: R$${totalAmount} (${pendingTxs.length} tx, charge=${asaasChargeId || "no-asaas"})`);
+        } catch (err) {
+          console.error(`[billing] Error closing cycle for ${desmancheId}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[billing] runMonthlyCycleClose error:", err);
+    }
+  }
+
   // Run auto-expire on startup and every hour
   runAutoExpire();
   setInterval(runAutoExpire, 60 * 60 * 1000);
+
+  // Run monthly cycle close on startup and every hour
+  runMonthlyCycleClose();
+  setInterval(runMonthlyCycleClose, 60 * 60 * 1000);
 
   // Seed database
   await storage.seedDatabase();
