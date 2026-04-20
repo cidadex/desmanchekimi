@@ -222,11 +222,11 @@ sqlite.exec(`
   CREATE TABLE IF NOT EXISTS desmanche_billing (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     desmanche_id TEXT NOT NULL UNIQUE REFERENCES desmanches(id),
-    billing_model TEXT NOT NULL DEFAULT 'per_transaction',
+    billing_model TEXT NOT NULL DEFAULT 'monthly_cycle',
     plan_id TEXT REFERENCES subscription_plans(id),
     monthly_transaction_count INTEGER NOT NULL DEFAULT 0,
     monthly_amount_paid REAL NOT NULL DEFAULT 0,
-    current_period_start INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    current_period_start INTEGER NOT NULL DEFAULT 0,
     asaas_customer_id TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
@@ -237,7 +237,7 @@ sqlite.exec(`
     negotiation_id TEXT,
     amount REAL NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    type TEXT NOT NULL DEFAULT 'per_transaction',
+    type TEXT NOT NULL DEFAULT 'monthly_cycle',
     asaas_charge_id TEXT,
     payment_link TEXT,
     description TEXT,
@@ -1401,24 +1401,30 @@ export async function getDesmancheBilling(desmancheId: string) {
 }
 
 export async function createOrUpdateDesmancheBilling(desmancheId: string, data: {
-  billingModel: "subscription" | "per_transaction" | "monthly_cycle";
+  billingModel?: "subscription" | "per_transaction" | "monthly_cycle";
   planId?: string | null;
   asaasCustomerId?: string;
 }) {
   const existing = await getDesmancheBilling(desmancheId);
   if (existing) {
-    await db.update(schema.desmancheBilling)
-      .set({ billingModel: data.billingModel, planId: data.planId ?? null, ...(data.asaasCustomerId ? { asaasCustomerId: data.asaasCustomerId } : {}) })
-      .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+    const setData: any = {};
+    if (data.billingModel !== undefined) setData.billingModel = data.billingModel;
+    if (data.planId !== undefined) setData.planId = data.planId ?? null;
+    if (data.asaasCustomerId) setData.asaasCustomerId = data.asaasCustomerId;
+    if (Object.keys(setData).length > 0) {
+      await db.update(schema.desmancheBilling)
+        .set(setData)
+        .where(eq(schema.desmancheBilling.desmancheId, desmancheId));
+    }
   } else {
     const id = randomUUID();
     await db.insert(schema.desmancheBilling).values({
       id,
       desmancheId,
-      billingModel: data.billingModel,
+      billingModel: data.billingModel ?? "monthly_cycle",
       planId: data.planId ?? null,
       asaasCustomerId: data.asaasCustomerId,
-      currentPeriodStart: sql`(strftime('%s', 'now'))`,
+      currentPeriodStart: 0, // Cycle starts only on first transaction, not on record creation
     });
   }
   return getDesmancheBilling(desmancheId);

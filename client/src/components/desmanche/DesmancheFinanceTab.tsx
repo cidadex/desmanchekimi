@@ -274,7 +274,8 @@ export default function DesmancheFinanceTab() {
                               <ExternalLink className="h-3 w-3" /> Pagar
                             </Button>
                           )}
-                          {tx.status === "pending" && !tx.paymentLink && billingData?.asaasConfigured && (
+                          {/* Only per_transaction pending rows without a charge can have individual charge generation */}
+                          {tx.status === "pending" && !tx.paymentLink && tx.type !== "monthly_cycle" && billingData?.asaasConfigured && (
                             <Button
                               size="sm"
                               variant="outline"

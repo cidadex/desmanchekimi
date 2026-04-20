@@ -2367,6 +2367,8 @@ export async function registerRoutes(server: Server, app: Express) {
       const tx = allTx.find((t: any) => t.id === txId);
       if (!tx) return res.status(404).json({ message: "Transação não encontrada" });
       if (tx.status !== "pending") return res.status(400).json({ message: "Transação não está pendente" });
+      // Monthly-cycle transactions are consolidated into a single charge at cycle close — cannot be charged individually
+      if (tx.type === "monthly_cycle") return res.status(400).json({ message: "Transações do ciclo mensal são faturadas automaticamente no fechamento do ciclo. Não é possível gerar cobrança individual." });
       if (tx.asaasChargeId) return res.status(400).json({ message: "Cobrança já existe no Asaas" });
       if (!asaas.isAsaasConfigured()) return res.status(400).json({ message: "Asaas não configurado" });
 
