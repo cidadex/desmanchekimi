@@ -2338,10 +2338,15 @@ export async function registerRoutes(server: Server, app: Express) {
       const { event, payment } = req.body;
       if (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") {
         if (payment?.id) {
+          // Update ALL transactions sharing this charge ID (consolidated monthly charges
+          // link multiple transactions to a single Asaas charge)
           const allTx = await storage.getAllBillingTransactions();
-          const tx = allTx.find((t: any) => t.asaasChargeId === payment.id);
-          if (tx) {
+          const matching = allTx.filter((t: any) => t.asaasChargeId === payment.id);
+          for (const tx of matching) {
             await storage.updateBillingTransactionStatus(tx.id, "paid");
+          }
+          if (matching.length > 0) {
+            console.log(`[webhook] Marked ${matching.length} transaction(s) as paid for charge ${payment.id}`);
           }
         }
       }
@@ -2742,8 +2747,9 @@ export async function registerRoutes(server: Server, app: Express) {
 
           let asaasChargeId: string | undefined;
           let paymentLink: string | undefined;
+          const asaasEnabled = asaas.isAsaasConfigured();
 
-          if (asaas.isAsaasConfigured() && billingRecord.asaasCustomerId) {
+          if (asaasEnabled && billingRecord.asaasCustomerId) {
             const periodStart = new Date(Number(billingRecord.currentPeriodStart) * 1000);
             const periodEnd = new Date();
             const desc = `Central dos Desmanches — ${pendingTxs.length} operações (${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")})`;
@@ -2757,8 +2763,17 @@ export async function registerRoutes(server: Server, app: Express) {
             if (charge) {
               asaasChargeId = charge.id;
               paymentLink = charge.invoiceUrl || charge.bankSlipUrl;
+            } else {
+              // Asaas is configured but charge creation failed — leave cycle open for retry next run
+              console.warn(`[billing] Cycle close for ${desmancheId}: Asaas charge creation failed, skipping (will retry next run)`);
+              continue;
             }
+          } else if (asaasEnabled && !billingRecord.asaasCustomerId) {
+            // Asaas configured but no customer ID — cannot charge, skip and retry
+            console.warn(`[billing] Cycle close for ${desmancheId}: no asaasCustomerId, skipping (will retry after customer creation)`);
+            continue;
           }
+          // If Asaas is not configured at all, close cycle without a charge (record kept for manual billing)
 
           const txIds = pendingTxs.map((t: any) => t.id);
           await storage.markBillingTransactionsAsBilled(txIds, asaasChargeId || "", paymentLink);
@@ -2774,23 +2789,23 @@ export async function registerRoutes(server: Server, app: Express) {
     }
   }
 
-  // Run auto-expire on startup and every hour
-  runAutoExpire();
-  setInterval(runAutoExpire, 60 * 60 * 1000);
-
-  // Run monthly cycle close on startup and every hour
-  runMonthlyCycleClose();
-  setInterval(runMonthlyCycleClose, 60 * 60 * 1000);
-
   // Seed database
   await storage.seedDatabase();
   console.log("Database seeded successfully");
 
-  // Load Asaas config from DB (overrides env var if set in admin panel)
+  // Load Asaas config from DB before any scheduled jobs (overrides env var if set in admin panel)
   const savedApiKey = await storage.getSystemSetting("asaasApiKey");
   const savedEnv = await storage.getSystemSetting("asaasEnvironment");
   if (savedApiKey) {
     asaas.setAsaasConfig(savedApiKey, savedEnv || "sandbox");
     console.log(`Asaas configured from DB (${savedEnv || "sandbox"})`);
   }
+
+  // Run auto-expire on startup and every hour
+  runAutoExpire();
+  setInterval(runAutoExpire, 60 * 60 * 1000);
+
+  // Run monthly cycle close on startup and every hour (after Asaas config is loaded)
+  runMonthlyCycleClose();
+  setInterval(runMonthlyCycleClose, 60 * 60 * 1000);
 }
