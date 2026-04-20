@@ -407,9 +407,9 @@ export async function registerRoutes(server: Server, app: Express) {
   app.patch("/api/users/me", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const { name, phone, whatsapp } = req.body;
+      const { name, phone, whatsapp, whatsappContactPreference } = req.body;
       
-      const user = await storage.updateUserProfile(userId, { name, phone, whatsapp });
+      const user = await storage.updateUserProfile(userId, { name, phone, whatsapp, whatsappContactPreference });
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
@@ -424,6 +424,7 @@ export async function registerRoutes(server: Server, app: Express) {
         email: user.email,
         phone: user.phone,
         whatsapp: user.whatsapp,
+        whatsappContactPreference: user.whatsappContactPreference,
         type: user.type,
         avatar: user.avatar,
         profileComplete: isComplete,

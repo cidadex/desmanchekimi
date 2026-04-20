@@ -10,6 +10,7 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   whatsapp: text("whatsapp"),
+  whatsappContactPreference: text("whatsapp_contact_preference", { enum: ["whatsapp", "chat_only"] }).notNull().default("whatsapp"),
   password: text("password").notNull(),
   type: text("type", { enum: ["client", "admin"] }).notNull().default("client"),
   avatar: text("avatar"),

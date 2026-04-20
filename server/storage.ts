@@ -16,6 +16,7 @@ sqlite.exec(`
     email TEXT NOT NULL UNIQUE,
     phone TEXT NOT NULL,
     whatsapp TEXT,
+    whatsapp_contact_preference TEXT NOT NULL DEFAULT 'whatsapp',
     password TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'client',
     avatar TEXT,
@@ -266,6 +267,14 @@ sqlite.exec(`
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
 `);
+
+// Migrations para colunas adicionadas após a criação inicial das tabelas
+const migrations = [
+  `ALTER TABLE users ADD COLUMN whatsapp_contact_preference TEXT NOT NULL DEFAULT 'whatsapp'`,
+];
+for (const migration of migrations) {
+  try { sqlite.exec(migration); } catch {}
+}
 
 // ── Migrate: add permissions column to users ──
 try {
@@ -519,7 +528,7 @@ export async function getAllUsers() {
   });
 }
 
-export async function updateUserProfile(id: string, data: { name?: string; phone?: string; whatsapp?: string; avatar?: string }) {
+export async function updateUserProfile(id: string, data: { name?: string; phone?: string; whatsapp?: string; avatar?: string; whatsappContactPreference?: "whatsapp" | "chat_only" }) {
   await db.update(schema.users)
     .set(data)
     .where(eq(schema.users.id, id));

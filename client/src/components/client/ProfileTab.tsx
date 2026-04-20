@@ -19,6 +19,7 @@ import {
   Loader2,
   ExternalLink,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 function validateBrPhone(value: string) {
@@ -48,6 +49,9 @@ export function ProfileTab() {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [whatsapp, setWhatsapp] = useState(user?.whatsapp || "");
+  const [whatsappContactPreference, setWhatsappContactPreference] = useState<"whatsapp" | "chat_only">(
+    (user as any)?.whatsappContactPreference || "whatsapp"
+  );
 
   const [zipCode, setZipCode] = useState(user?.address?.zipCode || "");
   const [street, setStreet] = useState(user?.address?.street || "");
@@ -62,6 +66,7 @@ export function ProfileTab() {
       setName(user.name || "");
       setPhone(user.phone || "");
       setWhatsapp(user.whatsapp || "");
+      setWhatsappContactPreference((user as any)?.whatsappContactPreference || "whatsapp");
       setZipCode(user.address?.zipCode || "");
       setStreet(user.address?.street || "");
       setNumber(user.address?.number || "");
@@ -77,7 +82,7 @@ export function ProfileTab() {
         throw new Error("Preencha CEP, rua, cidade e estado.");
       }
       const [profileRes, addressRes] = await Promise.all([
-        apiRequest("PATCH", "/api/users/me", { name, phone, whatsapp }),
+        apiRequest("PATCH", "/api/users/me", { name, phone, whatsapp, whatsappContactPreference }),
         apiRequest("PUT", "/api/users/me/address", { zipCode, street, number, complement, city, state }),
       ]);
       return Promise.all([profileRes.json(), addressRes.json()]);
@@ -213,6 +218,70 @@ export function ProfileTab() {
                   <CheckCircle2 className="h-3 w-3" /> Formato válido. Clique no botão para testar no WhatsApp.
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <Label className="flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-muted-foreground" /> Preferência de contato pelos desmanches
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Escolha como os desmanches interessados poderão entrar em contato com você após aceitar uma proposta.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                type="button"
+                data-testid="preference-whatsapp"
+                onClick={() => setWhatsappContactPreference("whatsapp")}
+                className={`flex-1 flex items-start gap-3 rounded-lg border p-4 text-left transition-colors cursor-pointer ${
+                  whatsappContactPreference === "whatsapp"
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                  whatsappContactPreference === "whatsapp" ? "border-green-600" : "border-muted-foreground"
+                }`}>
+                  {whatsappContactPreference === "whatsapp" && (
+                    <div className="h-2 w-2 rounded-full bg-green-600" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-sm flex items-center gap-1">
+                    <MessageCircle className="h-3.5 w-3.5 text-green-600" /> Permitir contato via WhatsApp
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    O desmanche poderá ver e usar seu número de WhatsApp para negociar diretamente.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-testid="preference-chat-only"
+                onClick={() => setWhatsappContactPreference("chat_only")}
+                className={`flex-1 flex items-start gap-3 rounded-lg border p-4 text-left transition-colors cursor-pointer ${
+                  whatsappContactPreference === "chat_only"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                  whatsappContactPreference === "chat_only" ? "border-blue-600" : "border-muted-foreground"
+                }`}>
+                  {whatsappContactPreference === "chat_only" && (
+                    <div className="h-2 w-2 rounded-full bg-blue-600" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-sm flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" /> Somente pelo chat da plataforma
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Seu WhatsApp não será compartilhado. A comunicação acontece apenas pelo chat interno.
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
         </CardContent>
