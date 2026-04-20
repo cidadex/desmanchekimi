@@ -208,6 +208,26 @@ sqlite.exec(`
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
   );
 
+  CREATE TABLE IF NOT EXISTS pre_proposal_rooms (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    order_id TEXT NOT NULL REFERENCES orders(id),
+    order_item_id TEXT,
+    client_id TEXT NOT NULL REFERENCES users(id),
+    desmanche_id TEXT NOT NULL REFERENCES desmanches(id),
+    last_message_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS pre_proposal_messages (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    room_id TEXT NOT NULL REFERENCES pre_proposal_rooms(id),
+    sender_id TEXT NOT NULL,
+    sender_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    read_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  );
+
   CREATE TABLE IF NOT EXISTS subscription_plans (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     name TEXT NOT NULL,
@@ -1343,6 +1363,117 @@ export async function countUnreadMessages(roomId: string, readerId: string) {
       )
     );
   return result[0]?.count || 0;
+}
+
+// ==================== PRE-PROPOSAL CHAT ====================
+export async function getOrCreatePreProposalRoom(data: {
+  orderId: string;
+  orderItemId?: string;
+  clientId: string;
+  desmancheId: string;
+}) {
+  // Find existing room for this desmanche + order item (or order)
+  const existing = await db.query.preProposalRooms.findFirst({
+    where: and(
+      eq(schema.preProposalRooms.desmancheId, data.desmancheId),
+      eq(schema.preProposalRooms.clientId, data.clientId),
+      data.orderItemId
+        ? eq(schema.preProposalRooms.orderItemId, data.orderItemId)
+        : eq(schema.preProposalRooms.orderId, data.orderId),
+    ),
+  });
+  if (existing) return existing;
+  const id = randomUUID();
+  await db.insert(schema.preProposalRooms).values({
+    id,
+    orderId: data.orderId,
+    orderItemId: data.orderItemId,
+    clientId: data.clientId,
+    desmancheId: data.desmancheId,
+  });
+  return db.query.preProposalRooms.findFirst({ where: eq(schema.preProposalRooms.id, id) });
+}
+
+export async function getPreProposalRoomById(id: string) {
+  return db.query.preProposalRooms.findFirst({
+    where: eq(schema.preProposalRooms.id, id),
+  });
+}
+
+export async function getPreProposalRoomsByDesmanche(desmancheId: string) {
+  const rows = sqlite.prepare(`
+    SELECT r.*, 
+      u.name AS client_name,
+      o.title AS order_title,
+      (SELECT COUNT(*) FROM pre_proposal_messages m WHERE m.room_id = r.id AND m.sender_id != ? AND m.read_at IS NULL) AS unread_count,
+      (SELECT m.content FROM pre_proposal_messages m WHERE m.room_id = r.id ORDER BY m.created_at DESC LIMIT 1) AS last_message
+    FROM pre_proposal_rooms r
+    LEFT JOIN users u ON u.id = r.client_id
+    LEFT JOIN orders o ON o.id = r.order_id
+    WHERE r.desmanche_id = ?
+    ORDER BY COALESCE(r.last_message_at, r.created_at) DESC
+  `).all(desmancheId, desmancheId) as any[];
+  return rows;
+}
+
+export async function getPreProposalRoomsByClient(clientId: string) {
+  const rows = sqlite.prepare(`
+    SELECT r.*,
+      d.trading_name AS desmanche_name,
+      o.title AS order_title,
+      oi.part_name AS item_name,
+      (SELECT COUNT(*) FROM pre_proposal_messages m WHERE m.room_id = r.id AND m.sender_id != ? AND m.read_at IS NULL) AS unread_count,
+      (SELECT m.content FROM pre_proposal_messages m WHERE m.room_id = r.id ORDER BY m.created_at DESC LIMIT 1) AS last_message
+    FROM pre_proposal_rooms r
+    LEFT JOIN desmanches d ON d.id = r.desmanche_id
+    LEFT JOIN orders o ON o.id = r.order_id
+    LEFT JOIN order_items oi ON oi.id = r.order_item_id
+    WHERE r.client_id = ?
+    ORDER BY COALESCE(r.last_message_at, r.created_at) DESC
+  `).all(clientId, clientId) as any[];
+  return rows;
+}
+
+export async function getPreProposalMessages(roomId: string) {
+  const rows = sqlite.prepare(`
+    SELECT * FROM pre_proposal_messages WHERE room_id = ? ORDER BY created_at ASC
+  `).all(roomId) as any[];
+  return rows;
+}
+
+export async function createPreProposalMessage(data: {
+  roomId: string;
+  senderId: string;
+  senderType: "client" | "desmanche";
+  content: string;
+}) {
+  const id = randomUUID();
+  sqlite.prepare(`
+    INSERT INTO pre_proposal_messages (id, room_id, sender_id, sender_type, content, created_at)
+    VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+  `).run(id, data.roomId, data.senderId, data.senderType, data.content);
+  sqlite.prepare(`
+    UPDATE pre_proposal_rooms SET last_message_at = strftime('%s', 'now') WHERE id = ?
+  `).run(data.roomId);
+  return sqlite.prepare(`SELECT * FROM pre_proposal_messages WHERE id = ?`).get(id) as any;
+}
+
+export async function markPreProposalMessagesAsRead(roomId: string, readerId: string) {
+  sqlite.prepare(`
+    UPDATE pre_proposal_messages SET read_at = strftime('%s', 'now')
+    WHERE room_id = ? AND sender_id != ? AND read_at IS NULL
+  `).run(roomId, readerId);
+}
+
+export async function countUnreadPreProposalMessages(userId: string) {
+  const result = sqlite.prepare(`
+    SELECT COUNT(*) AS cnt FROM pre_proposal_messages m
+    JOIN pre_proposal_rooms r ON r.id = m.room_id
+    WHERE (r.client_id = ? OR r.desmanche_id = ?)
+      AND m.sender_id != ?
+      AND m.read_at IS NULL
+  `).get(userId, userId, userId) as any;
+  return result?.cnt || 0;
 }
 
 // ==================== SYSTEM SETTINGS ====================

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import {
 import {
   MapPin, Search, Loader2, PackageSearch, SendHorizonal,
   Car, Wrench, Clock, AlertTriangle, Eye, ChevronRight, ImageIcon, User2,
-  SlidersHorizontal, X, ChevronDown, ChevronUp, Zap, Palette,
+  SlidersHorizontal, X, ChevronDown, ChevronUp, Zap, Palette, MessageSquare,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -62,6 +62,10 @@ export default function DesmancheOrdersTab() {
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
+  const [showPreChat, setShowPreChat] = useState(false);
+  const [preChatInput, setPreChatInput] = useState("");
+  const [localRoomId, setLocalRoomId] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const { data: desmanche } = useQuery({
     queryKey: ["/api/desmanches/me"],
@@ -99,6 +103,73 @@ export default function DesmancheOrdersTab() {
 
   const proposedOrderIds = new Set(myProposals.filter((p: any) => !p.orderItemId).map((p: any) => p.orderId));
   const proposedItemIds = new Set(myProposals.filter((p: any) => p.orderItemId).map((p: any) => p.orderItemId));
+
+  const { data: preRooms = [] } = useQuery({
+    queryKey: ["/api/pre-proposal-chat/rooms"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/pre-proposal-chat/rooms");
+      return res.json();
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30 * 1000,
+    staleTime: 0,
+  });
+
+  const preChatRoom = selectedOrder
+    ? (preRooms as any[]).find((r: any) => {
+        if (selectedOrder.isOrderItem) return r.order_item_id === selectedOrder.id;
+        return r.order_id === selectedOrder.orderId && !r.order_item_id;
+      })
+    : null;
+
+  const effectiveRoomId = localRoomId || preChatRoom?.id || null;
+
+  const { data: preChatMessages = [], refetch: refetchPreChat } = useQuery({
+    queryKey: ["/api/pre-proposal-chat/messages", effectiveRoomId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/pre-proposal-chat/${effectiveRoomId}/messages`);
+      return res.json();
+    },
+    enabled: !!effectiveRoomId && showPreChat,
+    refetchInterval: 5 * 1000,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [preChatMessages]);
+
+  const sendPreChatMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!effectiveRoomId) {
+        const clientId = selectedOrder?.client?.id;
+        if (!clientId) throw new Error("Cliente não identificado");
+        const res = await apiRequest("POST", "/api/pre-proposal-chat/start", {
+          orderId: selectedOrder.orderId,
+          orderItemId: selectedOrder.isOrderItem ? selectedOrder.id : undefined,
+          clientId,
+          content,
+        });
+        return res.json();
+      } else {
+        const res = await apiRequest("POST", `/api/pre-proposal-chat/${effectiveRoomId}/messages`, { content });
+        return res.json();
+      }
+    },
+    onSuccess: (data: any) => {
+      if (!effectiveRoomId && data?.room?.id) {
+        setLocalRoomId(data.room.id);
+      }
+      setPreChatInput("");
+      queryClient.invalidateQueries({ queryKey: ["/api/pre-proposal-chat/rooms"] });
+      refetchPreChat();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao enviar mensagem", description: error.message, variant: "destructive" });
+    },
+  });
 
   // Flatten orders to individual items (new multi-item architecture + legacy compat)
   const flatItems = useMemo(() => {
@@ -206,6 +277,9 @@ export default function DesmancheOrdersTab() {
     setSelectedOrder(order);
     setShowProposalForm(false);
     setProposalForm({ price: "", message: "" });
+    setShowPreChat(false);
+    setPreChatInput("");
+    setLocalRoomId(null);
   };
 
   const alreadySentForSelected = selectedOrder
@@ -699,6 +773,97 @@ export default function DesmancheOrdersTab() {
                   <p className="text-xs text-amber-700 mt-2 bg-amber-100 rounded px-2 py-1">
                     🔒 Contato completo (telefone e WhatsApp) é liberado após o cliente aceitar sua proposta.
                   </p>
+                </div>
+
+                {/* Pre-proposal chat */}
+                <div className="space-y-2">
+                  {!showPreChat ? (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 h-11"
+                      onClick={() => setShowPreChat(true)}
+                      data-testid="button-pre-proposal-chat"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      {preChatRoom
+                        ? `Ver conversa com ${selectedOrder.client?.name?.split(" ")[0] || "o cliente"}`
+                        : "Quero falar com o cliente primeiro"}
+                      {preChatRoom && preChatRoom.unread_count > 0 && (
+                        <Badge className="ml-auto bg-blue-500 text-white text-xs px-1.5 py-0">
+                          {preChatRoom.unread_count}
+                        </Badge>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="border border-blue-200 rounded-xl overflow-hidden">
+                      <div className="bg-blue-50 px-3 py-2 flex items-center justify-between border-b border-blue-100">
+                        <span className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Conversa com {selectedOrder.client?.name?.split(" ")[0] || "o cliente"}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-blue-500 hover:text-blue-700"
+                          onClick={() => setShowPreChat(false)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div
+                        ref={chatScrollRef}
+                        className="max-h-52 overflow-y-auto p-3 space-y-2 bg-white"
+                      >
+                        {(preChatMessages as any[]).length === 0 && (
+                          <p className="text-xs text-slate-400 text-center py-6 italic">
+                            Nenhuma mensagem ainda. Inicie a conversa!
+                          </p>
+                        )}
+                        {(preChatMessages as any[]).map((msg: any) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.sender_type === "desmanche" ? "justify-end" : "justify-start"}`}
+                          >
+                            <div
+                              className={`max-w-[80%] px-3 py-1.5 rounded-2xl text-sm leading-snug ${
+                                msg.sender_type === "desmanche"
+                                  ? "bg-primary text-white rounded-br-none"
+                                  : "bg-slate-100 text-slate-800 rounded-bl-none"
+                              }`}
+                            >
+                              {msg.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-blue-100 p-2 bg-white flex gap-2 items-center">
+                        <Input
+                          placeholder="Digite uma mensagem..."
+                          value={preChatInput}
+                          onChange={(e) => setPreChatInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey && preChatInput.trim()) {
+                              e.preventDefault();
+                              sendPreChatMutation.mutate(preChatInput.trim());
+                            }
+                          }}
+                          className="flex-1 h-8 text-sm"
+                          data-testid="input-pre-chat-message"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 px-3"
+                          disabled={!preChatInput.trim() || sendPreChatMutation.isPending}
+                          onClick={() => sendPreChatMutation.mutate(preChatInput.trim())}
+                          data-testid="button-pre-chat-send"
+                        >
+                          {sendPreChatMutation.isPending
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <SendHorizonal className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />

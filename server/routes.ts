@@ -1713,6 +1713,104 @@ export async function registerRoutes(server: Server, app: Express) {
   });
 
   // ============================================
+  // PRE-PROPOSAL CHAT (conversa antes de enviar proposta)
+  // ============================================
+
+  // Desmanche inicia ou recupera sala + envia mensagem
+  app.post("/api/pre-proposal-chat/start", authMiddleware, requireType(["desmanche"]), async (req, res) => {
+    try {
+      const desmancheId = (req as any).user.id;
+      const { orderId, orderItemId, clientId, content } = req.body;
+      if (!orderId || !clientId || !content?.trim()) {
+        return res.status(400).json({ message: "orderId, clientId e content são obrigatórios" });
+      }
+      const room = await storage.getOrCreatePreProposalRoom({ orderId, orderItemId, clientId, desmancheId });
+      if (!room) return res.status(500).json({ message: "Erro ao criar sala" });
+      const message = await storage.createPreProposalMessage({
+        roomId: room.id,
+        senderId: desmancheId,
+        senderType: "desmanche",
+        content: content.trim(),
+      });
+      res.status(201).json({ room, message });
+    } catch (error) {
+      console.error("Pre-proposal chat start error:", error);
+      res.status(500).json({ message: "Erro ao iniciar conversa" });
+    }
+  });
+
+  // Listar salas do usuário logado
+  app.get("/api/pre-proposal-chat/rooms", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+      let rooms: any[];
+      if (userType === "desmanche") {
+        rooms = await storage.getPreProposalRoomsByDesmanche(userId);
+      } else {
+        rooms = await storage.getPreProposalRoomsByClient(userId);
+      }
+      res.json(rooms);
+    } catch (error) {
+      console.error("Pre-proposal chat rooms error:", error);
+      res.status(500).json({ message: "Erro ao buscar conversas" });
+    }
+  });
+
+  // Mensagens de uma sala específica (marca como lido)
+  app.get("/api/pre-proposal-chat/:roomId/messages", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+      const room = await storage.getPreProposalRoomById(req.params.roomId);
+      if (!room) return res.status(404).json({ message: "Conversa não encontrada" });
+      if (userType === "client" && room.clientId !== userId) return res.status(403).json({ message: "Acesso negado" });
+      if (userType === "desmanche" && room.desmancheId !== userId) return res.status(403).json({ message: "Acesso negado" });
+      await storage.markPreProposalMessagesAsRead(req.params.roomId, userId);
+      const messages = await storage.getPreProposalMessages(req.params.roomId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Pre-proposal messages error:", error);
+      res.status(500).json({ message: "Erro ao buscar mensagens" });
+    }
+  });
+
+  // Enviar mensagem em sala existente (cliente ou desmanche)
+  app.post("/api/pre-proposal-chat/:roomId/messages", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const userType = (req as any).user.type;
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ message: "Mensagem não pode ser vazia" });
+      const room = await storage.getPreProposalRoomById(req.params.roomId);
+      if (!room) return res.status(404).json({ message: "Conversa não encontrada" });
+      if (userType === "client" && room.clientId !== userId) return res.status(403).json({ message: "Acesso negado" });
+      if (userType === "desmanche" && room.desmancheId !== userId) return res.status(403).json({ message: "Acesso negado" });
+      const message = await storage.createPreProposalMessage({
+        roomId: room.id,
+        senderId: userId,
+        senderType: userType === "desmanche" ? "desmanche" : "client",
+        content: content.trim(),
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Pre-proposal send message error:", error);
+      res.status(500).json({ message: "Erro ao enviar mensagem" });
+    }
+  });
+
+  // Contagem de não lidas para o usuário logado
+  app.get("/api/pre-proposal-chat/unread-count", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const count = await storage.countUnreadPreProposalMessages(userId);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ count: 0 });
+    }
+  });
+
+  // ============================================
   // NEGOTIATION - SHIP / RECEIVED
   // ============================================
 

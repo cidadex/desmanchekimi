@@ -280,6 +280,28 @@ export const chatMessages = sqliteTable("chat_messages", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
+// Tabela de Salas de Chat Pré-Proposta (conversa antes de enviar proposta)
+export const preProposalRooms = sqliteTable("pre_proposal_rooms", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  orderId: text("order_id").references(() => orders.id).notNull(),
+  orderItemId: text("order_item_id"),
+  clientId: text("client_id").references(() => users.id).notNull(),
+  desmancheId: text("desmanche_id").references(() => desmanches.id).notNull(),
+  lastMessageAt: integer("last_message_at"),
+  createdAt: integer("created_at").notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+// Tabela de Mensagens Pré-Proposta
+export const preProposalMessages = sqliteTable("pre_proposal_messages", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16)))`),
+  roomId: text("room_id").references(() => preProposalRooms.id).notNull(),
+  senderId: text("sender_id").notNull(),
+  senderType: text("sender_type", { enum: ["client", "desmanche"] }).notNull(),
+  content: text("content").notNull(),
+  readAt: integer("read_at"),
+  createdAt: integer("created_at").notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
 // ─── Schemas de Inserção ──────────────────────────────────────────────────────
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -470,8 +492,21 @@ export type Address = typeof addresses.$inferSelect;
 export type DesmancheAddress = typeof desmancheAddresses.$inferSelect;
 export type OrderImage = typeof orderImages.$inferSelect;
 export type Negotiation = typeof negotiations.$inferSelect;
+export const preProposalRoomsRelations = relations(preProposalRooms, ({ one, many }) => ({
+  order: one(orders, { fields: [preProposalRooms.orderId], references: [orders.id] }),
+  client: one(users, { fields: [preProposalRooms.clientId], references: [users.id] }),
+  desmanche: one(desmanches, { fields: [preProposalRooms.desmancheId], references: [desmanches.id] }),
+  messages: many(preProposalMessages),
+}));
+
+export const preProposalMessagesRelations = relations(preProposalMessages, ({ one }) => ({
+  room: one(preProposalRooms, { fields: [preProposalMessages.roomId], references: [preProposalRooms.id] }),
+}));
+
 export type ChatRoom = typeof chatRooms.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+export type PreProposalRoom = typeof preProposalRooms.$inferSelect;
+export type PreProposalMessage = typeof preProposalMessages.$inferSelect;
 
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
 export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;

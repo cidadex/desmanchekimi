@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CreateOrderWizard } from "./CreateOrderWizard";
 import {
-  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock, Flag,
+  Plus, Package, Car, MessageSquare, Loader2, Eye, X, AlertTriangle, Clock, Flag, SendHorizonal, ArrowLeft,
 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
@@ -105,6 +105,10 @@ export function OrdersTab() {
   const [reportOrder, setReportOrder] = useState<Order | null>(null);
   const [reportSubject, setReportSubject] = useState("");
   const [reportMessage, setReportMessage] = useState("");
+  const [chatDialogOrder, setChatDialogOrder] = useState<Order | null>(null);
+  const [chatRoom, setChatRoom] = useState<any | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const token = getToken();
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
@@ -117,6 +121,57 @@ export function OrdersTab() {
       return res.json();
     },
     enabled: !!token,
+  });
+
+  const { data: preRooms = [] } = useQuery({
+    queryKey: ["/api/pre-proposal-chat/rooms"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/pre-proposal-chat/rooms");
+      return res.json();
+    },
+    enabled: !!token,
+    refetchInterval: 30 * 1000,
+    staleTime: 0,
+  });
+
+  const preRoomsByOrder = (preRooms as any[]).reduce((acc: Record<string, any[]>, r: any) => {
+    const key = r.order_id;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(r);
+    return acc;
+  }, {});
+
+  const { data: chatMessages = [], refetch: refetchChatMessages } = useQuery({
+    queryKey: ["/api/pre-proposal-chat/messages", chatRoom?.id],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/pre-proposal-chat/${chatRoom!.id}/messages`);
+      return res.json();
+    },
+    enabled: !!chatRoom?.id,
+    refetchInterval: 5 * 1000,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  const sendChatMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", `/api/pre-proposal-chat/${chatRoom!.id}/messages`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      setChatInput("");
+      queryClient.invalidateQueries({ queryKey: ["/api/pre-proposal-chat/messages", chatRoom?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pre-proposal-chat/rooms"] });
+      refetchChatMessages();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
+    },
   });
 
   const cancelMutation = useMutation({
@@ -259,7 +314,7 @@ export function OrdersTab() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-4 mt-3 flex-wrap">
                       <span className="text-sm flex items-center gap-1 text-muted-foreground">
                         <MessageSquare className="h-3 w-3" />
                         {order.proposals?.length || 0} proposta(s)
@@ -270,6 +325,31 @@ export function OrdersTab() {
                           {order.items.length} peças
                         </span>
                       )}
+                      {(() => {
+                        const rooms = preRoomsByOrder[order.id] || [];
+                        if (rooms.length === 0) return null;
+                        const totalUnread = rooms.reduce((s: number, r: any) => s + (r.unread_count || 0), 0);
+                        return (
+                          <button
+                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setChatDialogOrder(order);
+                              setChatRoom(rooms.length === 1 ? rooms[0] : null);
+                              setChatInput("");
+                            }}
+                            data-testid={`button-pre-chat-order-${order.id}`}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            {rooms.length} desmanche{rooms.length > 1 ? "s" : ""} quer{rooms.length > 1 ? "em" : ""} conversar
+                            {totalUnread > 0 && (
+                              <Badge className="bg-blue-500 text-white text-xs px-1.5 py-0 h-4">
+                                {totalUnread}
+                              </Badge>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -454,6 +534,112 @@ export function OrdersTab() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pre-proposal chat dialog */}
+      <Dialog
+        open={!!chatDialogOrder}
+        onOpenChange={(v) => {
+          if (!v) { setChatDialogOrder(null); setChatRoom(null); setChatInput(""); }
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="h-4 w-4 text-blue-500" />
+              {chatRoom
+                ? `Conversa com ${chatRoom.desmanche_name || "Desmanche"}`
+                : `Conversas — ${chatDialogOrder?.title}`}
+            </DialogTitle>
+          </DialogHeader>
+          {chatDialogOrder && !chatRoom && (
+            <div className="space-y-2 overflow-y-auto flex-1">
+              <p className="text-xs text-muted-foreground">
+                Selecione qual desmanche deseja responder:
+              </p>
+              {(preRoomsByOrder[chatDialogOrder.id] || []).map((room: any) => (
+                <button
+                  key={room.id}
+                  className="w-full text-left rounded-xl border p-3 hover:bg-blue-50 transition-colors"
+                  onClick={() => { setChatRoom(room); setChatInput(""); }}
+                  data-testid={`button-select-chat-room-${room.id}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{room.desmanche_name || "Desmanche"}</span>
+                    {room.unread_count > 0 && (
+                      <Badge className="bg-blue-500 text-white text-xs">{room.unread_count} nova(s)</Badge>
+                    )}
+                  </div>
+                  {room.last_message && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{room.last_message}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {chatDialogOrder && chatRoom && (
+            <div className="flex flex-col flex-1 min-h-0 gap-2">
+              {(preRoomsByOrder[chatDialogOrder.id] || []).length > 1 && (
+                <button
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline w-fit"
+                  onClick={() => { setChatRoom(null); setChatInput(""); }}
+                >
+                  <ArrowLeft className="h-3 w-3" /> Voltar à lista
+                </button>
+              )}
+              <div
+                ref={chatScrollRef}
+                className="flex-1 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded-xl min-h-[200px] max-h-[320px]"
+              >
+                {(chatMessages as any[]).length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-6 italic">Nenhuma mensagem ainda.</p>
+                )}
+                {(chatMessages as any[]).map((msg: any) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.sender_type === "client" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] px-3 py-1.5 rounded-2xl text-sm leading-snug ${
+                        msg.sender_type === "client"
+                          ? "bg-primary text-white rounded-br-none"
+                          : "bg-white border border-slate-200 text-slate-800 rounded-bl-none"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 items-center pt-1">
+                <Input
+                  placeholder="Responder..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && chatInput.trim()) {
+                      e.preventDefault();
+                      sendChatMutation.mutate(chatInput.trim());
+                    }
+                  }}
+                  className="flex-1 h-9"
+                  data-testid="input-client-chat-message"
+                />
+                <Button
+                  size="sm"
+                  className="h-9 px-3"
+                  disabled={!chatInput.trim() || sendChatMutation.isPending}
+                  onClick={() => sendChatMutation.mutate(chatInput.trim())}
+                  data-testid="button-client-chat-send"
+                >
+                  {sendChatMutation.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <SendHorizonal className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
