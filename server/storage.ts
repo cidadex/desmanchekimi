@@ -1495,13 +1495,12 @@ export async function getPendingCycleBillingTransactions(desmancheId: string) {
 }
 
 export async function markBillingTransactionsAsBilled(txIds: string[], asaasChargeId: string, paymentLink?: string) {
-  for (const id of txIds) {
-    const updateData: any = { status: "billed", asaasChargeId };
-    if (paymentLink) updateData.paymentLink = paymentLink;
-    await db.update(schema.billingTransactions)
-      .set(updateData)
-      .where(eq(schema.billingTransactions.id, id));
-  }
+  if (txIds.length === 0) return;
+  const updateData: any = { status: "billed", asaasChargeId };
+  if (paymentLink) updateData.paymentLink = paymentLink;
+  await db.update(schema.billingTransactions)
+    .set(updateData)
+    .where(inArray(schema.billingTransactions.id, txIds));
 }
 
 // ==================== BILLING TRANSACTIONS ====================
