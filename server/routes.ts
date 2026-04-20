@@ -2747,41 +2747,56 @@ export async function registerRoutes(server: Server, app: Express) {
             continue;
           }
 
-          let asaasChargeId: string | undefined;
-          let paymentLink: string | undefined;
-          const asaasEnabled = asaas.isAsaasConfigured();
-
-          if (asaasEnabled && billingRecord.asaasCustomerId) {
-            const periodStart = new Date(Number(billingRecord.currentPeriodStart) * 1000);
-            const periodEnd = new Date();
-            const desc = `Central dos Desmanches — ${pendingTxs.length} operações (${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")})`;
-            const charge = await asaas.createAsaasCharge({
-              customerId: billingRecord.asaasCustomerId,
-              value: totalAmount,
-              dueDate: asaas.getDueDateString(5),
-              description: desc,
-              billingType: "UNDEFINED",
-            });
-            if (charge) {
-              asaasChargeId = charge.id;
-              paymentLink = charge.invoiceUrl || charge.bankSlipUrl;
-            } else {
-              // Asaas is configured but charge creation failed — leave cycle open for retry next run
-              console.warn(`[billing] Cycle close for ${desmancheId}: Asaas charge creation failed, skipping (will retry next run)`);
-              continue;
-            }
-          } else if (asaasEnabled && !billingRecord.asaasCustomerId) {
-            // Asaas configured but no customer ID — cannot charge, skip and retry
-            console.warn(`[billing] Cycle close for ${desmancheId}: no asaasCustomerId, skipping (will retry after customer creation)`);
+          // Asaas must be configured to close a cycle and generate a consolidated charge
+          if (!asaas.isAsaasConfigured()) {
+            console.warn(`[billing] Cycle close for ${desmancheId}: Asaas not configured, skipping (will retry when configured)`);
             continue;
           }
-          // If Asaas is not configured at all, close cycle without a charge (record kept for manual billing)
+
+          // Auto-provision Asaas customer if missing
+          let asaasCustomerId = billingRecord.asaasCustomerId;
+          if (!asaasCustomerId) {
+            const desmanche = (billingRecord as any).desmanche;
+            if (!desmanche) {
+              console.warn(`[billing] Cycle close for ${desmancheId}: desmanche data missing, skipping`);
+              continue;
+            }
+            const customer = await asaas.createAsaasCustomer({
+              name: desmanche.companyName,
+              email: desmanche.email,
+              phone: desmanche.phone,
+              cpfCnpj: desmanche.cnpj,
+            });
+            if (!customer || "error" in customer) {
+              console.warn(`[billing] Cycle close for ${desmancheId}: failed to create Asaas customer (${(customer as any)?.error || "unknown"}), skipping`);
+              continue;
+            }
+            asaasCustomerId = customer.id;
+            await storage.createOrUpdateDesmancheBilling(desmancheId, { asaasCustomerId });
+            console.log(`[billing] Auto-provisioned Asaas customer for ${desmancheId}: ${asaasCustomerId}`);
+          }
+
+          const periodStart = new Date(Number(billingRecord.currentPeriodStart) * 1000);
+          const periodEnd = new Date();
+          const desc = `Central dos Desmanches — ${pendingTxs.length} operações (${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")})`;
+          const charge = await asaas.createAsaasCharge({
+            customerId: asaasCustomerId,
+            value: totalAmount,
+            dueDate: asaas.getDueDateString(5),
+            description: desc,
+            billingType: "UNDEFINED",
+          });
+          if (!charge) {
+            // Charge creation failed — leave cycle open for retry next run
+            console.warn(`[billing] Cycle close for ${desmancheId}: Asaas charge creation failed, skipping (will retry next run)`);
+            continue;
+          }
 
           const txIds = pendingTxs.map((t: any) => t.id);
-          await storage.markBillingTransactionsAsBilled(txIds, asaasChargeId || "", paymentLink);
+          await storage.markBillingTransactionsAsBilled(txIds, charge.id, charge.invoiceUrl || charge.bankSlipUrl);
           await storage.resetMonthlyCycle(desmancheId);
 
-          console.log(`[billing] Closed cycle for ${desmancheId}: R$${totalAmount} (${pendingTxs.length} tx, charge=${asaasChargeId || "no-asaas"})`);
+          console.log(`[billing] Closed cycle for ${desmancheId}: R$${totalAmount} (${pendingTxs.length} tx, charge=${charge.id})`);
         } catch (err) {
           console.error(`[billing] Error closing cycle for ${desmancheId}:`, err);
         }
