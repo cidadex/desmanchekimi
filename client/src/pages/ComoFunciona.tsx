@@ -68,25 +68,16 @@ const DESMANCHE_STEPS = [
     title: "Envie sua proposta",
     desc: "Encontrou uma peça que você tem? Envie uma proposta com preço, prazo e condição. O cliente recebe notificação imediata.",
   },
-  {
-    icon: Banknote,
-    step: "04",
-    title: "Venda mais",
-    desc: "Feche negócios diretamente com o cliente. Você paga uma taxa única por operação concluída — simples e transparente.",
-  },
 ];
 
 const CLIENT_BENEFITS = [
-  { icon: Search, title: "Busca facilitada", desc: "Um único pedido chega a dezenas de desmanches credenciados simultaneamente." },
   { icon: ShieldCheck, title: "Empresas verificadas", desc: "Todos os desmanches passam por processo de credenciamento com documentação." },
-  { icon: Star, title: "Avaliações reais", desc: "Veja a nota e os comentários de outros compradores antes de fechar negócio." },
   { icon: Wrench, title: "Para mecânicos e oficinas", desc: "Cadastro gratuito para clientes. Ideal para oficinas que precisam de peças com frequência." },
 ];
 
 const DESMANCHE_BENEFITS = [
   { icon: Users, title: "Alcance nacional", desc: "Seus pedidos chegam de todo o Brasil, não apenas da sua cidade." },
   { icon: TrendingUp, title: "Mais vendas", desc: "Clientes ativos buscando peças todos os dias. Estoque parado vira oportunidade." },
-  { icon: Banknote, title: "Taxa por operação", desc: "Pague somente quando fechar negócio. Sem mensalidade fixa, sem surpresas." },
   { icon: Building2, title: "Credencial de confiança", desc: "Ser credenciado aumenta a percepção de qualidade e atrai mais compradores." },
 ];
 
@@ -96,16 +87,12 @@ const FAQS = [
     a: "Nada. O cliente não paga absolutamente nada pela plataforma — nem mensalidade, nem taxa, nem comissão. Você paga apenas a peça diretamente ao desmanche após fechar o negócio.",
   },
   {
-    q: "Como funciona a cobrança para o desmanche?",
-    a: "O desmanche paga uma taxa única por negociação concluída. Não há mensalidade fixa — você só é cobrado quando vender. Há um teto mensal para meses de alto volume.",
-  },
-  {
     q: "Quanto tempo leva a aprovação do credenciamento?",
     a: "Nossa equipe analisa os documentos enviados em até 48 horas úteis. Você recebe o retorno por e-mail.",
   },
   {
     q: "Quais tipos de veículo a plataforma atende?",
-    a: "Carros, motos, caminhões, ônibus, vans, pickups, tratores e máquinas agrícolas. Se tiver dúvida sobre algum tipo específico, entre em contato.",
+    a: "Carros, motos e veículos pesados.",
   },
   {
     q: "Posso comprar peças de qualquer estado do Brasil?",
@@ -176,7 +163,7 @@ export default function ComoFunciona() {
               </div>
             ))}
           </div>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
             {CLIENT_BENEFITS.map((b) => (
               <Card key={b.title} className="border-muted">
                 <CardContent className="p-5">
@@ -202,7 +189,7 @@ export default function ComoFunciona() {
           <p className="text-muted-foreground mb-10 max-w-2xl">
             Torne-se um desmanche credenciado e acesse um fluxo constante de clientes buscando exatamente o que você tem no estoque.
           </p>
-          <div className="grid md:grid-cols-4 gap-6 mb-12">
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
             {DESMANCHE_STEPS.map((s) => (
               <div key={s.step} className="relative">
                 <div className="text-5xl font-black text-muted/30 absolute -top-2 -left-1 select-none">{s.step}</div>
@@ -216,7 +203,7 @@ export default function ComoFunciona() {
               </div>
             ))}
           </div>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
             {DESMANCHE_BENEFITS.map((b) => (
               <Card key={b.title} className="border-muted">
                 <CardContent className="p-5">
