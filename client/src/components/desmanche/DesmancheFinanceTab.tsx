@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, Receipt, Loader2, FileText, CheckCircle2, AlertTriangle, ExternalLink, RefreshCw, Calendar, Clock } from "lucide-react";
+import { CreditCard, Receipt, Loader2, FileText, CheckCircle2, AlertTriangle, ExternalLink, RefreshCw, Calendar, Clock, PlayCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { startDesmancheFinanceTour } from "@/lib/financeTour";
 
 const TX_STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -107,9 +108,21 @@ export default function DesmancheFinanceTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <div>
-        <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Financeiro & Faturas</h1>
-        <p className="text-slate-500 mt-1">Visualize seus extratos e o ciclo de cobrança mensal.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Financeiro & Faturas</h1>
+          <p className="text-slate-500 mt-1">Visualize seus extratos e o ciclo de cobrança mensal.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+          onClick={() => startDesmancheFinanceTour()}
+          data-testid="button-start-finance-tour"
+        >
+          <PlayCircle className="h-4 w-4" />
+          Como funciona a cobrança
+        </Button>
       </div>
 
       {isLoading ? (
@@ -119,7 +132,7 @@ export default function DesmancheFinanceTab() {
       ) : (
         <>
           {/* Modelo de cobrança */}
-          <Card className="border-2 border-primary/20 bg-primary/5 relative overflow-hidden">
+          <Card data-tour="finance-model" className="border-2 border-primary/20 bg-primary/5 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
               <CreditCard className="w-32 h-32" />
             </div>
@@ -135,7 +148,7 @@ export default function DesmancheFinanceTab() {
 
           {/* Ciclo atual */}
           {isMonthlyCycle && (
-            <Card className="border-slate-200 shadow-sm">
+            <Card data-tour="finance-cycle" className="border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="font-mono text-base flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-slate-500" /> Ciclo Atual
@@ -226,7 +239,7 @@ export default function DesmancheFinanceTab() {
           )}
 
           {/* Histórico */}
-          <Card className="border-slate-200 shadow-sm">
+          <Card data-tour="finance-history" className="border-slate-200 shadow-sm">
             <CardHeader>
               <CardTitle className="font-mono text-lg flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-slate-500" /> Histórico de Operações
