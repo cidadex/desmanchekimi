@@ -169,9 +169,9 @@ const desmancheSteps: DriveStep[] = [
   {
     element: '[data-tour="desmanche-negotiations"]',
     popover: {
-      title: "⚠️ Sempre confirme se a venda aconteceu",
+      title: "Conta pra gente como terminou",
       description:
-        "Toda vez que uma negociação terminar — venda concluída, cliente desistiu ou não respondeu — atualize o status aqui. Isso é o que garante que a plataforma consiga te defender em caso de problema, manter sua reputação correta e cobrar do cliente o que for justo. Negociações sem confirmação ficam sem proteção.",
+        "Sempre que uma negociação chegar ao fim — venda fechada, cliente desistiu ou simplesmente não respondeu — marca aqui o status. Isso ajuda a manter seus números organizados, sua reputação coerente com o que realmente aconteceu e permite que a gente entenda melhor o seu dia a dia pra apoiar quando precisar.",
       side: "right",
       align: "start",
     },
