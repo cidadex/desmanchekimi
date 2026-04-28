@@ -67,11 +67,31 @@ const clientSteps: DriveStep[] = [
     },
   },
   {
+    element: '[data-tour="client-negotiations"]',
+    popover: {
+      title: "⚠️ Sempre informe o resultado da negociação",
+      description:
+        "Esse passo é fundamental. Sempre que uma negociação terminar — seja porque a peça chegou, porque você desistiu ou porque o desmanche não cumpriu o combinado — marque o resultado aqui. É só assim que a plataforma consegue te ajudar caso aconteça algum problema, mediar conflitos e proteger seus direitos. Negociações sem retorno ficam sem cobertura.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
     element: '[data-tour="client-chat"]',
     popover: {
       title: "Mensagens",
       description:
-        "Converse direto com os desmanches pra tirar dúvidas, pedir mais fotos ou combinar entrega. Tudo registrado no chat.",
+        "Converse direto com os desmanches pra tirar dúvidas, pedir mais fotos ou combinar entrega. Tudo registrado no chat — e essas conversas servem como prova caso algo dê errado.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="client-negotiations"]',
+    popover: {
+      title: "⭐ Avalie o desmanche ao final",
+      description:
+        "Depois que a negociação fechar, deixe sua avaliação na tela de Negociações. Sua nota e comentário ajudam outros clientes a escolherem com segurança e premiam os desmanches que atendem bem. Avaliar leva 30 segundos e fortalece toda a comunidade.",
       side: "right",
       align: "start",
     },
@@ -82,6 +102,16 @@ const clientSteps: DriveStep[] = [
       title: "Meu Perfil",
       description:
         "Mantenha seus dados, WhatsApp e endereço sempre atualizados — isso ajuda os desmanches a fecharem negócio com você mais rápido.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="client-feedback"]',
+    popover: {
+      title: "Sugestões & Reclamações",
+      description:
+        "Esse é o canal direto com a equipe da Central. Use pra mandar sugestões de melhoria, relatar problemas com algum desmanche ou pedir ajuda com qualquer situação que o suporte normal não resolveu. Sua voz nos ajuda a melhorar a plataforma.",
       side: "right",
       align: "start",
     },
@@ -132,6 +162,26 @@ const desmancheSteps: DriveStep[] = [
       title: "Minhas Negociações",
       description:
         "Acompanhe os pedidos onde você já enviou proposta — quais estão em conversa, quais foram aceitos e quais já fecharam.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="desmanche-negotiations"]',
+    popover: {
+      title: "⚠️ Sempre confirme se a venda aconteceu",
+      description:
+        "Toda vez que uma negociação terminar — venda concluída, cliente desistiu ou não respondeu — atualize o status aqui. Isso é o que garante que a plataforma consiga te defender em caso de problema, manter sua reputação correta e cobrar do cliente o que for justo. Negociações sem confirmação ficam sem proteção.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="desmanche-negotiations"]',
+    popover: {
+      title: "⭐ Boas avaliações = mais negócios",
+      description:
+        "Os clientes vão avaliar o seu atendimento ao final de cada negociação. Atender com agilidade, ser honesto sobre o estado da peça e cumprir o combinado eleva sua nota — e sua nota é o que faz novos clientes confiarem em você antes da concorrência.",
       side: "right",
       align: "start",
     },
