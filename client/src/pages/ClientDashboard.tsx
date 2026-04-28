@@ -4,6 +4,8 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TourHelpButton } from "@/components/TourHelpButton";
+import { maybeAutoStartTour } from "@/lib/tour";
 import { OverviewTab } from "@/components/client/OverviewTab";
 import { ProfileTab } from "@/components/client/ProfileTab";
 import { OrdersTab } from "@/components/client/OrdersTab";
@@ -111,6 +113,12 @@ export default function ClientDashboard() {
     }
   }, [user, isLoading, navigate]);
 
+  useEffect(() => {
+    if (user && user.type === "client") {
+      maybeAutoStartTour(user.id, "client", 900);
+    }
+  }, [user?.id]);
+
   // Redireciona para perfil se cadastro incompleto (sem WhatsApp ou endereço)
   useEffect(() => {
     if (user && user.type === "client" && user.profileComplete === false) {
@@ -186,6 +194,7 @@ export default function ClientDashboard() {
                 <button
                   key={tab.key}
                   onClick={() => handleNavigate(tab.key)}
+                  data-tour={`client-${tab.key}`}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-1 ${
                     isActive
                       ? "bg-primary text-primary-foreground"
@@ -256,6 +265,7 @@ export default function ClientDashboard() {
               </span>
             )}
           </div>
+          <TourHelpButton userId={user.id} role="client" />
         </header>
 
         {/* Email verification banner — TEMP: disabled for testing (re-enable after launch) */}

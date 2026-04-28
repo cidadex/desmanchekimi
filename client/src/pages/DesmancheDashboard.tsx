@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
+import { TourHelpButton } from "@/components/TourHelpButton";
+import { maybeAutoStartTour } from "@/lib/tour";
 import {
   FileText,
   DollarSign,
@@ -48,6 +50,12 @@ export default function DesmancheDashboard() {
   };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    if (user?.id) {
+      maybeAutoStartTour(user.id, "desmanche", 900);
+    }
+  }, [user?.id]);
 
   const { data: desmanche } = useQuery({
     queryKey: ["/api/desmanches/me"],
@@ -155,8 +163,9 @@ export default function DesmancheDashboard() {
       </div>
 
       <div className="py-4 px-3 space-y-1">
-        <SidebarItem icon={<TrendingUp />} label="Meu Painel" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-overview" icon={<TrendingUp />} label="Meu Painel" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />
         <SidebarItem
+          tourKey="desmanche-orders"
           icon={<Package />}
           label="Mural de Pedidos"
           badge={openOrdersCount > 0 ? String(openOrdersCount) : undefined}
@@ -164,8 +173,9 @@ export default function DesmancheDashboard() {
           active={activeTab === 'orders'}
           onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}}
         />
-        <SidebarItem icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {handleSetTab('negotiations'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-negotiations" icon={<MessageCircle />} label="Minhas Negociações" active={activeTab === 'negotiations'} onClick={() => {handleSetTab('negotiations'); setIsMobileMenuOpen(false);}} />
         <SidebarItem
+          tourKey="desmanche-chat"
           icon={<MessageSquare />}
           label="Mensagens"
           badge={totalUnread > 0 ? String(totalUnread) : undefined}
@@ -173,10 +183,10 @@ export default function DesmancheDashboard() {
           active={activeTab === 'chat'}
           onClick={() => {handleSetTab('chat'); setIsMobileMenuOpen(false);}}
         />
-        <SidebarItem icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {handleSetTab('docs'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
-        <SidebarItem icon={<MessageCircleWarning />} label="Sugestões & Reclamações" active={activeTab === 'feedback'} onClick={() => {handleSetTab('feedback'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-docs" icon={<FileCheck />} label="Minha Documentação" active={activeTab === 'docs'} onClick={() => {handleSetTab('docs'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-finance" icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-profile" icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
+        <SidebarItem tourKey="desmanche-feedback" icon={<MessageCircleWarning />} label="Sugestões & Reclamações" active={activeTab === 'feedback'} onClick={() => {handleSetTab('feedback'); setIsMobileMenuOpen(false);}} />
         <div className="pt-2">
           <button
             onClick={logout}
@@ -229,6 +239,7 @@ export default function DesmancheDashboard() {
                 </span>
               </button>
             )}
+            {user?.id && <TourHelpButton userId={user.id} role="desmanche" />}
             <Button variant="outline" size="sm" className="hidden sm:flex" onClick={logout}>Sair do Painel</Button>
             <Button variant="ghost" size="icon" className="relative text-slate-600">
               <Bell className="h-5 w-5" />
@@ -287,10 +298,11 @@ export default function DesmancheDashboard() {
   );
 }
 
-function SidebarItem({ icon, label, active, badge, badgeAlert, onClick }: any) {
+function SidebarItem({ icon, label, active, badge, badgeAlert, onClick, tourKey }: any) {
   return (
     <button 
       onClick={onClick}
+      data-tour={tourKey}
       className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-sm font-medium transition-all ${
         active 
           ? 'bg-primary text-white shadow-md shadow-primary/20' 

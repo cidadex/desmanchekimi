@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { TourHelpButton } from "@/components/TourHelpButton";
+import { maybeAutoStartTour } from "@/lib/tour";
 import {
   Users,
   Store,
@@ -146,6 +148,13 @@ export default function AdminDashboard() {
     localStorage.setItem(ADMIN_TAB_KEY, tab);
   };
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    if (user?.id && user?.type === "admin") {
+      maybeAutoStartTour(user.id, "admin", 900);
+    }
+  }, [user?.id]);
+
   // null = super-admin (all access), array = restricted, undefined = not yet loaded
   const userPermissions: string[] | null | undefined = user?.permissions;
   const isSuperAdmin = user?.type === "admin" && userPermissions === null;
@@ -214,17 +223,17 @@ export default function AdminDashboard() {
       </div>
       
       <div className="py-4 px-3 space-y-1">
-        {canAccess('overview') && <SidebarItem icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('desmanches') && <SidebarItem icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('users') && <SidebarItem icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('orders') && <SidebarItem icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} badge={pendingNegotiations > 0 ? String(pendingNegotiations) : undefined} badgeAlert={pendingNegotiations > 0} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('finance') && <SidebarItem icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('approvals') && <SidebarItem icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('reports') && <SidebarItem icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('site-content') && <SidebarItem icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('moderation') && <SidebarItem icon={<Scale />} label="Moderação" badge={moderationCount > 0 ? String(moderationCount) : undefined} badgeAlert={moderationCount > 0} active={activeTab === 'moderation'} onClick={() => {handleSetTab('moderation'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('complaints') && <SidebarItem icon={<MessageCircleWarning />} label="Reclamações" badge={pendingComplaints > 0 ? String(pendingComplaints) : undefined} badgeAlert={pendingComplaints > 0} active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
-        {canAccess('settings') && <SidebarItem icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('overview') && <SidebarItem tourKey="admin-overview" icon={<TrendingUp />} label="Visão Geral" active={activeTab === 'overview'} onClick={() => {handleSetTab('overview'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('desmanches') && <SidebarItem tourKey="admin-desmanches" icon={<Store />} label="Desmanches" active={activeTab === 'desmanches'} badge={totalDesmanches > 0 ? String(totalDesmanches) : undefined} onClick={() => {handleSetTab('desmanches'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('users') && <SidebarItem tourKey="admin-users" icon={<Users />} label="Pessoas Cadastradas" active={activeTab === 'users'} onClick={() => {handleSetTab('users'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('orders') && <SidebarItem tourKey="admin-orders" icon={<FileText />} label="Anúncios / Pedidos" active={activeTab === 'orders'} badge={pendingNegotiations > 0 ? String(pendingNegotiations) : undefined} badgeAlert={pendingNegotiations > 0} onClick={() => {handleSetTab('orders'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('finance') && <SidebarItem tourKey="admin-finance" icon={<DollarSign />} label="Assinaturas & Receitas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('approvals') && <SidebarItem tourKey="admin-approvals" icon={<ShieldCheck />} label="Aprovações" badge={pendingCount > 0 ? String(pendingCount) : undefined} badgeAlert={pendingCount > 0} active={activeTab === 'approvals'} onClick={() => {handleSetTab('approvals'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('reports') && <SidebarItem tourKey="admin-reports" icon={<FileBarChart2 />} label="Relatórios" active={activeTab === 'reports'} onClick={() => {handleSetTab('reports'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('site-content') && <SidebarItem tourKey="admin-site-content" icon={<Globe />} label="Conteúdo do Site" active={activeTab === 'site-content'} onClick={() => {handleSetTab('site-content'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('moderation') && <SidebarItem tourKey="admin-moderation" icon={<Scale />} label="Moderação" badge={moderationCount > 0 ? String(moderationCount) : undefined} badgeAlert={moderationCount > 0} active={activeTab === 'moderation'} onClick={() => {handleSetTab('moderation'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('complaints') && <SidebarItem tourKey="admin-complaints" icon={<MessageCircleWarning />} label="Reclamações" badge={pendingComplaints > 0 ? String(pendingComplaints) : undefined} badgeAlert={pendingComplaints > 0} active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
+        {canAccess('settings') && <SidebarItem tourKey="admin-settings" icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
         {isSuperAdmin && (
           <>
             <div className="pt-2 pb-1 px-3">
@@ -292,6 +301,7 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center gap-4">
+            {user?.id && <TourHelpButton userId={user.id} role="admin" />}
             <Link href="/">
               <Button variant="outline" size="sm" className="hidden sm:flex">Ver Site</Button>
             </Link>
@@ -392,10 +402,11 @@ export default function AdminDashboard() {
   );
 }
 
-function SidebarItem({ icon, label, active, badge, badgeAlert, onClick }: any) {
+function SidebarItem({ icon, label, active, badge, badgeAlert, onClick, tourKey }: any) {
   return (
     <button 
       onClick={onClick}
+      data-tour={tourKey}
       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
     >
       <div className="flex items-center gap-3">
