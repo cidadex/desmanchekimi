@@ -12,11 +12,80 @@ import {
   Package, Truck, CheckCircle2, Clock, Loader2, Car, MapPin,
   SendHorizonal, XCircle, MessageSquare, ShieldAlert, Phone, Eye,
   Handshake, FileText, MessageCircle, Ban, CalendarDays, Star, AlertTriangle,
+  PlayCircle, X,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { getToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { startDesmancheNegotiationsTour } from "@/lib/negotiationsTour";
+
+const SAMPLE_PROPOSAL = {
+  id: "sample-prop-1",
+  status: "sent",
+  price: 850,
+  message:
+    "Tenho a peça em ótimo estado, garantia de 30 dias. Posso enviar hoje mesmo via transportadora.",
+  createdAt: Math.floor(Date.now() / 1000) - 60 * 60 * 3,
+  order: {
+    id: "sample00-0000-0000-0000-000000000001",
+    title: "Farol dianteiro direito",
+    vehicleBrand: "Volkswagen",
+    vehicleModel: "Gol G6",
+    vehicleYear: 2015,
+    client: { phone: "" },
+  },
+};
+
+const SAMPLE_NEGOTIATION = {
+  id: "sample-neg-1",
+  status: "negotiating",
+  price: 850,
+  createdAt: Math.floor(Date.now() / 1000) - 60 * 60 * 24,
+  updatedAt: Math.floor(Date.now() / 1000) - 60 * 60 * 2,
+  order: {
+    id: "sample00-0000-0000-0000-000000000002",
+    title: "Farol dianteiro direito",
+    vehicleBrand: "Volkswagen",
+    vehicleModel: "Gol G6",
+    vehicleYear: 2015,
+    city: "São Paulo",
+    state: "SP",
+  },
+  client: {
+    name: "João da Silva",
+    phone: "",
+  },
+  proposal: {
+    price: 850,
+    message: "Tenho a peça em ótimo estado, garantia de 30 dias.",
+  },
+};
+
+const SAMPLE_HISTORY = {
+  id: "sample-hist-1",
+  status: "completed",
+  price: 720,
+  createdAt: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 12,
+  updatedAt: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 5,
+  order: {
+    id: "sample00-0000-0000-0000-000000000003",
+    title: "Retrovisor lado motorista",
+    vehicleBrand: "Fiat",
+    vehicleModel: "Uno",
+    vehicleYear: 2018,
+    city: "Campinas",
+    state: "SP",
+  },
+  client: {
+    name: "Maria Oliveira",
+    phone: "",
+  },
+  proposal: {
+    price: 720,
+    message: "Retrovisor original, sem riscos.",
+  },
+};
 
 const NEGOTIATION_STATUS: Record<string, { label: string; color: string; icon: any }> = {
   negotiating:              { label: "Negociando",            color: "bg-blue-100 text-blue-800 border-blue-200",    icon: MessageSquare },
@@ -69,6 +138,25 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
   const [shipDialog, setShipDialog] = useState<any>(null);
   const [trackingCode, setTrackingCode] = useState("");
   const [detailDialog, setDetailDialog] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>("propostas");
+  const [demoMode, setDemoMode] = useState(false);
+
+  const handleStartDemoTour = () => {
+    setDemoMode(true);
+    setActiveTab("propostas");
+    setTimeout(() => {
+      startDesmancheNegotiationsTour({
+        setActiveTab,
+        onFinish: () => {
+          /* keep demo on so user can explore */
+        },
+      });
+    }, 250);
+  };
+
+  const handleCloseDemo = () => {
+    setDemoMode(false);
+  };
 
   const { data: blockStatus } = useQuery<{ isBlocked: boolean; overdueCount: number }>({
     queryKey: ["/api/desmanche/review-block-status"],
@@ -142,11 +230,16 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
     },
   });
 
-  const pendingProposals = proposals.filter((p: any) => p.status === "sent");
-  const answeredProposals = proposals.filter((p: any) => p.status !== "sent");
-  const activeNeg = negotiations.filter((n: any) => !["completed", "cancelled"].includes(n.status));
-  const finishedNeg = negotiations.filter((n: any) => ["completed", "cancelled"].includes(n.status));
-  const staleDesmanches = negotiations.filter((n: any) => n.status === "stale_awaiting_desmanche");
+  const effectiveProposals = demoMode ? [SAMPLE_PROPOSAL, ...proposals] : proposals;
+  const effectiveNegotiations = demoMode
+    ? [SAMPLE_NEGOTIATION, SAMPLE_HISTORY, ...negotiations]
+    : negotiations;
+
+  const pendingProposals = effectiveProposals.filter((p: any) => p.status === "sent");
+  const answeredProposals = effectiveProposals.filter((p: any) => p.status !== "sent");
+  const activeNeg = effectiveNegotiations.filter((n: any) => !["completed", "cancelled"].includes(n.status));
+  const finishedNeg = effectiveNegotiations.filter((n: any) => ["completed", "cancelled"].includes(n.status));
+  const staleDesmanches = effectiveNegotiations.filter((n: any) => n.status === "stale_awaiting_desmanche");
 
   const isLoading = loadingProposals || loadingNeg;
 
@@ -160,10 +253,49 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <div>
-        <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Minhas Negociações</h1>
-        <p className="text-slate-500 mt-1">Acompanhe propostas enviadas e negociações em andamento.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Minhas Negociações</h1>
+          <p className="text-slate-500 mt-1">Acompanhe propostas enviadas e negociações em andamento.</p>
+        </div>
+        {!demoMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+            onClick={handleStartDemoTour}
+            data-testid="button-start-negotiations-demo"
+          >
+            <PlayCircle className="h-4 w-4" />
+            Ver tour com exemplos
+          </Button>
+        )}
       </div>
+
+      {demoMode && (
+        <div className="bg-primary/5 border-2 border-primary/30 rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-2.5">
+            <PlayCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-slate-800 text-sm">Modo exemplo ativo</p>
+              <p className="text-xs text-slate-600">
+                Adicionamos 1 pedido de exemplo em cada aba só pra você visualizar. Os botões de exemplo não fazem nada.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-slate-300"
+            onClick={handleCloseDemo}
+            data-tour="neg-close-demo"
+            data-testid="button-close-negotiations-demo"
+          >
+            <X className="h-4 w-4" />
+            Fechar exemplo
+          </Button>
+        </div>
+      )}
 
       {blockStatus?.isBlocked && (
         <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 flex items-start gap-3">
@@ -200,10 +332,11 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
         </div>
       )}
 
-      <Tabs defaultValue="propostas" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-3 h-auto gap-2 bg-transparent p-0 mb-6">
           <TabsTrigger
             value="propostas"
+            data-tour="neg-tab-propostas"
             className="data-[state=active]:bg-yellow-500 data-[state=active]:text-white bg-slate-100 py-2"
           >
             Propostas Enviadas
@@ -215,6 +348,7 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
           </TabsTrigger>
           <TabsTrigger
             value="andamento"
+            data-tour="neg-tab-andamento"
             className="data-[state=active]:bg-blue-600 data-[state=active]:text-white bg-slate-100 py-2"
           >
             Em Andamento
@@ -226,6 +360,7 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
           </TabsTrigger>
           <TabsTrigger
             value="historico"
+            data-tour="neg-tab-historico"
             className="data-[state=active]:bg-slate-600 data-[state=active]:text-white bg-slate-100 py-2"
           >
             Histórico
@@ -239,7 +374,7 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
 
         {/* ── PROPOSTAS ENVIADAS ─────────────────────────────── */}
         <TabsContent value="propostas" className="space-y-4 mt-0">
-          {proposals.length === 0 ? (
+          {effectiveProposals.length === 0 ? (
             <EmptyState
               icon={<SendHorizonal className="h-12 w-12 text-slate-300" />}
               title="Nenhuma proposta enviada ainda"
@@ -253,7 +388,17 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
                     Aguardando Resposta ({pendingProposals.length})
                   </h3>
                   {pendingProposals.map((p: any) => (
-                    <ProposalCard key={p.id} proposal={p} />
+                    <div
+                      key={p.id}
+                      data-tour={p.id === SAMPLE_PROPOSAL.id ? "neg-sample-proposal" : undefined}
+                    >
+                      {p.id === SAMPLE_PROPOSAL.id && (
+                        <div className="mb-1.5 text-[11px] uppercase tracking-wide font-bold text-primary/70">
+                          Exemplo
+                        </div>
+                      )}
+                      <ProposalCard proposal={p} />
+                    </div>
                   ))}
                 </div>
               )}
@@ -281,15 +426,37 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
             />
           ) : (
             activeNeg.map((neg: any) => (
-              <NegotiationCard
+              <div
                 key={neg.id}
-                neg={neg}
-                onShip={() => { setShipDialog(neg); setTrackingCode(""); }}
-                onUpdateStatus={(status) => updateNegMutation.mutate({ id: neg.id, status })}
-                onStaleResponse={(response) => staleResponseMutation.mutate({ id: neg.id, response })}
-                onViewDetail={() => setDetailDialog(neg)}
-                isPending={updateNegMutation.isPending || staleResponseMutation.isPending}
-              />
+                data-tour={neg.id === SAMPLE_NEGOTIATION.id ? "neg-sample-negotiation" : undefined}
+              >
+                {neg.id === SAMPLE_NEGOTIATION.id && (
+                  <div className="mb-1.5 text-[11px] uppercase tracking-wide font-bold text-primary/70">
+                    Exemplo
+                  </div>
+                )}
+                <NegotiationCard
+                  neg={neg}
+                  onShip={() => {
+                    if (neg.id === SAMPLE_NEGOTIATION.id) {
+                      toast({ title: "Modo exemplo", description: "Esta é uma negociação de exemplo, sem ação real." });
+                      return;
+                    }
+                    setShipDialog(neg);
+                    setTrackingCode("");
+                  }}
+                  onUpdateStatus={(status) => {
+                    if (neg.id === SAMPLE_NEGOTIATION.id) return;
+                    updateNegMutation.mutate({ id: neg.id, status });
+                  }}
+                  onStaleResponse={(response) => {
+                    if (neg.id === SAMPLE_NEGOTIATION.id) return;
+                    staleResponseMutation.mutate({ id: neg.id, response });
+                  }}
+                  onViewDetail={() => setDetailDialog(neg)}
+                  isPending={updateNegMutation.isPending || staleResponseMutation.isPending}
+                />
+              </div>
             ))
           )}
         </TabsContent>
@@ -304,13 +471,22 @@ export default function DesmancheNegotiationsTab({ onNavigate }: { onNavigate?: 
             />
           ) : (
             finishedNeg.map((neg: any) => (
-              <NegotiationCard
+              <div
                 key={neg.id}
-                neg={neg}
-                readonly
-                onViewDetail={() => setDetailDialog(neg)}
-                isPending={false}
-              />
+                data-tour={neg.id === SAMPLE_HISTORY.id ? "neg-sample-history" : undefined}
+              >
+                {neg.id === SAMPLE_HISTORY.id && (
+                  <div className="mb-1.5 text-[11px] uppercase tracking-wide font-bold text-primary/70">
+                    Exemplo
+                  </div>
+                )}
+                <NegotiationCard
+                  neg={neg}
+                  readonly
+                  onViewDetail={() => setDetailDialog(neg)}
+                  isPending={false}
+                />
+              </div>
             ))
           )}
         </TabsContent>
