@@ -26,6 +26,7 @@ import {
   Loader2,
   FileBarChart2,
   Scale,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ import ComplaintsTab from "@/components/admin/ComplaintsTab";
 import PermissionsTab, { ALL_ADMIN_TABS } from "@/components/admin/PermissionsTab";
 import RelatoriosTab from "@/components/admin/RelatoriosTab";
 import ModerationTab from "@/components/admin/ModerationTab";
+import AdminManualPage from "@/components/admin/AdminManualPage";
 
 const ADMIN_TAB_KEY = "admin_tab";
 
@@ -237,6 +239,8 @@ export default function AdminDashboard() {
         {canAccess('moderation') && <SidebarItem tourKey="admin-moderation" icon={<Scale />} label="Moderação" badge={moderationCount > 0 ? String(moderationCount) : undefined} badgeAlert={moderationCount > 0} active={activeTab === 'moderation'} onClick={() => {handleSetTab('moderation'); setIsMobileMenuOpen(false);}} />}
         {canAccess('complaints') && <SidebarItem tourKey="admin-complaints" icon={<MessageCircleWarning />} label="Reclamações" badge={pendingComplaints > 0 ? String(pendingComplaints) : undefined} badgeAlert={pendingComplaints > 0} active={activeTab === 'complaints'} onClick={() => {handleSetTab('complaints'); setIsMobileMenuOpen(false);}} />}
         {canAccess('settings') && <SidebarItem tourKey="admin-settings" icon={<Settings />} label="Configurações" active={activeTab === 'settings'} onClick={() => {handleSetTab('settings'); setIsMobileMenuOpen(false);}} />}
+        <div className="pt-2 pb-1 px-3"><div className="h-px bg-border" /></div>
+        <SidebarItem icon={<BookOpen />} label="Manual do Sistema" active={activeTab === 'manual'} onClick={() => {handleSetTab('manual'); setIsMobileMenuOpen(false);}} />
         {isSuperAdmin && (
           <>
             <div className="pt-2 pb-1 px-3">
@@ -399,6 +403,7 @@ export default function AdminDashboard() {
           {activeTab === 'complaints' && <ComplaintsTab />}
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'permissions' && isSuperAdmin && <PermissionsTab />}
+          {activeTab === 'manual' && <AdminManualPage />}
         </div>
       </main>
     </div>

@@ -19,6 +19,7 @@ import {
   MessageCircleWarning,
   LogOut,
   ShieldAlert,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +37,7 @@ import DesmancheFinanceTab from "@/components/desmanche/DesmancheFinanceTab";
 import DesmancheProfileTab from "@/components/desmanche/DesmancheProfileTab";
 import DesmancheNegotiationsTab from "@/components/desmanche/DesmancheNegotiationsTab";
 import DesmancheFeedbackTab from "@/components/desmanche/DesmancheFeedbackTab";
+import DesmancheManualPage from "@/components/desmanche/DesmancheManualPage";
 import { ChatTab } from "@/components/chat/ChatTab";
 
 const DESMANCHE_TAB_KEY = "desmanche_tab";
@@ -190,6 +192,8 @@ export default function DesmancheDashboard() {
         <SidebarItem tourKey="desmanche-finance" icon={<DollarSign />} label="Assinatura & Faturas" active={activeTab === 'finance'} onClick={() => {handleSetTab('finance'); setIsMobileMenuOpen(false);}} />
         <SidebarItem tourKey="desmanche-profile" icon={<UserCircle />} label="Perfil da Empresa" active={activeTab === 'profile'} onClick={() => {handleSetTab('profile'); setIsMobileMenuOpen(false);}} />
         <SidebarItem tourKey="desmanche-feedback" icon={<MessageCircleWarning />} label="Sugestões & Reclamações" active={activeTab === 'feedback'} onClick={() => {handleSetTab('feedback'); setIsMobileMenuOpen(false);}} />
+        <div className="pt-2 pb-1 px-3"><div className="h-px bg-slate-700" /></div>
+        <SidebarItem icon={<BookOpen />} label="Manual do Parceiro" active={activeTab === 'manual'} onClick={() => {handleSetTab('manual'); setIsMobileMenuOpen(false);}} />
         <div className="pt-2">
           <button
             onClick={logout}
@@ -295,6 +299,7 @@ export default function DesmancheDashboard() {
           {activeTab === 'finance' && <DesmancheFinanceTab />}
           {activeTab === 'profile' && <DesmancheProfileTab />}
           {activeTab === 'feedback' && <DesmancheFeedbackTab />}
+          {activeTab === 'manual' && <DesmancheManualPage />}
         </div>
       </main>
     </div>
