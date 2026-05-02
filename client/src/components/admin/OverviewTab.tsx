@@ -82,7 +82,7 @@ export default function OverviewTab({ onNavigate }: { onNavigate?: (tab: string)
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="admin-overview-metrics" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard 
           title="Total de Usuários" 
           value={stats?.totalUsers ?? 0}

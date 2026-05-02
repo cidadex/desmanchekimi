@@ -100,7 +100,7 @@ export default function DesmancheOverviewTab({ onNavigate }: { onNavigate: (tab:
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div data-tour="desmanche-overview-metrics" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Em Negociação</CardTitle>

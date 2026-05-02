@@ -217,7 +217,7 @@ export default function DesmancheProfileTab() {
     : null;
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-4xl mx-auto">
+    <div data-tour="desmanche-profile-content" className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-4xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold font-mono text-slate-900 tracking-tight">Perfil da Empresa</h1>
         <p className="text-slate-500 mt-1">Gerencie como sua empresa aparece para os clientes.</p>

@@ -85,7 +85,7 @@ export default function ApprovalsTab() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+    <div data-tour="admin-approvals-content" className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-yellow-500/10 border border-yellow-500/20 p-6 rounded-xl">
         <div>
           <Badge className="bg-yellow-500 text-yellow-950 hover:bg-yellow-600 mb-2 border-none">Atenção Requerida</Badge>

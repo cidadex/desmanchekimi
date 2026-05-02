@@ -108,7 +108,7 @@ function LiveStatusSection() {
     : "Carregando dados reais...";
 
   return (
-    <div className="space-y-4">
+    <div data-tour="admin-site-content" className="space-y-4">
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
       ) : (

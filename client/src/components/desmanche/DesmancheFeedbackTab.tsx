@@ -82,7 +82,7 @@ export default function DesmancheFeedbackTab() {
       </div>
 
       {/* Formulário */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card data-tour="desmanche-feedback-form" className="bg-slate-800 border-slate-700">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <MessageSquare className="h-5 w-5 text-primary" />

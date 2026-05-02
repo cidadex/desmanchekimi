@@ -87,7 +87,7 @@ export default function SettingsTab() {
       ) : (
         <div className="space-y-6">
           {/* ── Asaas Integration ─────────────────────────────── */}
-          <Card className="border-blue-200 shadow-sm">
+          <Card data-tour="admin-settings-asaas" className="border-blue-200 shadow-sm">
             <CardHeader>
               <CardTitle className="font-mono text-base flex items-center gap-2">
                 <Zap className="h-4 w-4 text-blue-500" /> Integração Asaas

@@ -156,7 +156,7 @@ export default function OrdersTab({ onSelectOrder }: { onSelectOrder?: (id: stri
   const countByStatus = (s: string) => orders.filter((o) => o.status === s).length;
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+    <div data-tour="admin-orders-content" className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-mono tracking-tight">Anúncios & Pedidos de Peças</h1>

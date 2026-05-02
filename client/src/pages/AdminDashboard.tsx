@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { TourHelpButton } from "@/components/TourHelpButton";
-import { maybeAutoStartTour } from "@/lib/tour";
+import { hasCompletedTour } from "@/lib/tour";
+import { startAdminFullTour } from "@/lib/adminTour";
 import {
   Users,
   Store,
@@ -151,7 +152,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (user?.id && user?.type === "admin") {
-      maybeAutoStartTour(user.id, "admin", 900);
+      if (!hasCompletedTour(user.id, "admin")) {
+        setTimeout(() => startAdminFullTour(user.id), 900);
+      }
     }
   }, [user?.id]);
 

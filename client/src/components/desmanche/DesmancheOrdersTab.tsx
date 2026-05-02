@@ -302,7 +302,7 @@ export default function DesmancheOrdersTab() {
       </div>
 
       {/* Search + Filters toolbar */}
-      <div className="space-y-3">
+      <div data-tour="desmanche-orders-search" className="space-y-3">
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <div className="relative flex-1 max-w-lg">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

@@ -68,7 +68,7 @@ export default function FinanceTab() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div data-tour="admin-finance-metrics" className="grid gap-4 md:grid-cols-4">
             <Card className="border-2 border-primary/20 bg-primary/5">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Receita Paga</CardTitle>

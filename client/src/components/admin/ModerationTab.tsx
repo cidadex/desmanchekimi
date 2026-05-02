@@ -206,7 +206,7 @@ export default function ModerationTab() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
+    <div data-tour="admin-moderation-content" className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
       <div>
         <h1 className="text-3xl font-bold font-mono tracking-tight">Moderação de Divergências</h1>
         <p className="text-muted-foreground mt-1">

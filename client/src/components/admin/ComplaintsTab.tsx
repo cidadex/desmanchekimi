@@ -93,7 +93,7 @@ export default function ComplaintsTab() {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div data-tour="admin-complaints-filters" className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Filter className="h-4 w-4" /> Filtrar:
         </div>

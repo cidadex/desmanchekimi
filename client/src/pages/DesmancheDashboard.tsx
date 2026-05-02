@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { TourHelpButton } from "@/components/TourHelpButton";
-import { maybeAutoStartTour } from "@/lib/tour";
+import { hasCompletedTour } from "@/lib/tour";
+import { startDesmancheFullTour } from "@/lib/desmancheTour";
 import {
   FileText,
   DollarSign,
@@ -53,7 +54,9 @@ export default function DesmancheDashboard() {
 
   useEffect(() => {
     if (user?.id) {
-      maybeAutoStartTour(user.id, "desmanche", 900);
+      if (!hasCompletedTour(user.id, "desmanche")) {
+        setTimeout(() => startDesmancheFullTour(user.id), 900);
+      }
     }
   }, [user?.id]);
 

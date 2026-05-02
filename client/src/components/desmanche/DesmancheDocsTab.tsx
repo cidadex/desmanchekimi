@@ -116,7 +116,7 @@ export default function DesmancheDocsTab() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div data-tour="desmanche-docs-grid" className="grid md:grid-cols-3 gap-6">
         <Card className={`md:col-span-1 shadow-sm h-fit ${info.color}`}>
           <CardContent className="p-6 text-center">
             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-current shadow-sm">
